@@ -64,7 +64,7 @@ const createId = () => crypto.randomUUID()
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [data, setData] = useState<AppData>(() => loadData())
   const [workspaceId] = useState(() => getOrCreateWorkspaceId())
-  const [currentUserId, setCurrentUserId] = useState('u-me')
+  const [currentUserId, setCurrentUserId] = useState('m-raft')
   const [storageMode, setStorageMode] = useState<StorageMode>(isFirebaseEnabled ? 'firebase' : 'local')
   const [ready, setReady] = useState(!isFirebaseEnabled)
 
@@ -122,7 +122,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     startSync().catch(() => {
       setStorageMode('local')
-      setCurrentUserId('u-me')
+      setCurrentUserId('m-raft')
       setReady(true)
     })
 

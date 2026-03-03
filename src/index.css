@@ -262,6 +262,24 @@ label {
   background: #fbfffd;
 }
 
+.role-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.role-group-title {
+  font-size: 0.8rem;
+  color: #3d6b61;
+  font-weight: 700;
+}
+
+.plan-tools-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 h2,
 h3,
 p {

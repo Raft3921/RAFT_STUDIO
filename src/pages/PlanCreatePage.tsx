@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ALL_MEMBERS_TOKEN,
-  assetChoices,
-  durationPresets,
-  planTemplates,
-  roleDefinitions,
-  roleTemplatePresets,
-} from '../data/templates'
+import { assetChoices, durationPresets, planTemplates, roleDefinitions, roleTemplatePresets } from '../data/templates'
 import { clampDuration, createEmptyRoleAssignments, formatDuration, resolveRoleNames } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { Plan, RoleAssignments } from '../types'
@@ -15,13 +8,19 @@ import type { Plan, RoleAssignments } from '../types'
 const memberSizes: Plan['memberSize'][] = ['ソロ', '2人', '3〜5人', '多人数']
 const goals: Plan['goal'][] = ['笑い', '驚き', '感動', '学び', '上達']
 
+const roleGroups = [
+  {
+    label: '画面に出る役割',
+    ids: ['mc', 'reaction', 'action'],
+  },
+  {
+    label: '制作・進行の役割',
+    ids: ['tech', 'progress', 'recording', 'edit', 'thumbnail'],
+  },
+]
+
 const findMemberIdsByNames = (names: string[], members: { id: string; displayName: string }[]) => {
-  return names
-    .map((name) => {
-      if (name === ALL_MEMBERS_TOKEN) return ALL_MEMBERS_TOKEN
-      return members.find((member) => member.displayName === name)?.id
-    })
-    .filter((value): value is string => !!value)
+  return names.map((name) => members.find((member) => member.displayName === name)?.id).filter((value): value is string => !!value)
 }
 
 export const PlanCreatePage = () => {
@@ -49,21 +48,15 @@ export const PlanCreatePage = () => {
   const toggleRoleMember = (roleId: string, memberId: string, selection: 'single' | 'multi') => {
     setRoleAssignments((prev) => {
       const current = prev[roleId] ?? []
-
       if (selection === 'single') {
         return { ...prev, [roleId]: current[0] === memberId ? [] : [memberId] }
       }
 
-      if (memberId === ALL_MEMBERS_TOKEN) {
-        return { ...prev, [roleId]: current.includes(ALL_MEMBERS_TOKEN) ? [] : [ALL_MEMBERS_TOKEN] }
-      }
-
-      const withoutAll = current.filter((id) => id !== ALL_MEMBERS_TOKEN)
       return {
         ...prev,
-        [roleId]: withoutAll.includes(memberId)
-          ? withoutAll.filter((id) => id !== memberId)
-          : [...withoutAll, memberId],
+        [roleId]: current.includes(memberId)
+          ? current.filter((id) => id !== memberId)
+          : [...current, memberId],
       }
     })
   }
@@ -73,14 +66,7 @@ export const PlanCreatePage = () => {
     const next = createEmptyRoleAssignments()
 
     Object.entries(preset.membersByRole).forEach(([roleId, names]) => {
-      const matched = findMemberIdsByNames([...names], data.members)
-      next[roleId] = matched
-    })
-
-    roleDefinitions.forEach((definition) => {
-      if (definition.selection === 'single' && next[definition.id].length === 0 && data.members[0]) {
-        next[definition.id] = [data.members[0].id]
-      }
+      next[roleId] = findMemberIdsByNames([...names], data.members)
     })
 
     setRoleAssignments(next)
@@ -102,11 +88,6 @@ export const PlanCreatePage = () => {
       roleDefinitions.forEach((definition) => {
         const current = next[definition.id] ?? []
         if (current.length > 0) return
-
-        if (definition.allowAllToken && definition.selection === 'multi') {
-          next[definition.id] = [ALL_MEMBERS_TOKEN]
-          return
-        }
 
         if (definition.selection === 'single') {
           next[definition.id] = [data.members[cursor % data.members.length].id]
@@ -141,10 +122,12 @@ export const PlanCreatePage = () => {
     <form className="page-stack" onSubmit={onSubmit}>
       <section className="panel">
         <h2>企画カード作成</h2>
-        <p className="muted">テンプレ選択中心で作成できます。</p>
+        <p className="muted">1. 基本設定 2. 役割決め 3. タイトル確認 の順で作ると迷いません。</p>
       </section>
 
       <section className="panel">
+        <h3>1. 基本設定</h3>
+
         <label>テンプレ</label>
         <div className="chip-row">
           {planTemplates.map((item) => (
@@ -222,11 +205,11 @@ export const PlanCreatePage = () => {
 
       <section className="panel">
         <div className="section-head">
-          <label>役割割り当て</label>
+          <h3>2. 役割割り当て</h3>
           <span className="muted">兼務OK</span>
         </div>
 
-        <div className="chip-row">
+        <div className="plan-tools-row">
           <button type="button" className="chip" onClick={() => applyPreset('minecraftVerification')}>
             マイクラ検証テンプレ
           </button>
@@ -237,48 +220,51 @@ export const PlanCreatePage = () => {
             Shortsテンプレ
           </button>
           <button type="button" className="chip" onClick={copyLatestRoles}>
-            前回をコピー
+            前回コピー
           </button>
           <button type="button" className="chip" onClick={autoFillRoles}>
-            おすすめ自動配置
+            自動配置
           </button>
         </div>
 
-        {roleDefinitions.map((role) => (
-          <div key={role.id} className="role-row">
-            <div className="section-head">
-              <strong>
-                {role.label} {role.required ? '（必須）' : ''}
-              </strong>
-              <span className="muted">{role.selection === 'single' ? '1人選択' : '複数選択'}</span>
-            </div>
-            <div className="chip-row">
-              {role.allowAllToken && role.selection === 'multi' && (
-                <button
-                  type="button"
-                  className={`chip ${roleAssignments[role.id]?.includes(ALL_MEMBERS_TOKEN) ? 'active' : ''}`}
-                  onClick={() => toggleRoleMember(role.id, ALL_MEMBERS_TOKEN, 'multi')}
-                >
-                  各自
-                </button>
-              )}
-              {data.members.map((member) => (
-                <button
-                  type="button"
-                  key={`${role.id}-${member.id}`}
-                  className={`chip ${roleAssignments[role.id]?.includes(member.id) ? 'active' : ''}`}
-                  onClick={() => toggleRoleMember(role.id, member.id, role.selection)}
-                >
-                  {member.displayName}
-                </button>
-              ))}
-            </div>
-            <p className="muted">現在: {resolveRoleNames(roleAssignments[role.id] ?? [], data.members)}</p>
+        {roleGroups.map((group) => (
+          <div key={group.label} className="role-group">
+            <p className="role-group-title">{group.label}</p>
+            {group.ids.map((roleId) => {
+              const role = roleDefinitions.find((item) => item.id === roleId)
+              if (!role) return null
+
+              return (
+                <div key={role.id} className="role-row">
+                  <div className="section-head">
+                    <strong>
+                      {role.label} {role.required ? '（必須）' : ''}
+                    </strong>
+                    <span className="muted">{role.selection === 'single' ? '1人' : '複数'}</span>
+                  </div>
+                  <div className="chip-row">
+                    {data.members.map((member) => (
+                      <button
+                        type="button"
+                        key={`${role.id}-${member.id}`}
+                        className={`chip ${roleAssignments[role.id]?.includes(member.id) ? 'active' : ''}`}
+                        onClick={() => toggleRoleMember(role.id, member.id, role.selection)}
+                      >
+                        {member.displayName}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="muted">現在: {resolveRoleNames(roleAssignments[role.id] ?? [], data.members)}</p>
+                </div>
+              )
+            })}
           </div>
         ))}
       </section>
 
       <section className="panel">
+        <h3>3. 仕上げ</h3>
+
         <label>必要素材</label>
         <div className="chip-row">
           {assetChoices.map((item) => {
@@ -299,9 +285,7 @@ export const PlanCreatePage = () => {
             )
           })}
         </div>
-      </section>
 
-      <section className="panel">
         <label>タイトル候補</label>
         <div className="stack-gap">
           {titleCandidates.map((candidate) => (

@@ -3,12 +3,19 @@ import { normalizePlan } from './plan'
 
 const APP_STORAGE_KEY = 'youtube-planner-v1'
 
+const defaultMembers = [
+  { id: 'm-raft', displayName: 'ラフト', role: '司会', notificationsEnabled: true },
+  { id: 'm-mai', displayName: 'まい', role: '進行', notificationsEnabled: true },
+  { id: 'm-tanutsuna', displayName: 'たぬつな', role: 'リアクション', notificationsEnabled: true },
+  { id: 'm-yansan', displayName: 'やんさん', role: 'アクション', notificationsEnabled: true },
+  { id: 'm-muto', displayName: 'ムート', role: '技術', notificationsEnabled: true },
+  { id: 'm-moron', displayName: 'もろん', role: 'サムネ', notificationsEnabled: true },
+  { id: 'm-week', displayName: 'ウィーク', role: '編集', notificationsEnabled: true },
+  { id: 'm-gyoza', displayName: 'ギョーザ', role: '撮影', notificationsEnabled: true },
+]
+
 const defaultData: AppData = {
-  members: [
-    { id: 'u-me', displayName: '自分', role: '管理者', notificationsEnabled: true },
-    { id: 'u-1', displayName: 'メンバーA', role: '撮影', notificationsEnabled: true },
-    { id: 'u-2', displayName: 'メンバーB', role: '編集', notificationsEnabled: true },
-  ],
+  members: defaultMembers,
   plans: [],
   events: [],
   responses: [],
@@ -19,8 +26,15 @@ export const loadData = (): AppData => {
     const raw = localStorage.getItem(APP_STORAGE_KEY)
     if (!raw) return defaultData
     const parsed = JSON.parse(raw) as AppData
+    const memberNames = (parsed.members ?? []).map((member) => member.displayName)
+    const shouldReplaceWithDefaultMembers =
+      memberNames.length === 0 ||
+      memberNames.includes('自分') ||
+      memberNames.includes('メンバーA') ||
+      memberNames.includes('メンバーB')
+
     return {
-      members: parsed.members ?? defaultData.members,
+      members: shouldReplaceWithDefaultMembers ? defaultData.members : parsed.members,
       plans: (parsed.plans ?? []).map((plan) => normalizePlan(plan)),
       events: parsed.events ?? [],
       responses: parsed.responses ?? [],
