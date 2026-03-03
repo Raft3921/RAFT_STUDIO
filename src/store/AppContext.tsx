@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { signInAnonymously } from 'firebase/auth'
 import {
   addDoc,
@@ -147,6 +147,53 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       saveData(data)
     }
   }, [data, storageMode])
+
+  const migrateLocalDataToFirebase = useCallback(async () => {
+    if (!isFirebaseEnabled || !firebaseAuth || !firestoreDb) return false
+
+    const authUser = firebaseAuth.currentUser ?? (await signInAnonymously(firebaseAuth)).user
+    const userId = authUser.uid
+    const localData = loadData()
+    const workspaceRef = doc(firestoreDb, 'workspaces', workspaceId)
+
+    await setDoc(workspaceRef, { updatedAt: serverTimestamp() }, { merge: true })
+
+    await Promise.all(
+      localData.members.map((member) =>
+        setDoc(doc(workspaceRef, 'members', member.id), member, { merge: true }),
+      ),
+    )
+
+    await Promise.all(
+      localData.plans.map((plan) => setDoc(doc(workspaceRef, 'plans', plan.id), plan, { merge: true })),
+    )
+
+    await Promise.all(
+      localData.events.map((event) => setDoc(doc(workspaceRef, 'events', event.id), event, { merge: true })),
+    )
+
+    await Promise.all(
+      localData.responses.map((response) =>
+        setDoc(doc(workspaceRef, 'responses', `${response.eventId}_${response.userId}`), response, { merge: true }),
+      ),
+    )
+
+    const fallbackName = localData.members.find((member) => member.id === 'm-raft')?.displayName ?? 'メンバー'
+    await setDoc(
+      doc(workspaceRef, 'members', userId),
+      {
+        displayName: fallbackName,
+        role: 'メンバー',
+        notificationsEnabled: true,
+      } satisfies Omit<Member, 'id'>,
+      { merge: true },
+    )
+
+    setCurrentUserId(userId)
+    setStorageMode('firebase')
+    setReady(false)
+    return true
+  }, [workspaceId])
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -304,6 +351,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }))
       },
       copyWorkspaceLink: async () => {
+        if (storageMode === 'local') {
+          await migrateLocalDataToFirebase()
+        }
         const inviteUrl = buildWorkspaceInviteUrl(workspaceId)
         await navigator.clipboard.writeText(inviteUrl)
       },
@@ -325,7 +375,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
       },
     }),
-    [currentUserId, data, ready, storageMode, workspaceId],
+    [currentUserId, data, migrateLocalDataToFirebase, ready, storageMode, workspaceId],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
