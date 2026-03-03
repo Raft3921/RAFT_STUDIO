@@ -1,22 +1,30 @@
 import { Link } from 'react-router-dom'
 import type { CSSProperties } from 'react'
+import panelBl from '../assets/panel/panel_bl.png'
+import panelBottom from '../assets/panel/panel_bottom.png'
+import panelBr from '../assets/panel/panel_br.png'
+import panelCenter from '../assets/panel/panel_center.png'
+import panelLeft from '../assets/panel/panel_left.png'
+import panelRight from '../assets/panel/panel_right.png'
+import panelTl from '../assets/panel/panel_tl.png'
+import panelTop from '../assets/panel/panel_top.png'
+import panelTr from '../assets/panel/panel_tr.png'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 
 export const HomePage = () => {
   const { data } = useApp()
-  const panelBase = `${import.meta.env.BASE_URL}panel`
   const heroPanelStyle = {
-    '--quest-panel-center': `url('${panelBase}/panel_center.png')`,
-    '--quest-panel-top': `url('${panelBase}/panel_top.png')`,
-    '--quest-panel-bottom': `url('${panelBase}/panel_bottom.png')`,
-    '--quest-panel-left': `url('${panelBase}/panel_left.png')`,
-    '--quest-panel-right': `url('${panelBase}/panel_right.png')`,
-    '--quest-panel-tl': `url('${panelBase}/panel_tl.png')`,
-    '--quest-panel-tr': `url('${panelBase}/panel_tr.png')`,
-    '--quest-panel-bl': `url('${panelBase}/panel_bl.png')`,
-    '--quest-panel-br': `url('${panelBase}/panel_br.png')`,
+    '--quest-panel-center': `url('${panelCenter}')`,
+    '--quest-panel-top': `url('${panelTop}')`,
+    '--quest-panel-bottom': `url('${panelBottom}')`,
+    '--quest-panel-left': `url('${panelLeft}')`,
+    '--quest-panel-right': `url('${panelRight}')`,
+    '--quest-panel-tl': `url('${panelTl}')`,
+    '--quest-panel-tr': `url('${panelTr}')`,
+    '--quest-panel-bl': `url('${panelBl}')`,
+    '--quest-panel-br': `url('${panelBr}')`,
   } as CSSProperties
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
