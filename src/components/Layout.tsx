@@ -12,6 +12,8 @@ const tabs = [
 
 export const Layout = () => {
   const { ready } = useApp()
+  const defaultChannelTitle = '無念のラフト'
+  const [channelTitle, setChannelTitle] = useState(defaultChannelTitle)
   const [displayLoading, setDisplayLoading] = useState(!ready)
   const [progress, setProgress] = useState(12)
   const runFrames = useMemo(
@@ -55,11 +57,38 @@ export const Layout = () => {
     return () => window.clearInterval(timer)
   }, [displayLoading, runFrames.length])
 
+  useEffect(() => {
+    const channelId = import.meta.env.VITE_YT_CHANNEL_ID || 'UCFdvUG1D6Dj6MzZjFw3Kttg'
+    const apiKey = import.meta.env.VITE_YT_API_KEY
+    if (!apiKey) {
+      return
+    }
+
+    const controller = new AbortController()
+    const load = async () => {
+      try {
+        const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`
+        const res = await fetch(url, { signal: controller.signal })
+        if (!res.ok) return
+        const json = (await res.json()) as {
+          items?: Array<{ snippet?: { title?: string } }>
+        }
+        const title = json.items?.[0]?.snippet?.title?.trim()
+        if (title) setChannelTitle(title)
+      } catch {
+        setChannelTitle(defaultChannelTitle)
+      }
+    }
+
+    load()
+    return () => controller.abort()
+  }, [])
+
   return (
     <div className="app-shell">
       <header className="app-header">
         <Link to="/home" className="brand">
-          YouTube撮影プランナー
+          {channelTitle}撮影プランナー
         </Link>
       </header>
       <main className="app-main">
