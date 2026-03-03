@@ -19,6 +19,7 @@ export const MePage = () => {
 
   const me = data.members.find((member) => member.id === currentUserId) ?? data.members[0]
   const [draftNames, setDraftNames] = useState<Record<string, string>>({})
+  const [nameSaving, setNameSaving] = useState(false)
 
   if (!ready) {
     return <section className="panel">同期を開始しています...</section>
@@ -40,6 +41,24 @@ export const MePage = () => {
         return true
       })
   })()
+
+  const handleSaveDisplayName = async () => {
+    const nextName = displayName.trim()
+    if (!nextName) {
+      window.alert('表示名を選択してください。')
+      return
+    }
+    setNameSaving(true)
+    try {
+      await updateMyProfile(nextName)
+      setDraftNames({})
+      window.alert('表示名を更新しました。')
+    } catch {
+      window.alert('表示名の更新に失敗しました。通信状態を確認して再度お試しください。')
+    } finally {
+      setNameSaving(false)
+    }
+  }
 
   const myEvents = data.responses
     .filter((response) => response.userId === currentUserId)
@@ -110,7 +129,12 @@ export const MePage = () => {
             </option>
           ))}
         </select>
-        <button data-tour="me-name-save" className="btn" onClick={() => updateMyProfile(displayName)}>
+        <button
+          data-tour="me-name-save"
+          className="btn"
+          onClick={() => void handleSaveDisplayName()}
+          disabled={nameSaving}
+        >
           表示名を保存
         </button>
       </section>
