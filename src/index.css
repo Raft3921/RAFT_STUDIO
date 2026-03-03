@@ -378,6 +378,13 @@ p {
   align-items: flex-start;
   gap: 6px;
   transition: transform 1s ease;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.raft-guide.dragging {
+  cursor: grabbing;
 }
 
 .raft-bubble {

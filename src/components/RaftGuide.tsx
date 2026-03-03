@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 
@@ -78,6 +78,9 @@ const getPathKey = (pathname: string) => {
 }
 
 const pickByIndex = (items: HintItem[], index: number) => items[index % items.length]
+const RAFT_GUIDE_POS_KEY = 'raft-guide-pos-v1'
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 export const RaftGuide = () => {
   const { pathname } = useLocation()
@@ -88,6 +91,29 @@ export const RaftGuide = () => {
   const [motion, setMotion] = useState<MotionMode>('idle')
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [hasImage, setHasImage] = useState(true)
+  const [isDragging, setIsDragging] = useState(false)
+  const [pinnedPos, setPinnedPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem(RAFT_GUIDE_POS_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as { x?: number; y?: number }
+      if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') return null
+      return { x: parsed.x, y: parsed.y }
+    } catch {
+      return null
+    }
+  })
+  const guideRef = useRef<HTMLElement | null>(null)
+  const dragRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    baseX: 0,
+    baseY: 0,
+    width: 280,
+    height: 120,
+  })
 
   const pathKey = getPathKey(pathname)
 
@@ -172,8 +198,75 @@ export const RaftGuide = () => {
     return () => window.clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    if (!pinnedPos) return
+    localStorage.setItem(RAFT_GUIDE_POS_KEY, JSON.stringify(pinnedPos))
+  }, [pinnedPos])
+
+  const onPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return
+    const node = guideRef.current
+    if (!node) return
+
+    const rect = node.getBoundingClientRect()
+    const baseX = pinnedPos?.x ?? rect.left
+    const baseY = pinnedPos?.y ?? rect.top
+
+    dragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX,
+      baseY,
+      width: rect.width,
+      height: rect.height,
+    }
+    setPinnedPos({ x: baseX, y: baseY })
+    setIsDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current
+    if (!drag.active || drag.pointerId !== event.pointerId) return
+
+    const nextX = drag.baseX + (event.clientX - drag.startX)
+    const nextY = drag.baseY + (event.clientY - drag.startY)
+    const x = clamp(nextX, 0, Math.max(0, window.innerWidth - drag.width))
+    const y = clamp(nextY, 0, Math.max(0, window.innerHeight - drag.height))
+    setPinnedPos({ x, y })
+  }
+
+  const onPointerUp = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current
+    if (!drag.active || drag.pointerId !== event.pointerId) return
+    dragRef.current.active = false
+    dragRef.current.pointerId = -1
+    setIsDragging(false)
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const guideStyle: React.CSSProperties = {
+    transform: `translate(${offset.x}px, ${offset.y}px)`,
+  }
+  if (pinnedPos) {
+    guideStyle.left = `${pinnedPos.x}px`
+    guideStyle.top = `${pinnedPos.y}px`
+    guideStyle.right = 'auto'
+    guideStyle.bottom = 'auto'
+  }
+
   return (
-    <aside className="raft-guide" style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}>
+    <aside
+      ref={guideRef}
+      className={`raft-guide ${isDragging ? 'dragging' : ''}`}
+      style={guideStyle}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
       <div className="raft-guide-bg raft-guide-bg-a" />
       <div className="raft-guide-bg raft-guide-bg-b" />
 
