@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addDoc, collection, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { getMemberIcon } from '../lib/memberIcon'
 import { firestoreDb } from '../lib/firebase'
 import { useApp } from '../store/AppContext'
@@ -40,7 +40,11 @@ export const RafinePage = () => {
   const [text, setText] = useState('')
   const [messages, setMessages] = useState<RafineMessage[]>([])
   const [localVersion, setLocalVersion] = useState(0)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification === 'undefined' ? 'denied' : Notification.permission,
+  )
   const listRef = useRef<HTMLDivElement | null>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
   const localMessages = useMemo(() => {
     void localVersion
     return loadLocalMessages(workspaceId)
@@ -63,6 +67,29 @@ export const RafinePage = () => {
     if (!node) return
     node.scrollTop = node.scrollHeight
   }, [displayedMessages.length])
+
+  useEffect(() => {
+    const latest = displayedMessages[displayedMessages.length - 1]
+    if (!latest) return
+
+    if (!lastMessageIdRef.current) {
+      lastMessageIdRef.current = latest.id
+      return
+    }
+
+    if (lastMessageIdRef.current === latest.id) return
+    lastMessageIdRef.current = latest.id
+
+    if (latest.userId === currentUserId) return
+    if (typeof Notification === 'undefined') return
+    if (Notification.permission !== 'granted') return
+
+    const notification = new Notification(`RAFINE: ${latest.displayName}`, {
+      body: latest.text,
+      tag: 'rafine-message',
+    })
+    notification.onclick = () => window.focus()
+  }, [currentUserId, displayedMessages])
 
   const canSend = text.trim().length > 0 && !!me
   const onlineLabel = useMemo(
@@ -90,12 +117,38 @@ export const RafinePage = () => {
     setText('')
   }
 
+  const onDelete = async (messageId: string) => {
+    if (!window.confirm('このメッセージを削除しますか？')) return
+    if (storageMode === 'firebase' && firestoreDb) {
+      await deleteDoc(doc(firestoreDb, 'workspaces', workspaceId, 'rafine_messages', messageId))
+      return
+    }
+    const next = localMessages.filter((message) => message.id !== messageId)
+    saveLocalMessages(workspaceId, next)
+    setLocalVersion((prev) => prev + 1)
+  }
+
+  const requestNotification = async () => {
+    if (typeof Notification === 'undefined') {
+      window.alert('このブラウザは通知に対応していません。')
+      return
+    }
+    const result = await Notification.requestPermission()
+    setNotificationPermission(result)
+  }
+
   return (
     <div className="page-stack">
       <section className="panel">
         <h2>RAFINE</h2>
         <p className="muted">ラフト版LINEメッセージ</p>
         <p className="muted">{onlineLabel}</p>
+        <div className="inline-row">
+          <button className="btn ghost" type="button" onClick={() => void requestNotification()}>
+            通知を許可
+          </button>
+          <span className="muted">通知: {notificationPermission}</span>
+        </div>
       </section>
 
       <section className="panel">
@@ -120,11 +173,18 @@ export const RafinePage = () => {
             const mine = message.userId === currentUserId
             return (
               <div key={message.id} className={`rafine-message-item ${mine ? 'mine' : ''}`}>
-                <img src={getMemberIcon(message.displayName)} alt="" className="member-chip-icon" />
+                <img src={getMemberIcon(message.displayName)} alt="" className="member-chip-icon rafine-msg-icon" />
                 <div className="rafine-message-body">
                   <div className="rafine-message-head">
                     <strong>{message.displayName}</strong>
-                    <span className="muted">{formatTime(message.createdAt)}</span>
+                    <div className="rafine-message-actions">
+                      <span className="muted">{formatTime(message.createdAt)}</span>
+                      {mine && (
+                        <button className="rafine-message-delete" type="button" onClick={() => void onDelete(message.id)}>
+                          削除
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p>{message.text}</p>
                 </div>
@@ -132,7 +192,7 @@ export const RafinePage = () => {
             )
           })}
         </div>
-        <div className="inline-row">
+        <div className="rafine-compose">
           <input
             className="field"
             placeholder="メッセージを入力"
