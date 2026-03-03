@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import { useSearchParams } from 'react-router-dom'
 import { getMemberIcon } from '../lib/memberIcon'
-import { firestoreDb } from '../lib/firebase'
+import { firebaseStorage, firestoreDb } from '../lib/firebase'
 import { useApp } from '../store/AppContext'
 
 interface RafineMessage {
@@ -12,6 +13,9 @@ interface RafineMessage {
   recipientId?: string
   displayName: string
   createdAt: string
+  mediaUrl?: string
+  mediaType?: string
+  mediaName?: string
 }
 
 const localKey = (workspaceId: string) => `rafine-messages-${workspaceId}`
@@ -36,6 +40,14 @@ const formatTime = (iso: string) => {
   return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
 }
 
+const toNoticeText = (message: Pick<RafineMessage, 'text' | 'mediaType'>) => {
+  const body = message.text.trim()
+  if (body) return body
+  if (message.mediaType?.startsWith('image/')) return '[画像]'
+  if (message.mediaType?.startsWith('video/')) return '[動画]'
+  return '[添付ファイル]'
+}
+
 export const RafinePage = () => {
   const { data, currentUserId, workspaceId, storageMode } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -50,6 +62,7 @@ export const RafinePage = () => {
   const dmTargetId = searchParams.get('dm') ?? ''
   const dmTarget = data.members.find((member) => member.id === dmTargetId && member.id !== currentUserId)
   const [text, setText] = useState('')
+  const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const [messages, setMessages] = useState<RafineMessage[]>([])
   const [localVersion, setLocalVersion] = useState(0)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
@@ -57,11 +70,16 @@ export const RafinePage = () => {
   )
   const [inlineNotice, setInlineNotice] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
   const localMessages = useMemo(() => {
     void localVersion
     return loadLocalMessages(workspaceId)
   }, [workspaceId, localVersion])
+  const attachedPreviewUrl = useMemo(
+    () => (attachedFile ? URL.createObjectURL(attachedFile) : ''),
+    [attachedFile],
+  )
   const allMessages = storageMode === 'firebase' ? messages : localMessages
   const displayedMessages = useMemo(
     () =>
@@ -107,7 +125,7 @@ export const RafinePage = () => {
     if (latest.userId === currentUserId) return
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
       const openTimer = window.setTimeout(() => {
-        setInlineNotice(`${latest.displayName}: ${latest.text}`)
+        setInlineNotice(`${latest.displayName}: ${toNoticeText(latest)}`)
       }, 0)
       const closeTimer = window.setTimeout(() => setInlineNotice(''), 4200)
       return () => {
@@ -117,29 +135,77 @@ export const RafinePage = () => {
     }
 
     const notification = new Notification(`RAFINE: ${latest.displayName}`, {
-      body: latest.text,
+      body: toNoticeText(latest),
       tag: 'rafine-message',
     })
     notification.onclick = () => window.focus()
   }, [currentUserId, displayedMessages])
 
-  const canSend = text.trim().length > 0
+  useEffect(() => {
+    if (!attachedPreviewUrl) return
+    return () => URL.revokeObjectURL(attachedPreviewUrl)
+  }, [attachedPreviewUrl])
+
+  const canSend = text.trim().length > 0 || !!attachedFile
   const onlineLabel = useMemo(
     () => (storageMode === 'firebase' ? '共有メッセージ（全員同期）' : 'この端末のみ'),
     [storageMode],
   )
 
+  const onPickFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      window.alert('画像または動画ファイルを選択してください。')
+      event.target.value = ''
+      return
+    }
+    if (storageMode === 'local' && file.size > 4 * 1024 * 1024) {
+      window.alert('この端末のみモードでは、4MB以下の画像/動画を選択してください。')
+      event.target.value = ''
+      return
+    }
+    setAttachedFile(file)
+  }
+
+  const clearAttachedFile = () => {
+    setAttachedFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const onSend = async () => {
     if (!canSend) return
-    const payload: Omit<RafineMessage, 'id'> = {
+    const payloadBase = {
       text: text.trim(),
       userId: currentUserId,
       recipientId: dmTarget?.id,
       displayName: me.displayName,
       createdAt: new Date().toISOString(),
     }
+    const payload: Omit<RafineMessage, 'id'> = { ...payloadBase }
 
     try {
+      if (attachedFile) {
+        if (storageMode === 'firebase' && firebaseStorage) {
+          const ext = attachedFile.name.includes('.') ? attachedFile.name.split('.').pop() : 'bin'
+          const path = `workspaces/${workspaceId}/rafine_uploads/${crypto.randomUUID()}.${ext}`
+          const storageRef = ref(firebaseStorage, path)
+          await uploadBytes(storageRef, attachedFile)
+          payload.mediaUrl = await getDownloadURL(storageRef)
+        } else {
+          payload.mediaUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result ?? ''))
+            reader.onerror = () => reject(new Error('read-failed'))
+            reader.readAsDataURL(attachedFile)
+          })
+        }
+        payload.mediaType = attachedFile.type
+        payload.mediaName = attachedFile.name
+      }
+
       if (storageMode === 'firebase' && firestoreDb) {
         await addDoc(collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages'), payload)
       } else {
@@ -148,6 +214,7 @@ export const RafinePage = () => {
         setLocalVersion((prev) => prev + 1)
       }
       setText('')
+      clearAttachedFile()
     } catch {
       setInlineNotice('送信に失敗しました。通信状態を確認して再送してください。')
       window.setTimeout(() => setInlineNotice(''), 4200)
@@ -218,7 +285,15 @@ export const RafinePage = () => {
                       )}
                     </div>
                   </div>
-                  <p>{message.text}</p>
+                  {message.text && <p>{message.text}</p>}
+                  {message.mediaUrl && message.mediaType?.startsWith('image/') && (
+                    <img src={message.mediaUrl} alt={message.mediaName ?? '添付画像'} className="rafine-media" />
+                  )}
+                  {message.mediaUrl && message.mediaType?.startsWith('video/') && (
+                    <video className="rafine-media" controls preload="metadata" src={message.mediaUrl}>
+                      お使いの環境では動画を再生できません。
+                    </video>
+                  )}
                 </div>
               </div>
             )
@@ -244,10 +319,36 @@ export const RafinePage = () => {
               }
             }}
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            className="rafine-file-input"
+            onChange={onPickFile}
+          />
+          <button className="btn ghost" type="button" onClick={() => fileInputRef.current?.click()}>
+            画像/動画
+          </button>
           <button className="btn" type="submit" disabled={!canSend}>
             送信
           </button>
         </form>
+        {attachedFile && (
+          <div className="rafine-attach-preview">
+            <p className="muted">添付: {attachedFile.name}</p>
+            {attachedPreviewUrl && attachedFile.type.startsWith('image/') && (
+              <img src={attachedPreviewUrl} alt="添付プレビュー" className="rafine-media" />
+            )}
+            {attachedPreviewUrl && attachedFile.type.startsWith('video/') && (
+              <video className="rafine-media" controls preload="metadata" src={attachedPreviewUrl}>
+                お使いの環境では動画を再生できません。
+              </video>
+            )}
+            <button className="btn ghost" type="button" onClick={clearAttachedFile}>
+              添付を外す
+            </button>
+          </div>
+        )}
       </section>
     </div>
   )

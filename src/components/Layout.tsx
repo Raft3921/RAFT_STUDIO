@@ -14,6 +14,13 @@ const tabs = [
 ]
 
 const onboardingStorageKey = 'onboarding-v2-done'
+const toNoticeText = (text?: string, mediaType?: string) => {
+  const body = text?.trim()
+  if (body) return body
+  if (mediaType?.startsWith('image/')) return '[画像]'
+  if (mediaType?.startsWith('video/')) return '[動画]'
+  return '[添付ファイル]'
+}
 
 export const Layout = () => {
   const { pathname } = useLocation()
@@ -259,6 +266,7 @@ export const Layout = () => {
           userId?: string
           recipientId?: string
           displayName?: string
+          mediaType?: string
         }
         const messageId = latest.id
         if (!seenMessageIdRef.current) {
@@ -269,7 +277,7 @@ export const Layout = () => {
         seenMessageIdRef.current = messageId
         if (data.userId === currentUserId) return
         if (data.recipientId && data.recipientId !== currentUserId) return
-        showNotice(`${data.displayName ?? 'メンバー'}: ${data.text ?? ''}`)
+        showNotice(`${data.displayName ?? 'メンバー'}: ${toNoticeText(data.text, data.mediaType)}`)
       })
       return () => unsub()
     }
@@ -285,6 +293,7 @@ export const Layout = () => {
           userId: string
           recipientId?: string
           displayName: string
+          mediaType?: string
         }>
         const latest = messages[messages.length - 1]
         if (!latest) return
@@ -296,7 +305,7 @@ export const Layout = () => {
         seenMessageIdRef.current = latest.id
         if (latest.userId === currentUserId) return
         if (latest.recipientId && latest.recipientId !== currentUserId) return
-        showNotice(`${latest.displayName}: ${latest.text}`)
+        showNotice(`${latest.displayName}: ${toNoticeText(latest.text, latest.mediaType)}`)
       } catch {
         // ignore malformed local data
       }
