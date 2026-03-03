@@ -14,61 +14,11 @@ const tabs = [
 ]
 
 const onboardingStorageKey = 'onboarding-v2-done'
-const onboardingSteps = [
-  {
-    path: '/home',
-    target: '[data-tour="tab-me"]',
-    title: '最初にここ',
-    text: 'まずは「自分」タブで名前を設定しよう。',
-  },
-  {
-    path: '/me',
-    target: '[data-tour="me-name-input"]',
-    title: '表示名',
-    text: 'この欄に名前を入力。',
-  },
-  {
-    path: '/me',
-    target: '[data-tour="me-name-save"]',
-    title: '保存',
-    text: '保存すれば、この端末でも共有先でも同じ名前で扱える。',
-  },
-  {
-    path: '/me',
-    target: '[data-tour="tab-plans"]',
-    title: '次は企画',
-    text: '次は「企画」タブへ。',
-  },
-  {
-    path: '/plans',
-    target: '[data-tour="plans-create-button"]',
-    title: '企画を作成',
-    text: 'ここから新しい企画カードを作る。',
-  },
-  {
-    path: '/plans/new',
-    target: '[data-tour="plan-template"]',
-    title: 'テンプレ選択',
-    text: '最初に企画テンプレを選ぶ。',
-  },
-  {
-    path: '/plans/new',
-    target: '[data-tour="plan-members"]',
-    title: 'メンバー選択',
-    text: '参加メンバーを選択する。',
-  },
-  {
-    path: '/plans/new',
-    target: '[data-tour="plan-submit"]',
-    title: '作成完了',
-    text: '最後に作成ボタンで企画カード完成。',
-  },
-] as const
 
 export const Layout = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { ready, workspaceId, storageMode, currentUserId } = useApp()
+  const { ready, workspaceId, storageMode, currentUserId, data } = useApp()
   const defaultChannelTitle = '無念のラフト'
   const [channelTitle, setChannelTitle] = useState(defaultChannelTitle)
   const [displayLoading, setDisplayLoading] = useState(!ready)
@@ -87,6 +37,63 @@ export const Layout = () => {
   const [onboardingActive, setOnboardingActive] = useState(false)
   const [onboardingIndex, setOnboardingIndex] = useState(0)
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
+  const currentMember = data.members.find((member) => member.id === currentUserId)
+  const onboardingSteps = useMemo(
+    () =>
+      [
+        {
+          path: '/home',
+          target: '[data-tour="tab-me"]',
+          title: '最初にここ',
+          text: 'まずは「自分」タブで名前を選択しよう。',
+        },
+        {
+          path: '/me',
+          target: '[data-tour="me-name-select"]',
+          title: '表示名を選択',
+          text: currentMember?.displayName
+            ? `今は「${currentMember.displayName}」。必要なら候補から切り替えよう。`
+            : '過去メンバー名の候補から自分の名前を選ぼう。',
+        },
+        {
+          path: '/me',
+          target: '[data-tour="me-name-save"]',
+          title: '保存',
+          text: '保存すると、同じ名前のメンバーとして扱われる。',
+        },
+        {
+          path: '/me',
+          target: '[data-tour="tab-plans"]',
+          title: '次は企画',
+          text: '次は「企画」タブへ。',
+        },
+        {
+          path: '/plans',
+          target: '[data-tour="plans-create-button"]',
+          title: '企画を作成',
+          text: 'ここから新しい企画カードを作る。',
+        },
+        {
+          path: '/plans/new',
+          target: '[data-tour="plan-template"]',
+          title: 'テンプレ選択',
+          text: '最初に企画テンプレを選ぶ。',
+        },
+        {
+          path: '/plans/new',
+          target: '[data-tour="plan-members"]',
+          title: 'メンバー選択',
+          text: '参加メンバーを選択する。',
+        },
+        {
+          path: '/plans/new',
+          target: '[data-tour="plan-submit"]',
+          title: '作成完了',
+          text: '最後に作成ボタンで企画カード完成。',
+        },
+      ] as const,
+    [currentMember],
+  )
 
   useEffect(() => {
     if (!ready) return
@@ -106,7 +113,7 @@ export const Layout = () => {
     if (pathname !== step.path) {
       navigate(step.path)
     }
-  }, [navigate, onboardingActive, onboardingIndex, pathname])
+  }, [navigate, onboardingActive, onboardingIndex, onboardingSteps, pathname])
 
   useEffect(() => {
     if (!onboardingActive) return
@@ -137,7 +144,7 @@ export const Layout = () => {
       cancelled = true
       window.removeEventListener('resize', onResize)
     }
-  }, [onboardingActive, onboardingIndex, pathname])
+  }, [onboardingActive, onboardingIndex, onboardingSteps, pathname])
 
   useEffect(() => {
     if (!onboardingActive) return
@@ -150,7 +157,7 @@ export const Layout = () => {
     }
     window.addEventListener('scroll', onScroll, true)
     return () => window.removeEventListener('scroll', onScroll, true)
-  }, [onboardingActive, onboardingIndex])
+  }, [onboardingActive, onboardingIndex, onboardingSteps])
 
   const closeOnboarding = () => {
     window.localStorage.setItem(onboardingStorageKey, '1')

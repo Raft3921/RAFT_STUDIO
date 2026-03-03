@@ -29,6 +29,18 @@ export const MePage = () => {
   }
   const displayName = draftNames[me.id] ?? me.displayName
 
+  const memberNameOptions = (() => {
+    const seen = new Set<string>()
+    return data.members
+      .map((member) => member.displayName.trim())
+      .filter((name) => {
+        const key = name.toLowerCase()
+        if (!name || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+  })()
+
   const myEvents = data.responses
     .filter((response) => response.userId === currentUserId)
     .map((response) => ({
@@ -80,9 +92,9 @@ export const MePage = () => {
           <img src={getMemberIcon(me.displayName)} alt="" className="member-chip-icon member-chip-icon-lg" />
           <strong>{me.displayName}</strong>
         </div>
-        <label>表示名</label>
-        <input
-          data-tour="me-name-input"
+        <label>表示名（過去メンバーから選択）</label>
+        <select
+          data-tour="me-name-select"
           className="field"
           value={displayName}
           onChange={(event) =>
@@ -91,7 +103,13 @@ export const MePage = () => {
               [me.id]: event.target.value,
             }))
           }
-        />
+        >
+          {memberNameOptions.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
         <button data-tour="me-name-save" className="btn" onClick={() => updateMyProfile(displayName)}>
           表示名を保存
         </button>
