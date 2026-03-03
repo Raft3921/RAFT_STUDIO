@@ -141,32 +141,17 @@ export const RafinePage = () => {
     <div className="page-stack">
       <section className="panel">
         <h2>RAFINE</h2>
-        <p className="muted">ラフト版LINEメッセージ</p>
-        <p className="muted">{onlineLabel}</p>
+        <p className="muted">メッセージ</p>
         <div className="inline-row">
           <button className="btn ghost" type="button" onClick={() => void requestNotification()}>
             通知を許可
           </button>
           <span className="muted">通知: {notificationPermission}</span>
+          <span className="muted">{onlineLabel}</span>
         </div>
       </section>
 
       <section className="panel">
-        <h3>メンバー</h3>
-        <div className="chip-row">
-          {data.members.map((member) => (
-            <span key={member.id} className={`chip ${member.id === currentUserId ? 'active' : ''}`}>
-              <span className="member-chip-label">
-                <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
-                <span>{member.displayName}</span>
-              </span>
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <h3>メッセージ</h3>
         <div className="rafine-message-list" ref={listRef}>
           {displayedMessages.length === 0 && <p className="muted">まだメッセージがありません。</p>}
           {displayedMessages.map((message) => {

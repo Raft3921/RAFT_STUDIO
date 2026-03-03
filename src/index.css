@@ -626,7 +626,7 @@ p {
 }
 
 .rafine-message-list {
-  max-height: 56vh;
+  max-height: 64vh;
   overflow: auto;
   display: flex;
   flex-direction: column;
