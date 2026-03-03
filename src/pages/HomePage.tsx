@@ -35,7 +35,6 @@ export const HomePage = () => {
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
   const onlineMembers = data.members.filter((member) => {
     if (storageMode === 'local') return member.id === currentUserId
-    if (member.id === currentUserId) return true
     if (!member.lastActiveAt) return false
     const activeDiff = nowMs - new Date(member.lastActiveAt).getTime()
     return activeDiff <= 120000

@@ -226,18 +226,34 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const db = firestoreDb
+    const memberRef = doc(db, 'workspaces', workspaceId, 'members', currentUserId)
     const tick = () =>
       setDoc(
-        doc(db, 'workspaces', workspaceId, 'members', currentUserId),
+        memberRef,
         { lastActiveAt: new Date().toISOString() },
         { merge: true },
       ).catch(() => {
         // no-op: keep app usable if heartbeat fails intermittently
       })
+    const markOffline = () =>
+      setDoc(
+        memberRef,
+        { lastActiveAt: null },
+        { merge: true },
+      ).catch(() => {
+        // no-op: user may close tab before request finishes
+      })
 
     tick()
     const timer = window.setInterval(tick, 30000)
-    return () => window.clearInterval(timer)
+    window.addEventListener('pagehide', markOffline)
+    window.addEventListener('beforeunload', markOffline)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('pagehide', markOffline)
+      window.removeEventListener('beforeunload', markOffline)
+      void markOffline()
+    }
   }, [currentUserId, ready, storageMode, workspaceId])
 
   const migrateLocalDataToFirebase = useCallback(async () => {
