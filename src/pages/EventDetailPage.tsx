@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { roleDefinitions } from '../data/templates'
+import { resolveRoleNames } from '../lib/plan'
 import { attendanceLabel, buildLineMessage, buildShareUrl, formatDateTime, responseCount } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 import type { Attendance } from '../types'
@@ -8,11 +10,12 @@ const attendanceOptions: Attendance[] = ['yes', 'no', 'maybe']
 
 export const EventDetailPage = () => {
   const { id } = useParams()
-  const { data, setAttendance, toggleChecklist } = useApp()
+  const { data, setAttendance, toggleChecklist, currentUserId } = useApp()
   const [comment, setComment] = useState('')
 
   const event = data.events.find((item) => item.id === id)
-  const myResponse = data.responses.find((item) => item.eventId === id && item.userId === 'u-me')
+  const linkedPlan = data.plans.find((plan) => plan.id === event?.planId)
+  const myResponse = data.responses.find((item) => item.eventId === id && item.userId === currentUserId)
 
   const counts = useMemo(() => (event ? responseCount(event.id, data.responses) : null), [event, data.responses])
 
@@ -39,6 +42,19 @@ export const EventDetailPage = () => {
         <p>集合: {event.meetingPoint}</p>
         <p>場所: {event.location}</p>
       </section>
+
+      {linkedPlan && (
+        <section className="panel">
+          <h3>役割（企画から）</h3>
+          <div className="stack-gap">
+            {roleDefinitions.map((role) => (
+              <p key={role.id}>
+                {role.label.split('（')[0]}: {resolveRoleNames(linkedPlan.roleAssignments[role.id] ?? [], data.members)}
+              </p>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <h3>出欠</h3>
@@ -68,7 +84,7 @@ export const EventDetailPage = () => {
         <h3>持ち物チェック</h3>
         <div className="stack-gap">
           {event.checklist.map((item) => {
-            const checked = item.doneBy.includes('u-me')
+            const checked = item.doneBy.includes(currentUserId)
             return (
               <label className="check-row" key={item.id}>
                 <input type="checkbox" checked={checked} onChange={() => toggleChecklist(event.id, item.id)} />

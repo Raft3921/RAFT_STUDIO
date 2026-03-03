@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { eventChecklistTemplates, eventTemplateNames } from '../data/templates'
+import { roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 
 export const EventCreatePage = () => {
@@ -61,6 +62,7 @@ export const EventCreatePage = () => {
             </option>
           ))}
         </select>
+        {selectedPlan && <p className="muted">役割: {roleSummaryText(selectedPlan, data.members, 5)}</p>}
 
         <label>タイトル</label>
         <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} />

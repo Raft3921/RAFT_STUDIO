@@ -1,7 +1,10 @@
 :root {
   font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
-  color: #122322;
-  background: radial-gradient(circle at top right, #d7efe5 0%, #f7faf8 50%, #f4f9f6 100%);
+  color: #16312f;
+  background:
+    radial-gradient(circle at 15% 5%, #fff6da 0%, #fff6da00 30%),
+    radial-gradient(circle at 90% 10%, #d8f3e8 0%, #d8f3e800 40%),
+    linear-gradient(160deg, #f3faf7 0%, #f7fdfb 55%, #f0f9f7 100%);
 }
 
 * {
@@ -23,21 +26,23 @@ a {
   margin: 0 auto;
   min-height: 100vh;
   padding-bottom: 86px;
+  position: relative;
 }
 
 .app-header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #f7faf8cc;
+  background: #f7faf8d9;
   backdrop-filter: blur(6px);
-  border-bottom: 1px solid #d7e6e0;
+  border-bottom: 1px solid #dcebe5;
   padding: 14px 16px;
 }
 
 .brand {
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: 0.02em;
 }
 
 .app-main {
@@ -52,19 +57,20 @@ a {
 
 .panel {
   background: #ffffff;
-  border: 1px solid #d7e6e0;
-  border-radius: 14px;
+  border: 1px solid #dcebe5;
+  border-radius: 16px;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: 0 8px 20px rgba(20, 58, 48, 0.06);
 }
 
 .card {
-  background: #f6fbf9;
-  border: 1px solid #d1e6dd;
-  border-radius: 12px;
-  padding: 10px;
+  background: linear-gradient(180deg, #fbfffd 0%, #f3fbf8 100%);
+  border: 1px solid #cfe6de;
+  border-radius: 13px;
+  padding: 11px;
 }
 
 .link-card {
@@ -75,15 +81,17 @@ a {
   border: 0;
   border-radius: 11px;
   padding: 10px 12px;
-  background: #0f8b6d;
+  background: linear-gradient(160deg, #0d9b7a 0%, #0f7f66 100%);
   color: #fff;
-  font-weight: 700;
+  font-weight: 800;
   text-align: center;
+  box-shadow: 0 8px 18px rgba(16, 118, 95, 0.25);
 }
 
 .btn.ghost {
-  background: #edf5f2;
-  color: #0f4f40;
+  background: #edf7f3;
+  color: #0f5e4c;
+  box-shadow: none;
 }
 
 .btn.warn {
@@ -98,7 +106,7 @@ a {
   width: 100%;
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid #c8dad4;
+  border: 1px solid #c9ddd6;
   background: #fff;
   font-size: 1rem;
 }
@@ -128,17 +136,17 @@ label {
 }
 
 .chip {
-  border: 1px solid #bdd7ce;
+  border: 1px solid #bfdcd2;
   border-radius: 999px;
   padding: 8px 12px;
-  background: #f6fbf9;
-  color: #264841;
+  background: #f2faf7;
+  color: #225045;
 }
 
 .chip.active {
-  background: #0f8b6d;
+  background: linear-gradient(160deg, #139a79 0%, #0f7f66 100%);
   color: #fff;
-  border-color: #0f8b6d;
+  border-color: #0f7f66;
 }
 
 .status-badge {
@@ -196,8 +204,8 @@ label {
 }
 
 .bottom-nav-item.active {
-  background: #ecf8f3;
-  color: #0f8b6d;
+  background: #e7f8f1;
+  color: #0f7f66;
   font-weight: 700;
 }
 
@@ -233,6 +241,27 @@ label {
   gap: 6px;
 }
 
+.duration-text {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0f7f66;
+}
+
+.duration-slider {
+  width: 100%;
+  accent-color: #0f8b6d;
+}
+
+.role-row {
+  border: 1px solid #d6e8e1;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fbfffd;
+}
+
 h2,
 h3,
 p {
@@ -252,13 +281,13 @@ p {
 
 .raft-bubble {
   position: relative;
-  max-width: min(220px, 58vw);
+  max-width: min(240px, 60vw);
   background: #fff;
-  border: 1px solid #bdd7ce;
+  border: 1px solid #c8dfd6;
   border-radius: 14px;
-  padding: 8px 10px;
-  font-size: 0.8rem;
-  color: #24463e;
+  padding: 9px 11px;
+  font-size: 0.82rem;
+  color: #214a40;
   box-shadow: 0 8px 22px rgba(25, 60, 49, 0.16);
   cursor: pointer;
 }
@@ -277,11 +306,11 @@ p {
 }
 
 .raft-avatar {
-  width: 62px;
-  height: 62px;
+  width: 68px;
+  height: 68px;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(160deg, #f4fff9 0%, #d8f0e7 100%);
+  background: linear-gradient(160deg, #fbfffc 0%, #d8f0e7 100%);
   box-shadow: 0 10px 24px rgba(15, 80, 64, 0.28);
   padding: 0;
   overflow: hidden;
@@ -292,15 +321,8 @@ p {
 .raft-avatar img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-}
-
-.raft-idle {
-  animation: raft-idle-bob 1.7s ease-in-out infinite;
-}
-
-.raft-running {
-  animation: raft-run-bob 0.5s linear infinite;
+  object-fit: cover;
+  image-rendering: auto;
 }
 
 .raft-fallback {
@@ -338,26 +360,6 @@ p {
   animation: raft-bg-float-b 2.6s ease-in-out infinite;
 }
 
-@keyframes raft-idle-bob {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-@keyframes raft-run-bob {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
 @keyframes raft-bg-float-a {
   0%,
   100% {
@@ -380,7 +382,35 @@ p {
 
 @media (max-width: 400px) {
   .raft-bubble {
-    max-width: 48vw;
+    max-width: 52vw;
     font-size: 0.74rem;
   }
+}
+
+.hero-panel {
+  background:
+    radial-gradient(circle at 90% 20%, #fff2c8 0%, #fff2c800 32%),
+    linear-gradient(165deg, #f3fffa 0%, #edfbf6 60%, #f5fffb 100%);
+}
+
+.hero-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  color: #0f7f66;
+}
+
+.progress-wrap {
+  width: 100%;
+  height: 9px;
+  background: #dcefe8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #15a786 0%, #ffd366 100%);
+  transition: width 0.35s ease;
 }

@@ -1,5 +1,7 @@
 export type PlanStatus = 'candidate' | 'confirmed' | 'shot' | 'editing' | 'published'
 export type Attendance = 'yes' | 'no' | 'maybe'
+export type RoleSelection = 'single' | 'multi'
+export type RoleAssignments = Record<string, string[]>
 
 export interface Member {
   id: string
@@ -14,10 +16,11 @@ export interface Plan {
   title: string
   templateType: string
   status: PlanStatus
-  duration: 'Short' | '8分' | '15分'
+  durationSec: number
   memberSize: 'ソロ' | '2人' | '3〜5人' | '多人数'
   goal: '笑い' | '驚き' | '感動' | '学び' | '上達'
   assets: string[]
+  roleAssignments: RoleAssignments
   memo?: string
   createdAt: string
   createdBy: string

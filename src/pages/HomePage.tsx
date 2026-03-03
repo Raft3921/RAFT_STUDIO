@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { formatDuration, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 
@@ -7,8 +8,42 @@ export const HomePage = () => {
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
 
+  const completionPoints =
+    (data.plans.length > 0 ? 35 : 0) +
+    (data.events.length > 0 ? 35 : 0) +
+    (upcoming && responseCount(upcoming.id, data.responses).maybe === 0 ? 30 : 10)
+
+  const nextStep = (() => {
+    if (data.plans.length === 0) return '最初の企画を1つ作る'
+    if (data.events.length === 0) return '撮影日を1つ作って役割を紐づける'
+    if (upcoming) {
+      const counts = responseCount(upcoming.id, data.responses)
+      const unanswered = data.members.length - (counts.yes + counts.no + counts.maybe)
+      if (unanswered > 0) return `次の撮影の未回答 ${unanswered} 人を回収する`
+    }
+    return '次の公開に向けて企画を決定へ進める'
+  })()
+
   return (
     <div className="page-stack">
+      <section className="panel hero-panel">
+        <p className="hero-kicker">TODAY'S ACTION</p>
+        <h2>今日の一歩</h2>
+        <p>{nextStep}</p>
+        <div className="progress-wrap" aria-label="進行度">
+          <div className="progress-fill" style={{ width: `${Math.min(100, completionPoints)}%` }} />
+        </div>
+        <p className="muted">進行度 {Math.min(100, completionPoints)}%</p>
+        <div className="inline-row">
+          <Link className="btn" to="/plans/new">
+            企画を作る
+          </Link>
+          <Link className="btn ghost" to="/events/new">
+            撮影日を作る
+          </Link>
+        </div>
+      </section>
+
       <section className="panel">
         <h2>次の撮影</h2>
         {!upcoming && <p className="muted">まだ撮影日がありません。</p>}
@@ -52,8 +87,9 @@ export const HomePage = () => {
           <Link className="card link-card" key={plan.id} to={`/plans/${plan.id}`}>
             <strong>{plan.title}</strong>
             <p>
-              {statusLabel[plan.status]} / {plan.duration} / {plan.memberSize}
+              {statusLabel[plan.status]} / {formatDuration(plan.durationSec)} / {plan.memberSize}
             </p>
+            <p className="muted">{roleSummaryText(plan, data.members, 3)}</p>
           </Link>
         ))}
       </section>

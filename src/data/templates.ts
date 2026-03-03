@@ -1,4 +1,4 @@
-import type { EventChecklistItem } from '../types'
+import type { EventChecklistItem, RoleSelection } from '../types'
 
 export const planTemplates = ['検証', 'ドッキリ', '建築', 'PvP', 'マルチ企画', 'Shorts切り抜き']
 
@@ -28,3 +28,61 @@ export const eventChecklistTemplates: Record<string, Omit<EventChecklistItem, 'i
 }
 
 export const eventTemplateNames = Object.keys(eventChecklistTemplates)
+
+export const durationPresets = [30, 60, 180, 480, 900, 1800]
+
+export const ALL_MEMBERS_TOKEN = '__all__'
+
+export interface RoleDefinition {
+  id: string
+  label: string
+  selection: RoleSelection
+  required?: boolean
+  allowAllToken?: boolean
+}
+
+export const roleDefinitions: RoleDefinition[] = [
+  { id: 'mc', label: '司会（MC）', selection: 'single', required: true },
+  { id: 'reaction', label: 'リアクション', selection: 'multi' },
+  { id: 'action', label: 'アクション', selection: 'multi' },
+  { id: 'commentary', label: '解説', selection: 'multi' },
+  { id: 'tsukkomi', label: 'ツッコミ', selection: 'multi' },
+  { id: 'tech', label: '技術', selection: 'single', required: true },
+  { id: 'progress', label: '進行', selection: 'single' },
+  { id: 'recording', label: '撮影', selection: 'single', allowAllToken: true },
+  { id: 'edit', label: '編集', selection: 'single', required: true },
+  { id: 'thumbnail', label: 'サムネ', selection: 'single', required: true },
+]
+
+export const roleTemplatePresets = {
+  minecraftVerification: {
+    label: 'Minecraft × 検証',
+    membersByRole: {
+      mc: ['ラフト'],
+      tech: ['ムート'],
+      reaction: ['まい', 'たぬつな'],
+      action: ['やんさん'],
+      edit: ['ウィーク'],
+      thumbnail: ['もろん'],
+    },
+  },
+  minecraftLargeGroup: {
+    label: 'Minecraft × 多人数',
+    membersByRole: {
+      mc: ['ラフト'],
+      progress: ['まい'],
+      tech: ['ムート'],
+      reaction: [ALL_MEMBERS_TOKEN],
+      edit: ['ウィーク'],
+      thumbnail: ['もろん'],
+    },
+  },
+  shortsClip: {
+    label: 'Shorts切り抜き',
+    membersByRole: {
+      mc: ['ラフト'],
+      edit: ['ウィーク'],
+      thumbnail: ['もろん'],
+    },
+  },
+} as const

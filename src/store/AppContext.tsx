@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { firestoreDb, firebaseAuth, isFirebaseEnabled } from '../lib/firebase'
+import { normalizePlan } from '../lib/plan'
 import { loadData, saveData } from '../lib/storage'
 import { buildWorkspaceInviteUrl, getOrCreateWorkspaceId } from '../lib/workspace'
 import type { AppData, Attendance, EventItem, EventResponse, Member, Plan, PlanStatus } from '../types'
@@ -20,10 +21,11 @@ import type { AppData, Attendance, EventItem, EventResponse, Member, Plan, PlanS
 interface CreatePlanInput {
   title: string
   templateType: string
-  duration: Plan['duration']
+  durationSec: number
   memberSize: Plan['memberSize']
   goal: Plan['goal']
   assets: string[]
+  roleAssignments: Plan['roleAssignments']
   memo?: string
 }
 
@@ -97,7 +99,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
       unsubscribers = [
         onSnapshot(query(collection(workspaceRef, 'plans'), orderBy('createdAt', 'desc')), (snapshot) => {
-          const plans = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<Plan, 'id'>) }))
+          const plans = snapshot.docs.map((item) =>
+            normalizePlan({ id: item.id, ...(item.data() as Omit<Plan, 'id'>) }),
+          )
           setData((prev) => ({ ...prev, plans }))
           setReady(true)
         }),

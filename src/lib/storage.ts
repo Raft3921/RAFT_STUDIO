@@ -1,4 +1,5 @@
 import type { AppData } from '../types'
+import { normalizePlan } from './plan'
 
 const APP_STORAGE_KEY = 'youtube-planner-v1'
 
@@ -20,7 +21,7 @@ export const loadData = (): AppData => {
     const parsed = JSON.parse(raw) as AppData
     return {
       members: parsed.members ?? defaultData.members,
-      plans: parsed.plans ?? [],
+      plans: (parsed.plans ?? []).map((plan) => normalizePlan(plan)),
       events: parsed.events ?? [],
       responses: parsed.responses ?? [],
     }

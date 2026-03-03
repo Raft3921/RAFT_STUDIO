@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { statusLabel, statusOrder } from '../lib/utils'
+import { formatDuration, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
 
@@ -58,8 +59,9 @@ export const PlansPage = () => {
               <StatusBadge status={plan.status} />
             </div>
             <p>
-              {plan.templateType} / {plan.duration} / {plan.memberSize}
+              {plan.templateType} / {formatDuration(plan.durationSec)} / {plan.memberSize}
             </p>
+            <p className="muted">{roleSummaryText(plan, data.members)}</p>
           </Link>
         ))}
       </section>
