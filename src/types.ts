@@ -17,7 +17,7 @@ export interface Plan {
   templateType: string
   status: PlanStatus
   durationSec: number
-  memberSize: 'ソロ' | '2人' | '3〜5人' | '多人数'
+  participantIds: string[]
   goal: '笑い' | '驚き' | '感動' | '学び' | '上達'
   assets: string[]
   roleAssignments: RoleAssignments

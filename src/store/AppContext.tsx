@@ -22,7 +22,7 @@ interface CreatePlanInput {
   title: string
   templateType: string
   durationSec: number
-  memberSize: Plan['memberSize']
+  participantIds: Plan['participantIds']
   goal: Plan['goal']
   assets: string[]
   roleAssignments: Plan['roleAssignments']

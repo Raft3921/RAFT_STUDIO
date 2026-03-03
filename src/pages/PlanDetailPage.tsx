@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { formatDuration, resolveRoleNames } from '../lib/plan'
+import { formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
 import { roleDefinitions } from '../data/templates'
 import { StatusBadge } from '../components/StatusBadge'
 import { buildShareUrl, statusOrder } from '../lib/utils'
@@ -52,7 +52,7 @@ export const PlanDetailPage = () => {
       <section className="panel">
         <h3>仕様</h3>
         <p>尺: {formatDuration(plan.durationSec)}</p>
-        <p>人数: {plan.memberSize}</p>
+        <p>メンバー: {participantSummaryText(plan, data.members, 8)}</p>
         <p>目的: {plan.goal}</p>
         <p>素材: {plan.assets.join(' / ') || 'なし'}</p>
       </section>

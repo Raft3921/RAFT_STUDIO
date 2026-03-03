@@ -4,10 +4,19 @@ import { useApp } from '../store/AppContext'
 
 type MotionMode = 'idle' | 'run' | 'squat'
 
+const assetUrl = (fileName: string) => `${import.meta.env.BASE_URL}raft/${fileName}`
+
 const frameSets: Record<MotionMode, string[]> = {
-  idle: ['/raft/idle1.png', '/raft/idle2.png', '/raft/idle3.png'],
-  run: ['/raft/run1.png', '/raft/run2.png', '/raft/run3.png', '/raft/run4.png', '/raft/run5.png', '/raft/run6.png'],
-  squat: ['/raft/squat1.png', '/raft/squat2.png'],
+  idle: [assetUrl('idle1.png'), assetUrl('idle2.png'), assetUrl('idle3.png')],
+  run: [
+    assetUrl('run1.png'),
+    assetUrl('run2.png'),
+    assetUrl('run3.png'),
+    assetUrl('run4.png'),
+    assetUrl('run5.png'),
+    assetUrl('run6.png'),
+  ],
+  squat: [assetUrl('squat1.png'), assetUrl('squat2.png')],
 }
 
 const routeHintMap: Record<string, string[]> = {
@@ -128,7 +137,7 @@ export const RaftGuide = () => {
         {hasImage ? (
           <img src={currentFrames[frameIndex % currentFrames.length]} alt="ラフト" onError={() => setHasImage(false)} />
         ) : (
-          <img src="/raft/idle1.png" alt="ラフト" />
+          <img src={assetUrl('idle1.png')} alt="ラフト" />
         )}
       </button>
     </aside>

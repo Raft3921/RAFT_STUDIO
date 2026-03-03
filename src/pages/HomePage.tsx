@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { formatDuration, roleSummaryText } from '../lib/plan'
+import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 
@@ -87,7 +87,7 @@ export const HomePage = () => {
           <Link className="card link-card" key={plan.id} to={`/plans/${plan.id}`}>
             <strong>{plan.title}</strong>
             <p>
-              {statusLabel[plan.status]} / {formatDuration(plan.durationSec)} / {plan.memberSize}
+              {statusLabel[plan.status]} / {formatDuration(plan.durationSec)} / {participantSummaryText(plan, data.members)}
             </p>
             <p className="muted">{roleSummaryText(plan, data.members, 3)}</p>
           </Link>

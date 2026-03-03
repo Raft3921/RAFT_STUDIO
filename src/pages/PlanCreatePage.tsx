@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { assetChoices, durationPresets, planTemplates, roleDefinitions, roleTemplatePresets } from '../data/templates'
-import { clampDuration, createEmptyRoleAssignments, formatDuration, resolveRoleNames } from '../lib/plan'
+import {
+  clampDuration,
+  createEmptyRoleAssignments,
+  formatDuration,
+  participantSummaryText,
+  resolveRoleNames,
+} from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { Plan, RoleAssignments } from '../types'
 
-const memberSizes: Plan['memberSize'][] = ['ソロ', '2人', '3〜5人', '多人数']
 const goals: Plan['goal'][] = ['笑い', '驚き', '感動', '学び', '上達']
 
 const roleGroups = [
@@ -29,21 +34,54 @@ export const PlanCreatePage = () => {
 
   const [templateType, setTemplateType] = useState(planTemplates[0])
   const [durationSec, setDurationSec] = useState(480)
-  const [memberSize, setMemberSize] = useState<Plan['memberSize']>('2人')
+  const [participantIds, setParticipantIds] = useState<string[]>(['m-raft'])
   const [goal, setGoal] = useState<Plan['goal']>('笑い')
   const [assets, setAssets] = useState<string[]>(['BGM'])
   const [memo, setMemo] = useState('')
   const [title, setTitle] = useState('')
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>(createEmptyRoleAssignments())
 
+  const selectedMembersLabel = useMemo(
+    () =>
+      participantSummaryText(
+        {
+          id: 'tmp',
+          title: '',
+          templateType,
+          status: 'candidate',
+          durationSec,
+          participantIds,
+          goal,
+          assets: [],
+          roleAssignments: createEmptyRoleAssignments(),
+          createdAt: '',
+          createdBy: '',
+        },
+        data.members,
+        8,
+      ),
+    [data.members, durationSec, goal, participantIds, templateType],
+  )
+
   const titleCandidates = useMemo(
     () => [
       `${templateType}で${goal}を狙う${formatDuration(durationSec)}企画`,
-      `${memberSize}で挑む${templateType}チャレンジ`,
+      `${selectedMembersLabel}で挑む${templateType}チャレンジ`,
       `${templateType}の結果で${goal}を作る`,
     ],
-    [templateType, goal, durationSec, memberSize],
+    [templateType, goal, durationSec, selectedMembersLabel],
   )
+
+  const toggleParticipant = (memberId: string) => {
+    setParticipantIds((prev) => {
+      const exists = prev.includes(memberId)
+      if (exists) {
+        const next = prev.filter((id) => id !== memberId)
+        return next.length > 0 ? next : prev
+      }
+      return [...prev, memberId]
+    })
+  }
 
   const toggleRoleMember = (roleId: string, memberId: string, selection: 'single' | 'multi') => {
     setRoleAssignments((prev) => {
@@ -109,7 +147,7 @@ export const PlanCreatePage = () => {
       title: title.trim() || titleCandidates[0],
       templateType,
       durationSec,
-      memberSize,
+      participantIds,
       goal,
       assets,
       roleAssignments,
@@ -174,16 +212,25 @@ export const PlanCreatePage = () => {
           ))}
         </div>
 
-        <label>人数</label>
+        <label>企画メンバー</label>
+        <p className="muted">最低1人は選択してください</p>
+        <div className="plan-tools-row">
+          <button type="button" className="chip" onClick={() => setParticipantIds(data.members.map((member) => member.id))}>
+            全員選択
+          </button>
+          <button type="button" className="chip" onClick={() => setParticipantIds(['m-raft'])}>
+            ラフトのみ
+          </button>
+        </div>
         <div className="chip-row">
-          {memberSizes.map((item) => (
+          {data.members.map((member) => (
             <button
               type="button"
-              key={item}
-              className={`chip ${memberSize === item ? 'active' : ''}`}
-              onClick={() => setMemberSize(item)}
+              key={member.id}
+              className={`chip ${participantIds.includes(member.id) ? 'active' : ''}`}
+              onClick={() => toggleParticipant(member.id)}
             >
-              {item}
+              {member.displayName}
             </button>
           ))}
         </div>

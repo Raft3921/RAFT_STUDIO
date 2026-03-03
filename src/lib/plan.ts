@@ -26,6 +26,8 @@ type LegacyPlan = Partial<Plan> & { id: string; duration?: string }
 
 export const normalizePlan = (raw: LegacyPlan): Plan => {
   const legacyDuration = typeof raw.durationSec === 'number' ? raw.durationSec : legacyDurationMap[String(raw.duration)]
+  const legacyMemberSize = String((raw as { memberSize?: string }).memberSize ?? '')
+  const fallbackParticipantCount = legacyMemberSize === 'ソロ' ? 1 : legacyMemberSize === '2人' ? 2 : legacyMemberSize === '3〜5人' ? 3 : 0
 
   const roleAssignments = createEmptyRoleAssignments()
   Object.entries((raw.roleAssignments ?? {}) as RoleAssignments).forEach(([roleId, members]) => {
@@ -38,7 +40,15 @@ export const normalizePlan = (raw: LegacyPlan): Plan => {
     templateType: raw.templateType ?? '検証',
     status: raw.status ?? 'candidate',
     durationSec: clampDuration(legacyDuration ?? 480),
-    memberSize: raw.memberSize ?? '2人',
+    participantIds:
+      raw.participantIds && raw.participantIds.length > 0
+        ? raw.participantIds
+        : fallbackParticipantCount > 0
+          ? ['m-raft', 'm-mai', 'm-tanutsuna', 'm-yansan', 'm-muto', 'm-moron', 'm-week', 'm-gyoza'].slice(
+              0,
+              fallbackParticipantCount,
+            )
+          : ['m-raft'],
     goal: raw.goal ?? '笑い',
     assets: raw.assets ?? [],
     roleAssignments,
@@ -73,4 +83,14 @@ export const roleSummaryText = (plan: Plan, members: Member[], maxItems = 4) => 
     return `${items.slice(0, maxItems).join('｜')}…`
   }
   return items.join('｜')
+}
+
+export const participantSummaryText = (plan: Plan, members: Member[], maxNames = 3) => {
+  const names = plan.participantIds
+    .map((id) => members.find((member) => member.id === id)?.displayName)
+    .filter((name): name is string => !!name)
+
+  if (names.length === 0) return '未選択'
+  if (names.length <= maxNames) return names.join('・')
+  return `${names.slice(0, maxNames).join('・')} 他${names.length - maxNames}名`
 }
