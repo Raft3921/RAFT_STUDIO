@@ -43,6 +43,7 @@ export const RafinePage = () => {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification === 'undefined' ? 'denied' : Notification.permission,
   )
+  const [inlineNotice, setInlineNotice] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
   const localMessages = useMemo(() => {
@@ -81,8 +82,16 @@ export const RafinePage = () => {
     lastMessageIdRef.current = latest.id
 
     if (latest.userId === currentUserId) return
-    if (typeof Notification === 'undefined') return
-    if (Notification.permission !== 'granted') return
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      const openTimer = window.setTimeout(() => {
+        setInlineNotice(`${latest.displayName}: ${latest.text}`)
+      }, 0)
+      const closeTimer = window.setTimeout(() => setInlineNotice(''), 4200)
+      return () => {
+        window.clearTimeout(openTimer)
+        window.clearTimeout(closeTimer)
+      }
+    }
 
     const notification = new Notification(`RAFINE: ${latest.displayName}`, {
       body: latest.text,
@@ -130,11 +139,14 @@ export const RafinePage = () => {
 
   const requestNotification = async () => {
     if (typeof Notification === 'undefined') {
-      window.alert('このブラウザは通知に対応していません。')
+      window.alert('この環境ではブラウザ通知が使えません。RAFINEの画面内通知で受け取れます。')
       return
     }
     const result = await Notification.requestPermission()
     setNotificationPermission(result)
+    if (result !== 'granted') {
+      window.alert('通知が許可されていません。必要ならブラウザ設定で通知を許可してください。')
+    }
   }
 
   return (
@@ -149,6 +161,7 @@ export const RafinePage = () => {
           <span className="muted">通知: {notificationPermission}</span>
           <span className="muted">{onlineLabel}</span>
         </div>
+        {inlineNotice && <p className="rafine-inline-notice">{inlineNotice}</p>}
       </section>
 
       <section className="panel">

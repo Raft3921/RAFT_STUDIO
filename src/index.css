@@ -694,3 +694,13 @@ p {
   gap: 8px;
   align-items: center;
 }
+
+.rafine-inline-notice {
+  margin-top: 6px;
+  border: 1px solid #efb2b0;
+  background: #fff4f3;
+  color: #9b1c1a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+}
