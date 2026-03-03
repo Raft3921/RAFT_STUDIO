@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { firestoreDb } from '../lib/firebase'
 import { useApp } from '../store/AppContext'
 import { RaftGuide } from './RaftGuide'
 
@@ -12,11 +14,15 @@ const tabs = [
 ]
 
 export const Layout = () => {
-  const { ready } = useApp()
+  const { pathname } = useLocation()
+  const { ready, workspaceId, storageMode, currentUserId } = useApp()
   const defaultChannelTitle = '無念のラフト'
   const [channelTitle, setChannelTitle] = useState(defaultChannelTitle)
   const [displayLoading, setDisplayLoading] = useState(!ready)
   const [progress, setProgress] = useState(12)
+  const [homeMessageNotice, setHomeMessageNotice] = useState('')
+  const seenMessageIdRef = useRef<string | null>(null)
+  const noticeTimerRef = useRef<number | null>(null)
   const runFrames = useMemo(
     () =>
       [1, 2, 3, 4, 5, 6].map(
@@ -85,6 +91,74 @@ export const Layout = () => {
     return () => controller.abort()
   }, [])
 
+  useEffect(() => {
+    const showNotice = (text: string) => {
+      if (noticeTimerRef.current) {
+        window.clearTimeout(noticeTimerRef.current)
+      }
+      setHomeMessageNotice(text)
+      noticeTimerRef.current = window.setTimeout(() => setHomeMessageNotice(''), 4000)
+    }
+
+    const isHome = pathname.startsWith('/home')
+    if (!isHome) return
+
+    if (storageMode === 'firebase' && firestoreDb) {
+      const ref = collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages')
+      const unsub = onSnapshot(query(ref, orderBy('createdAt', 'desc'), limit(1)), (snap) => {
+        const latest = snap.docs[0]
+        if (!latest) return
+        const data = latest.data() as {
+          id?: string
+          text?: string
+          userId?: string
+          recipientId?: string
+          displayName?: string
+        }
+        const messageId = latest.id
+        if (!seenMessageIdRef.current) {
+          seenMessageIdRef.current = messageId
+          return
+        }
+        if (seenMessageIdRef.current === messageId) return
+        seenMessageIdRef.current = messageId
+        if (data.userId === currentUserId) return
+        if (data.recipientId && data.recipientId !== currentUserId) return
+        showNotice(`${data.displayName ?? 'メンバー'}: ${data.text ?? ''}`)
+      })
+      return () => unsub()
+    }
+
+    const localKey = `rafine-messages-${workspaceId}`
+    const timer = window.setInterval(() => {
+      try {
+        const raw = localStorage.getItem(localKey)
+        if (!raw) return
+        const messages = JSON.parse(raw) as Array<{
+          id: string
+          text: string
+          userId: string
+          recipientId?: string
+          displayName: string
+        }>
+        const latest = messages[messages.length - 1]
+        if (!latest) return
+        if (!seenMessageIdRef.current) {
+          seenMessageIdRef.current = latest.id
+          return
+        }
+        if (seenMessageIdRef.current === latest.id) return
+        seenMessageIdRef.current = latest.id
+        if (latest.userId === currentUserId) return
+        if (latest.recipientId && latest.recipientId !== currentUserId) return
+        showNotice(`${latest.displayName}: ${latest.text}`)
+      } catch {
+        // ignore malformed local data
+      }
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [currentUserId, pathname, storageMode, workspaceId])
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -92,6 +166,11 @@ export const Layout = () => {
           {channelTitle}撮影プランナー
         </Link>
       </header>
+      {homeMessageNotice && pathname.startsWith('/home') && (
+        <div className="home-message-notice" role="status" aria-live="polite">
+          {homeMessageNotice}
+        </div>
+      )}
       <main className="app-main">
         <Outlet />
       </main>
