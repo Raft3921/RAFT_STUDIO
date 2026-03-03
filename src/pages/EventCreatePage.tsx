@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { eventChecklistTemplates, eventTemplateNames } from '../data/templates'
 import { roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
@@ -8,21 +9,43 @@ import type { EventChecklistItem } from '../types'
 type ChecklistDraftItem = Pick<EventChecklistItem, 'label' | 'scope' | 'assigneeIds'>
 
 export const EventCreatePage = () => {
-  const { data, createEvent } = useApp()
+  const { id } = useParams()
+  const { data, createEvent, updateEvent } = useApp()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const editingEvent = id ? data.events.find((event) => event.id === id) : null
 
-  const initialPlanId = searchParams.get('planId') || ''
+  const initialPlanId = editingEvent?.planId ?? (searchParams.get('planId') || '')
   const [planId, setPlanId] = useState(initialPlanId)
-  const [title, setTitle] = useState('')
-  const [datetime, setDatetime] = useState('')
-  const [meetingPoint, setMeetingPoint] = useState('Discord集合')
-  const [location, setLocation] = useState('オンライン')
-  const [timelineRaw, setTimelineRaw] = useState('開始\n撮影\n終了')
+  const [title, setTitle] = useState(editingEvent?.title ?? '')
+  const [datetime, setDatetime] = useState(editingEvent?.datetime ?? '')
+  const [meetingPoint, setMeetingPoint] = useState(editingEvent?.meetingPoint ?? 'Discord集合')
+  const [location, setLocation] = useState(editingEvent?.location ?? 'オンライン')
+  const [timelineRaw, setTimelineRaw] = useState(editingEvent?.timeline.join('\n') ?? '開始\n撮影\n終了')
   const [templateName, setTemplateName] = useState(eventTemplateNames[0])
-  const [extraChecklist, setExtraChecklist] = useState('')
-  const [itemScopes, setItemScopes] = useState<Record<string, 'all' | 'member'>>({})
-  const [itemAssignees, setItemAssignees] = useState<Record<string, string[]>>({})
+  const [extraChecklist, setExtraChecklist] = useState(
+    editingEvent ? editingEvent.checklist.map((item) => item.label).join('\n') : '',
+  )
+  const [itemScopes, setItemScopes] = useState<Record<string, 'all' | 'member'>>(() =>
+    editingEvent
+      ? Object.fromEntries(
+          editingEvent.checklist.map((item, index) => [
+            `existing-${index}-${item.id}`,
+            item.scope === 'member' ? 'member' : 'all',
+          ]),
+        )
+      : {},
+  )
+  const [itemAssignees, setItemAssignees] = useState<Record<string, string[]>>(() =>
+    editingEvent
+      ? Object.fromEntries(
+          editingEvent.checklist.map((item, index) => [
+            `existing-${index}-${item.id}`,
+            item.assigneeIds ?? [],
+          ]),
+        )
+      : {},
+  )
 
   const selectedPlan = useMemo(() => data.plans.find((plan) => plan.id === planId), [data.plans, planId])
   const targetMembers = useMemo(
@@ -33,6 +56,13 @@ export const EventCreatePage = () => {
     [data.members, selectedPlan],
   )
   const checklistDraft = useMemo(() => {
+    if (editingEvent) {
+      return editingEvent.checklist.map((item, index) => ({
+        key: `existing-${index}-${item.id}`,
+        label: item.label,
+        defaultScope: item.scope === 'member' ? 'member' : 'all',
+      }))
+    }
     const templateItems = eventChecklistTemplates[templateName].map((item) => ({ ...item, source: 'template' as const }))
     const extraItems = extraChecklist
       .split('\n')
@@ -45,9 +75,11 @@ export const EventCreatePage = () => {
       label: item.label,
       defaultScope: item.scope,
     }))
-  }, [templateName, extraChecklist])
+  }, [editingEvent, templateName, extraChecklist])
 
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const missingEditTarget = Boolean(id && !editingEvent)
+
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const checklist: ChecklistDraftItem[] = checklistDraft.map((item) => {
       const selectedScope = itemScopes[item.key] ?? (item.defaultScope === 'all' ? 'all' : 'member')
@@ -58,16 +90,36 @@ export const EventCreatePage = () => {
       return { label: item.label, scope: 'all', assigneeIds: [] }
     })
 
-    createEvent({
+    const timeline = timelineRaw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (editingEvent) {
+      await updateEvent(editingEvent.id, {
+        title: title.trim() || editingEvent.title,
+        planId: selectedPlan?.id,
+        datetime,
+        meetingPoint,
+        location,
+        timeline,
+        checklist: checklist.map((item, index) => ({
+          ...item,
+          id: editingEvent.checklist[index]?.id ?? crypto.randomUUID(),
+          doneBy: editingEvent.checklist[index]?.doneBy ?? [],
+        })),
+      })
+      navigate(`/events/${editingEvent.id}`)
+      return
+    }
+
+    await createEvent({
       title: title.trim() || `${selectedPlan?.title ?? '新規企画'} 撮影日`,
       planId: selectedPlan?.id,
       datetime,
       meetingPoint,
       location,
-      timeline: timelineRaw
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean),
+      timeline,
       checklist,
     })
 
@@ -76,8 +128,11 @@ export const EventCreatePage = () => {
 
   return (
     <form className="page-stack" onSubmit={onSubmit}>
+      {missingEditTarget && <section className="panel">撮影日が見つかりません。</section>}
+      {!missingEditTarget && (
+        <>
       <section className="panel">
-        <h2>撮影イベント作成</h2>
+        <h2>{editingEvent ? '撮影イベント編集' : '撮影イベント作成'}</h2>
       </section>
 
       <section className="panel">
@@ -112,21 +167,25 @@ export const EventCreatePage = () => {
       </section>
 
       <section className="panel">
-        <label>持ち物テンプレ</label>
-        <div className="chip-row">
-          {eventTemplateNames.map((name) => (
-            <button
-              className={`chip ${templateName === name ? 'active' : ''}`}
-              type="button"
-              key={name}
-              onClick={() => setTemplateName(name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
+        {!editingEvent && (
+          <>
+            <label>持ち物テンプレ</label>
+            <div className="chip-row">
+              {eventTemplateNames.map((name) => (
+                <button
+                  className={`chip ${templateName === name ? 'active' : ''}`}
+                  type="button"
+                  key={name}
+                  onClick={() => setTemplateName(name)}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-        <label>追加持ち物（改行区切り）</label>
+        <label>{editingEvent ? '持ち物（改行区切り）' : '追加持ち物（改行区切り）'}</label>
         <textarea
           className="field"
           rows={3}
@@ -205,8 +264,10 @@ export const EventCreatePage = () => {
       </section>
 
       <button className="btn full" type="submit">
-        撮影日を作成
+        {editingEvent ? '撮影日を更新' : '撮影日を作成'}
       </button>
+        </>
+      )}
     </form>
   )
 }

@@ -16,9 +16,11 @@ function App() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/plans" element={<PlansPage />} />
         <Route path="/plans/new" element={<PlanCreatePage />} />
+        <Route path="/plans/:id/edit" element={<PlanCreatePage />} />
         <Route path="/plans/:id" element={<PlanDetailPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/events/new" element={<EventCreatePage />} />
+        <Route path="/events/:id/edit" element={<EventCreatePage />} />
         <Route path="/events/:id" element={<EventDetailPage />} />
         <Route path="/me" element={<MePage />} />
         <Route path="*" element={<Navigate to="/home" replace />} />

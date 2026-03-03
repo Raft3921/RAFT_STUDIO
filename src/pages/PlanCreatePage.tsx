@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { assetChoices, durationPresets, planTemplates, roleDefinitions, roleTemplatePresets } from '../data/templates'
 import {
   clampDuration,
@@ -30,17 +30,24 @@ const findMemberIdsByNames = (names: string[], members: { id: string; displayNam
 }
 
 export const PlanCreatePage = () => {
+  const { id } = useParams()
   const navigate = useNavigate()
-  const { createPlan, data } = useApp()
+  const { createPlan, updatePlan, data } = useApp()
+  const editingPlan = id ? data.plans.find((plan) => plan.id === id) : null
+  const missingEditTarget = Boolean(id && !editingPlan)
 
-  const [templateType, setTemplateType] = useState(planTemplates[0])
-  const [durationSec, setDurationSec] = useState(480)
-  const [participantIds, setParticipantIds] = useState<string[]>(() => data.members.map((member) => member.id))
-  const [goal, setGoal] = useState<Plan['goal']>('笑い')
-  const [assets, setAssets] = useState<string[]>(['BGM'])
-  const [memo, setMemo] = useState('')
-  const [title, setTitle] = useState('')
-  const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>(createEmptyRoleAssignments())
+  const [templateType, setTemplateType] = useState(editingPlan?.templateType ?? planTemplates[0])
+  const [durationSec, setDurationSec] = useState(editingPlan?.durationSec ?? 480)
+  const [participantIds, setParticipantIds] = useState<string[]>(
+    editingPlan?.participantIds ?? data.members.map((member) => member.id),
+  )
+  const [goal, setGoal] = useState<Plan['goal']>(editingPlan?.goal ?? '笑い')
+  const [assets, setAssets] = useState<string[]>(editingPlan?.assets ?? ['BGM'])
+  const [memo, setMemo] = useState(editingPlan?.memo ?? '')
+  const [title, setTitle] = useState(editingPlan?.title ?? '')
+  const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>(
+    editingPlan?.roleAssignments ?? createEmptyRoleAssignments(),
+  )
 
   const selectedMembersLabel = useMemo(
     () =>
@@ -144,6 +151,20 @@ export const PlanCreatePage = () => {
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (editingPlan) {
+      await updatePlan(editingPlan.id, {
+        title: title.trim() || editingPlan.title,
+        templateType,
+        durationSec,
+        participantIds,
+        goal,
+        assets,
+        roleAssignments,
+        memo,
+      })
+      navigate(`/plans/${editingPlan.id}`)
+      return
+    }
     await createPlan({
       title: title.trim() || titleCandidates[0],
       templateType,
@@ -159,8 +180,11 @@ export const PlanCreatePage = () => {
 
   return (
     <form className="page-stack" onSubmit={onSubmit}>
+      {missingEditTarget && <section className="panel">企画が見つかりません。</section>}
+      {!missingEditTarget && (
+        <>
       <section className="panel">
-        <h2>企画カード作成</h2>
+        <h2>{editingPlan ? '企画カード編集' : '企画カード作成'}</h2>
         <p className="muted">1. 基本設定 2. 役割決め 3. タイトル確認 の順で作ると迷いません。</p>
       </section>
 
@@ -355,8 +379,10 @@ export const PlanCreatePage = () => {
       </section>
 
       <button className="btn full" type="submit">
-        企画カードを作成
+        {editingPlan ? '企画を更新' : '企画カードを作成'}
       </button>
+        </>
+      )}
     </form>
   )
 }

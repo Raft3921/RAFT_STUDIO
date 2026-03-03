@@ -53,13 +53,16 @@ interface AppContextValue {
   ready: boolean
   data: AppData
   createPlan: (input: CreatePlanInput) => Promise<void>
-  updatePlan: (planId: string, patch: Partial<Pick<Plan, 'title' | 'templateType' | 'durationSec' | 'memo'>>) => Promise<void>
+  updatePlan: (
+    planId: string,
+    patch: Partial<Omit<Plan, 'id' | 'createdAt' | 'createdBy'>>,
+  ) => Promise<void>
   deletePlan: (planId: string) => Promise<void>
   updatePlanStatus: (planId: string, status: PlanStatus) => Promise<void>
   createEvent: (input: CreateEventInput) => Promise<void>
   updateEvent: (
     eventId: string,
-    patch: Partial<Pick<EventItem, 'title' | 'datetime' | 'meetingPoint' | 'location' | 'timeline'>>,
+    patch: Partial<Omit<EventItem, 'id' | 'createdAt'>>,
   ) => Promise<void>
   deleteEvent: (eventId: string) => Promise<void>
   setAttendance: (eventId: string, response: Attendance, comment?: string) => Promise<void>
