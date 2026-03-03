@@ -34,16 +34,12 @@ export const HomePage = () => {
   const completionPoints =
     (data.plans.length > 0 ? 35 : 0) +
     (data.events.length > 0 ? 35 : 0) +
-    (upcoming && responseCount(upcoming.id, data.responses).maybe === 0 ? 30 : 10)
+    (upcoming ? 30 : 10)
 
   const nextStep = (() => {
     if (data.plans.length === 0) return 'まず企画1枚。話はそれから。'
     if (data.events.length === 0) return '撮影日を1つ作る。逃げない。'
-    if (upcoming) {
-      const counts = responseCount(upcoming.id, data.responses)
-      const unanswered = data.members.length - (counts.yes + counts.no + counts.maybe)
-      if (unanswered > 0) return `未回答 ${unanswered} 人。出欠から片付ける。`
-    }
+    if (upcoming) return '次の撮影準備を進める。持ち物と段取りを確認。'
     return '次の公開へ。決定ステータスまで進める。'
   })()
 

@@ -30,9 +30,9 @@ const frameSets: Record<MotionMode, string[]> = {
 const tabGuides: Record<string, HintItem[]> = {
   '/home': [
     hint('案内', 'まず企画。話はそれから。'),
-    hint('案内', '出欠、空欄。犯人はだれ。'),
-    hint('案内', '集合書いとこ。聞かれる回数が減る。'),
-    hint('案内', '未定でも押しとこ。あとで変えられる。'),
+    hint('案内', '集合情報を整えると、当日が静か。'),
+    hint('案内', '持ち物を先に埋めると準備が速い。'),
+    hint('案内', '段取りを3行でいいから決めておく。'),
   ],
   '/plans': [
     hint('案内', 'タイトル迷ったら、あとでいい。'),
@@ -43,13 +43,13 @@ const tabGuides: Record<string, HintItem[]> = {
   '/plans/new': [
     hint('案内', '出るメンバー先に選ぶと迷子にならない。'),
     hint('案内', '役割は必須だけ先に埋めればOK。'),
-    hint('案内', '出欠だけ押して。マジ助かる。'),
+    hint('案内', 'タイトルは候補から選べば早い。'),
   ],
   '/events': [
     hint('案内', '集合書いとこ。聞かれる回数が減る。'),
     hint('案内', '持ち物チェックすると、当日が平和。'),
-    hint('案内', '未定でも押して。あとで変えられる。'),
-    hint('案内', '参加むずいも正義。早いほど正義。'),
+    hint('案内', '持ち物の担当を決めると抜けが減る。'),
+    hint('案内', '段取りを先に書くと進行が安定する。'),
   ],
   '/events/new': [
     hint('案内', '集合と場所だけ入れれば運用できる。'),
@@ -61,18 +61,9 @@ const tabGuides: Record<string, HintItem[]> = {
   ],
 }
 
-const genericAttendanceHints: HintItem[] = [
-  hint('案内', '出欠だけ先に押して。マジ助かる。'),
-  hint('案内', '参加/不参加だけでも押しとこ。'),
-  hint('案内', '未定でもOK。押しとけば進む。'),
-  hint('案内', '出欠が空欄だと、予定が組めん...!'),
-  hint('案内', '"未回答"がいると、時間が決められないやつ。'),
-  hint('案内', '出欠は3秒。悩むのはそのあとでOK。'),
-]
-
 const successHints: HintItem[] = [
-  hint('案内', '出欠が揃うと、段取りが決まる。'),
-  hint('案内', '出欠埋める=全員のストレス減る。'),
+  hint('案内', '準備が揃うと、当日の負荷が下がる。'),
+  hint('案内', 'この進め方なら運用が安定する。'),
   hint('案内', 'この進み方、かなり良い。次もこの調子。'),
 ]
 
@@ -105,22 +96,15 @@ export const RaftGuide = () => {
       .slice()
       .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())[0]
 
-    const answered = nextEvent
-      ? data.responses.filter((response) => response.eventId === nextEvent.id).length
-      : 0
-
-    const pendingResponses = nextEvent ? Math.max(0, data.members.length - answered) : 0
-
     return {
       hasPlan: data.plans.length > 0,
       hasEvent: data.events.length > 0,
-      pendingResponses,
       hasMeetingInfo: nextEvent ? !!nextEvent.meetingPoint && !!nextEvent.location : false,
       pendingChecklist: nextEvent
         ? nextEvent.checklist.filter((item) => item.doneBy.length === 0).length
         : 0,
     }
-  }, [data.events, data.members.length, data.plans.length, data.responses])
+  }, [data.events, data.plans.length])
 
   const hints = useMemo(() => {
     if (!ready) {
@@ -135,14 +119,6 @@ export const RaftGuide = () => {
 
     if (!situation.hasEvent) {
       return [hint('案内', '次は撮影日。1つ入れるだけで進行が見える。'), ...scoped]
-    }
-
-    if (situation.pendingResponses > 0) {
-      return [
-        hint('案内', `未回答が${situation.pendingResponses}人いる。先に回収しよう。`),
-        ...genericAttendanceHints,
-        ...scoped,
-      ]
     }
 
     if (!situation.hasMeetingInfo) {
