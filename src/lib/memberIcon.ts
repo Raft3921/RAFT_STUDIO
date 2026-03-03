@@ -1,5 +1,6 @@
 import moronIcon from '../../assets/もろん.png'
 import maiIcon from '../../assets/まい.png'
+import gyozaIcon from '../../assets/ギョーザ.png'
 import weekIcon from '../../assets/ウィーク.png'
 import mutoIcon from '../../assets/ムート.png'
 import raftIcon from '../../assets/ラフト.png'
@@ -16,6 +17,7 @@ const iconByName: Record<string, string> = {
   ムート: mutoIcon,
   もろん: moronIcon,
   ウィーク: weekIcon,
+  ギョーザ: gyozaIcon,
 }
 
 export const getMemberIcon = (displayName: string) => {
