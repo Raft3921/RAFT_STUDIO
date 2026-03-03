@@ -1,20 +1,73 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { firestoreDb } from '../lib/firebase'
 import { useApp } from '../store/AppContext'
 import { RaftGuide } from './RaftGuide'
 
 const tabs = [
-  { to: '/home', label: 'ホーム' },
-  { to: '/plans', label: '企画' },
-  { to: '/events', label: '撮影日' },
-  { to: '/rafine', label: 'RAFINE' },
-  { to: '/me', label: '自分' },
+  { to: '/home', label: 'ホーム', tour: 'tab-home' },
+  { to: '/plans', label: '企画', tour: 'tab-plans' },
+  { to: '/events', label: '撮影日', tour: 'tab-events' },
+  { to: '/rafine', label: 'RAFINE', tour: 'tab-rafine' },
+  { to: '/me', label: '自分', tour: 'tab-me' },
 ]
+
+const onboardingStorageKey = 'onboarding-v2-done'
+const onboardingSteps = [
+  {
+    path: '/home',
+    target: '[data-tour="tab-me"]',
+    title: '最初にここ',
+    text: 'まずは「自分」タブで名前を設定しよう。',
+  },
+  {
+    path: '/me',
+    target: '[data-tour="me-name-input"]',
+    title: '表示名',
+    text: 'この欄に名前を入力。',
+  },
+  {
+    path: '/me',
+    target: '[data-tour="me-name-save"]',
+    title: '保存',
+    text: '保存すれば、この端末でも共有先でも同じ名前で扱える。',
+  },
+  {
+    path: '/me',
+    target: '[data-tour="tab-plans"]',
+    title: '次は企画',
+    text: '次は「企画」タブへ。',
+  },
+  {
+    path: '/plans',
+    target: '[data-tour="plans-create-button"]',
+    title: '企画を作成',
+    text: 'ここから新しい企画カードを作る。',
+  },
+  {
+    path: '/plans/new',
+    target: '[data-tour="plan-template"]',
+    title: 'テンプレ選択',
+    text: '最初に企画テンプレを選ぶ。',
+  },
+  {
+    path: '/plans/new',
+    target: '[data-tour="plan-members"]',
+    title: 'メンバー選択',
+    text: '参加メンバーを選択する。',
+  },
+  {
+    path: '/plans/new',
+    target: '[data-tour="plan-submit"]',
+    title: '作成完了',
+    text: '最後に作成ボタンで企画カード完成。',
+  },
+] as const
 
 export const Layout = () => {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { ready, workspaceId, storageMode, currentUserId } = useApp()
   const defaultChannelTitle = '無念のラフト'
   const [channelTitle, setChannelTitle] = useState(defaultChannelTitle)
@@ -31,6 +84,91 @@ export const Layout = () => {
     [],
   )
   const [frameIndex, setFrameIndex] = useState(0)
+  const [onboardingActive, setOnboardingActive] = useState(false)
+  const [onboardingIndex, setOnboardingIndex] = useState(0)
+  const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
+
+  useEffect(() => {
+    if (!ready) return
+    const done = window.localStorage.getItem(onboardingStorageKey)
+    if (done === '1') return
+    const timer = window.setTimeout(() => {
+      setOnboardingActive(true)
+      setOnboardingIndex(0)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [ready])
+
+  useEffect(() => {
+    if (!onboardingActive) return
+    const step = onboardingSteps[onboardingIndex]
+    if (!step) return
+    if (pathname !== step.path) {
+      navigate(step.path)
+    }
+  }, [navigate, onboardingActive, onboardingIndex, pathname])
+
+  useEffect(() => {
+    if (!onboardingActive) return
+    const step = onboardingSteps[onboardingIndex]
+    if (!step) return
+
+    let frame = 0
+    let cancelled = false
+    const measure = () => {
+      if (cancelled) return
+      const target = document.querySelector(step.target)
+      if (target instanceof HTMLElement) {
+        setHighlightRect(target.getBoundingClientRect())
+        return
+      }
+      frame += 1
+      if (frame < 40) {
+        window.requestAnimationFrame(measure)
+      } else {
+        setHighlightRect(null)
+      }
+    }
+    measure()
+
+    const onResize = () => measure()
+    window.addEventListener('resize', onResize)
+    return () => {
+      cancelled = true
+      window.removeEventListener('resize', onResize)
+    }
+  }, [onboardingActive, onboardingIndex, pathname])
+
+  useEffect(() => {
+    if (!onboardingActive) return
+    const onScroll = () => {
+      const step = onboardingSteps[onboardingIndex]
+      const target = document.querySelector(step.target)
+      if (target instanceof HTMLElement) {
+        setHighlightRect(target.getBoundingClientRect())
+      }
+    }
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [onboardingActive, onboardingIndex])
+
+  const closeOnboarding = () => {
+    window.localStorage.setItem(onboardingStorageKey, '1')
+    setOnboardingActive(false)
+    setHighlightRect(null)
+  }
+
+  const nextOnboarding = () => {
+    if (onboardingIndex >= onboardingSteps.length - 1) {
+      closeOnboarding()
+      return
+    }
+    setOnboardingIndex((prev) => prev + 1)
+  }
+
+  const prevOnboarding = () => {
+    setOnboardingIndex((prev) => Math.max(0, prev - 1))
+  }
 
   useEffect(() => {
     if (ready) {
@@ -180,12 +318,54 @@ export const Layout = () => {
           <NavLink
             key={tab.to}
             to={tab.to}
+            data-tour={tab.tour}
             className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
           >
             {tab.label}
           </NavLink>
         ))}
       </nav>
+      {onboardingActive && (
+        <div className="onboarding-layer" role="dialog" aria-modal="true" aria-label="初回ガイド">
+          {highlightRect && (
+            <div
+              className="onboarding-focus"
+              style={{
+                top: highlightRect.top - 6,
+                left: highlightRect.left - 6,
+                width: highlightRect.width + 12,
+                height: highlightRect.height + 12,
+              }}
+            />
+          )}
+          <div
+            className="onboarding-popover"
+            style={{
+              top: highlightRect ? Math.min(window.innerHeight - 170, highlightRect.bottom + 14) : 86,
+              left: highlightRect
+                ? Math.max(10, Math.min(window.innerWidth - 294, highlightRect.left))
+                : 10,
+            }}
+          >
+            <p className="onboarding-step">ガイド {onboardingIndex + 1}/{onboardingSteps.length}</p>
+            <h3>{onboardingSteps[onboardingIndex].title}</h3>
+            <p>{onboardingSteps[onboardingIndex].text}</p>
+            <div className="onboarding-actions">
+              <button type="button" className="btn ghost" onClick={closeOnboarding}>
+                スキップ
+              </button>
+              {onboardingIndex > 0 && (
+                <button type="button" className="btn ghost" onClick={prevOnboarding}>
+                  戻る
+                </button>
+              )}
+              <button type="button" className="btn" onClick={nextOnboarding}>
+                {onboardingIndex === onboardingSteps.length - 1 ? '完了' : '次へ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {displayLoading && (
         <div className="sync-loading-overlay" role="status" aria-live="polite">
           <div className="sync-loading-inner">

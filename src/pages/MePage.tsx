@@ -82,6 +82,7 @@ export const MePage = () => {
         </div>
         <label>表示名</label>
         <input
+          data-tour="me-name-input"
           className="field"
           value={displayName}
           onChange={(event) =>
@@ -91,7 +92,7 @@ export const MePage = () => {
             }))
           }
         />
-        <button className="btn" onClick={() => updateMyProfile(displayName)}>
+        <button data-tour="me-name-save" className="btn" onClick={() => updateMyProfile(displayName)}>
           表示名を保存
         </button>
       </section>

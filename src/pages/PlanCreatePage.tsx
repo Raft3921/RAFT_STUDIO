@@ -192,7 +192,7 @@ export const PlanCreatePage = () => {
         <h3>1. 基本設定</h3>
 
         <label>テンプレ</label>
-        <div className="chip-row">
+        <div className="chip-row" data-tour="plan-template">
           {planTemplates.map((item) => (
             <button
               type="button"
@@ -247,7 +247,7 @@ export const PlanCreatePage = () => {
             ラフトのみ
           </button>
         </div>
-        <div className="chip-row">
+        <div className="chip-row" data-tour="plan-members">
           {data.members.map((member) => (
             <button
               type="button"
@@ -378,7 +378,7 @@ export const PlanCreatePage = () => {
         <textarea className="field" rows={3} value={memo} onChange={(event) => setMemo(event.target.value)} />
       </section>
 
-      <button className="btn full" type="submit">
+      <button data-tour="plan-submit" className="btn full" type="submit">
         {editingPlan ? '企画を更新' : '企画カードを作成'}
       </button>
         </>

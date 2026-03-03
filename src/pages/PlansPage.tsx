@@ -24,7 +24,7 @@ export const PlansPage = () => {
       <section className="panel">
         <div className="section-head">
           <h2>企画一覧</h2>
-          <Link className="btn" to="/plans/new">
+          <Link data-tour="plans-create-button" className="btn" to="/plans/new">
             企画作成
           </Link>
         </div>
