@@ -39,7 +39,14 @@ const formatTime = (iso: string) => {
 export const RafinePage = () => {
   const { data, currentUserId, workspaceId, storageMode } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
-  const me = data.members.find((member) => member.id === currentUserId) ?? data.members[0]
+  const me =
+    data.members.find((member) => member.id === currentUserId) ??
+    data.members[0] ?? {
+      id: currentUserId,
+      displayName: '自分',
+      role: 'メンバー',
+      notificationsEnabled: true,
+    }
   const dmTargetId = searchParams.get('dm') ?? ''
   const dmTarget = data.members.find((member) => member.id === dmTargetId && member.id !== currentUserId)
   const [text, setText] = useState('')
@@ -116,14 +123,14 @@ export const RafinePage = () => {
     notification.onclick = () => window.focus()
   }, [currentUserId, displayedMessages])
 
-  const canSend = text.trim().length > 0 && !!me
+  const canSend = text.trim().length > 0
   const onlineLabel = useMemo(
     () => (storageMode === 'firebase' ? '共有メッセージ（全員同期）' : 'この端末のみ'),
     [storageMode],
   )
 
   const onSend = async () => {
-    if (!canSend || !me) return
+    if (!canSend) return
     const payload: Omit<RafineMessage, 'id'> = {
       text: text.trim(),
       userId: currentUserId,
@@ -132,15 +139,19 @@ export const RafinePage = () => {
       createdAt: new Date().toISOString(),
     }
 
-    if (storageMode === 'firebase' && firestoreDb) {
-      await addDoc(collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages'), payload)
-    } else {
-      const next = [...localMessages, { id: crypto.randomUUID(), ...payload }]
-      saveLocalMessages(workspaceId, next)
-      setLocalVersion((prev) => prev + 1)
+    try {
+      if (storageMode === 'firebase' && firestoreDb) {
+        await addDoc(collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages'), payload)
+      } else {
+        const next = [...localMessages, { id: crypto.randomUUID(), ...payload }]
+        saveLocalMessages(workspaceId, next)
+        setLocalVersion((prev) => prev + 1)
+      }
+      setText('')
+    } catch {
+      setInlineNotice('送信に失敗しました。通信状態を確認して再送してください。')
+      window.setTimeout(() => setInlineNotice(''), 4200)
     }
-
-    setText('')
   }
 
   const onDelete = async (messageId: string) => {
@@ -213,10 +224,17 @@ export const RafinePage = () => {
             )
           })}
         </div>
-        <div className="rafine-compose">
+        <form
+          className="rafine-compose"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void onSend()
+          }}
+        >
           <input
             className="field"
             placeholder="メッセージを入力"
+            autoComplete="off"
             value={text}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
@@ -226,10 +244,10 @@ export const RafinePage = () => {
               }
             }}
           />
-          <button className="btn" type="button" onClick={() => void onSend()} disabled={!canSend}>
+          <button className="btn" type="submit" disabled={!canSend}>
             送信
           </button>
-        </div>
+        </form>
       </section>
     </div>
   )
