@@ -14,9 +14,14 @@ export const EventsPage = () => {
       <section className="panel">
         <div className="section-head">
           <h2>撮影日一覧</h2>
-          <Link className="btn" to="/events/new">
-            撮影日作成
-          </Link>
+          <div className="inline-row">
+            <Link className="btn ghost" to="/calendar">
+              カレンダー
+            </Link>
+            <Link className="btn" to="/events/new">
+              撮影日作成
+            </Link>
+          </div>
         </div>
       </section>
 

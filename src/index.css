@@ -281,7 +281,7 @@ label {
   background: #fff;
   border-top: 1px solid var(--line);
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   padding: 8px;
   z-index: 20;
 }
@@ -824,6 +824,57 @@ p {
 .channel-video-meta strong {
   font-size: 0.9rem;
   line-height: 1.35;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-week {
+  margin-bottom: 4px;
+}
+
+.calendar-week-cell {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.calendar-cell {
+  min-height: 90px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-cell-blank {
+  background: #f5f6f8;
+}
+
+.calendar-date {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.calendar-event-link {
+  font-size: 0.72rem;
+  color: #8f1b1b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .onboarding-layer {

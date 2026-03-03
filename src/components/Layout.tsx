@@ -9,6 +9,7 @@ const tabs = [
   { to: '/home', label: 'ホーム', tour: 'tab-home' },
   { to: '/plans', label: '企画', tour: 'tab-plans' },
   { to: '/events', label: '撮影日', tour: 'tab-events' },
+  { to: '/calendar', label: 'カレンダー', tour: 'tab-calendar' },
   { to: '/channel', label: 'チャンネル', tour: 'tab-channel' },
   { to: '/rafine', label: 'RAFINE', tour: 'tab-rafine' },
   { to: '/me', label: '自分', tour: 'tab-me' },
