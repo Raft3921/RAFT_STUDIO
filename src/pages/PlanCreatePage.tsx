@@ -39,7 +39,7 @@ export const PlanCreatePage = () => {
   const [templateType, setTemplateType] = useState(editingPlan?.templateType ?? planTemplates[0])
   const [durationSec, setDurationSec] = useState(editingPlan?.durationSec ?? 480)
   const [participantIds, setParticipantIds] = useState<string[]>(
-    editingPlan?.participantIds ?? data.members.map((member) => member.id),
+    editingPlan?.participantIds ?? [],
   )
   const [goal, setGoal] = useState<Plan['goal']>(editingPlan?.goal ?? '笑い')
   const [assets, setAssets] = useState<string[]>(editingPlan?.assets ?? ['BGM'])
@@ -84,8 +84,7 @@ export const PlanCreatePage = () => {
     setParticipantIds((prev) => {
       const exists = prev.includes(memberId)
       if (exists) {
-        const next = prev.filter((id) => id !== memberId)
-        return next.length > 0 ? next : prev
+        return prev.filter((id) => id !== memberId)
       }
       return [...prev, memberId]
     })
