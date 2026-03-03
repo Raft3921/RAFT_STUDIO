@@ -4,7 +4,9 @@ import { signInAnonymously } from 'firebase/auth'
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -41,6 +43,7 @@ interface CreateEventInput {
 
 type StorageMode = 'local' | 'firebase'
 const STORAGE_MODE_KEY = 'youtube-planner-storage-mode'
+const DISPLAY_NAME_KEY = 'youtube-planner-display-name'
 
 interface AppContextValue {
   currentUserId: string
@@ -63,11 +66,24 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null)
 
 const createId = () => crypto.randomUUID()
+const normalizeDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ')
+const fallbackDisplayName = 'ラフト'
+const memberIdFromName = (displayName: string) =>
+  `name-${encodeURIComponent(normalizeDisplayName(displayName).toLowerCase())}`
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [data, setData] = useState<AppData>(() => loadData())
   const [workspaceId] = useState(() => getOrCreateWorkspaceId())
-  const [currentUserId, setCurrentUserId] = useState('m-raft')
+  const [preferredDisplayName, setPreferredDisplayName] = useState(() => {
+    return normalizeDisplayName(localStorage.getItem(DISPLAY_NAME_KEY) ?? fallbackDisplayName)
+  })
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    const initialData = loadData()
+    const byName = initialData.members.find(
+      (member) => normalizeDisplayName(member.displayName) === normalizeDisplayName(localStorage.getItem(DISPLAY_NAME_KEY) ?? fallbackDisplayName),
+    )
+    return byName?.id ?? memberIdFromName(localStorage.getItem(DISPLAY_NAME_KEY) ?? fallbackDisplayName)
+  })
   const [storageMode, setStorageMode] = useState<StorageMode>(() => {
     if (!isFirebaseEnabled) return 'local'
     const saved = localStorage.getItem(STORAGE_MODE_KEY)
@@ -80,6 +96,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [storageMode])
 
   useEffect(() => {
+    localStorage.setItem(DISPLAY_NAME_KEY, preferredDisplayName)
+  }, [preferredDisplayName])
+
+  useEffect(() => {
     if (storageMode !== 'firebase' || !isFirebaseEnabled || !firebaseAuth || !firestoreDb) {
       return
     }
@@ -90,18 +110,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     let unsubscribers: Array<() => void> = []
 
     const startSync = async () => {
-      const authUser = auth.currentUser ?? (await signInAnonymously(auth)).user
-      const userId = authUser.uid
-      setCurrentUserId(userId)
+      if (!auth.currentUser) {
+        await signInAnonymously(auth)
+      }
 
       const workspaceRef = doc(db, 'workspaces', workspaceId)
       await setDoc(workspaceRef, { updatedAt: serverTimestamp() }, { merge: true })
+
+      const membersSnapshot = await getDocs(collection(workspaceRef, 'members'))
+      const existingByName = membersSnapshot.docs.find(
+        (item) =>
+          normalizeDisplayName(String(item.data().displayName ?? '')) ===
+          normalizeDisplayName(preferredDisplayName),
+      )
+      const userId = existingByName?.id ?? memberIdFromName(preferredDisplayName)
+      setCurrentUserId(userId)
 
       const memberRef = doc(workspaceRef, 'members', userId)
       await setDoc(
         memberRef,
         {
-          displayName: 'メンバー',
+          displayName: preferredDisplayName,
           role: 'メンバー',
           notificationsEnabled: true,
         } satisfies Omit<Member, 'id'>,
@@ -133,14 +162,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     startSync().catch(() => {
       setStorageMode('local')
-      setCurrentUserId('m-raft')
+      setCurrentUserId(memberIdFromName(preferredDisplayName))
       setReady(true)
     })
 
     return () => {
       unsubscribers.forEach((unsub) => unsub())
     }
-  }, [workspaceId, storageMode])
+  }, [preferredDisplayName, storageMode, workspaceId])
 
   useEffect(() => {
     if (storageMode === 'local') {
@@ -151,8 +180,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const migrateLocalDataToFirebase = useCallback(async () => {
     if (!isFirebaseEnabled || !firebaseAuth || !firestoreDb) return false
 
-    const authUser = firebaseAuth.currentUser ?? (await signInAnonymously(firebaseAuth)).user
-    const userId = authUser.uid
+    if (!firebaseAuth.currentUser) {
+      await signInAnonymously(firebaseAuth)
+    }
+    const userId = memberIdFromName(preferredDisplayName)
     const localData = loadData()
     const workspaceRef = doc(firestoreDb, 'workspaces', workspaceId)
 
@@ -178,11 +209,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       ),
     )
 
-    const fallbackName = localData.members.find((member) => member.id === 'm-raft')?.displayName ?? 'メンバー'
     await setDoc(
       doc(workspaceRef, 'members', userId),
       {
-        displayName: fallbackName,
+        displayName: preferredDisplayName,
         role: 'メンバー',
         notificationsEnabled: true,
       } satisfies Omit<Member, 'id'>,
@@ -193,7 +223,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setStorageMode('firebase')
     setReady(false)
     return true
-  }, [workspaceId])
+  }, [preferredDisplayName, workspaceId])
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -307,25 +337,93 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }))
       },
       updateMyProfile: async (displayName) => {
-        const trimmed = displayName.trim()
+        const trimmed = normalizeDisplayName(displayName)
         if (!trimmed) return
+        setPreferredDisplayName(trimmed)
+
+        const existingSameName = data.members.find(
+          (member) =>
+            normalizeDisplayName(member.displayName) === trimmed && member.id !== currentUserId,
+        )
+        const nextUserId = existingSameName?.id ?? memberIdFromName(trimmed)
 
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
+          if (nextUserId !== currentUserId) {
+            const myResponses = data.responses.filter((item) => item.userId === currentUserId)
+            await Promise.all(
+              myResponses.map(async (response) => {
+                const migrated = { ...response, userId: nextUserId }
+                await setDoc(
+                  doc(db, 'workspaces', workspaceId, 'responses', `${response.eventId}_${nextUserId}`),
+                  migrated,
+                  { merge: true },
+                )
+                await deleteDoc(
+                  doc(db, 'workspaces', workspaceId, 'responses', `${response.eventId}_${response.userId}`),
+                )
+              }),
+            )
+
+            await Promise.all(
+              data.events.map(async (event) => {
+                const changed = event.checklist.some((item) => item.doneBy.includes(currentUserId))
+                if (!changed) return
+                const checklist = event.checklist.map((item) => ({
+                  ...item,
+                  doneBy: item.doneBy.map((id) => (id === currentUserId ? nextUserId : id)),
+                }))
+                await updateDoc(doc(db, 'workspaces', workspaceId, 'events', event.id), { checklist })
+              }),
+            )
+          }
+
           await setDoc(
-            doc(db, 'workspaces', workspaceId, 'members', currentUserId),
+            doc(db, 'workspaces', workspaceId, 'members', nextUserId),
             { displayName: trimmed },
             { merge: true },
           )
+          if (nextUserId !== currentUserId) {
+            setCurrentUserId(nextUserId)
+          }
           return
         }
 
         setData((prev) => ({
           ...prev,
-          members: prev.members.map((member) =>
-            member.id === currentUserId ? { ...member, displayName: trimmed } : member,
+          members: (() => {
+            const withoutCurrent = prev.members.filter((member) => member.id !== currentUserId)
+            if (existingSameName) {
+              return withoutCurrent
+            }
+            const sameId = withoutCurrent.find((member) => member.id === nextUserId)
+            if (sameId) {
+              return withoutCurrent.map((member) =>
+                member.id === nextUserId ? { ...member, displayName: trimmed } : member,
+              )
+            }
+            return [
+              ...withoutCurrent,
+              {
+                id: nextUserId,
+                displayName: trimmed,
+                role: 'メンバー',
+                notificationsEnabled: true,
+              },
+            ]
+          })(),
+          responses: prev.responses.map((item) =>
+            item.userId === currentUserId ? { ...item, userId: nextUserId } : item,
           ),
+          events: prev.events.map((event) => ({
+            ...event,
+            checklist: event.checklist.map((item) => ({
+              ...item,
+              doneBy: item.doneBy.map((id) => (id === currentUserId ? nextUserId : id)),
+            })),
+          })),
         }))
+        setCurrentUserId(nextUserId)
       },
       toggleMyNotification: async () => {
         const me = data.members.find((member) => member.id === currentUserId)
@@ -368,14 +466,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (mode === 'local') {
           const localData = loadData()
           setData(localData)
-          setCurrentUserId(localData.members[0]?.id ?? 'm-raft')
+          const sameNameMember = localData.members.find(
+            (member) => normalizeDisplayName(member.displayName) === normalizeDisplayName(preferredDisplayName),
+          )
+          setCurrentUserId(sameNameMember?.id ?? memberIdFromName(preferredDisplayName))
           setReady(true)
         } else {
           setReady(false)
         }
       },
     }),
-    [currentUserId, data, migrateLocalDataToFirebase, ready, storageMode, workspaceId],
+    [currentUserId, data, migrateLocalDataToFirebase, preferredDisplayName, ready, storageMode, workspaceId],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

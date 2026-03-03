@@ -17,7 +17,7 @@ export const MePage = () => {
   } = useApp()
 
   const me = data.members.find((member) => member.id === currentUserId) ?? data.members[0]
-  const [displayName, setDisplayName] = useState(me?.displayName ?? '')
+  const [draftNames, setDraftNames] = useState<Record<string, string>>({})
 
   if (!ready) {
     return <section className="panel">同期を開始しています...</section>
@@ -26,6 +26,7 @@ export const MePage = () => {
   if (!me) {
     return <section className="panel">メンバー情報がありません。</section>
   }
+  const displayName = draftNames[me.id] ?? me.displayName
 
   const myEvents = data.responses
     .filter((response) => response.userId === currentUserId)
@@ -75,7 +76,16 @@ export const MePage = () => {
 
       <section className="panel">
         <label>表示名</label>
-        <input className="field" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+        <input
+          className="field"
+          value={displayName}
+          onChange={(event) =>
+            setDraftNames((prev) => ({
+              ...prev,
+              [me.id]: event.target.value,
+            }))
+          }
+        />
         <button className="btn" onClick={() => updateMyProfile(displayName)}>
           表示名を保存
         </button>
