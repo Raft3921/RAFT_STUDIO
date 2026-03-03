@@ -643,7 +643,6 @@ p {
 }
 
 .rafine-message-item.mine {
-  flex-direction: row-reverse;
   justify-content: flex-end;
 }
 
@@ -658,7 +657,7 @@ p {
 .rafine-message-item.mine .rafine-message-body {
   background: #fff4f3;
   border-color: #efb2b0;
-  margin-right: 0;
+  margin-left: auto;
 }
 
 .rafine-message-item.mine .rafine-msg-icon {
