@@ -1,10 +1,23 @@
 import { Link } from 'react-router-dom'
+import type { CSSProperties } from 'react'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 
 export const HomePage = () => {
   const { data } = useApp()
+  const panelBase = `${import.meta.env.BASE_URL}panel`
+  const heroPanelStyle = {
+    '--quest-panel-center': `url('${panelBase}/panel_center.png')`,
+    '--quest-panel-top': `url('${panelBase}/panel_top.png')`,
+    '--quest-panel-bottom': `url('${panelBase}/panel_bottom.png')`,
+    '--quest-panel-left': `url('${panelBase}/panel_left.png')`,
+    '--quest-panel-right': `url('${panelBase}/panel_right.png')`,
+    '--quest-panel-tl': `url('${panelBase}/panel_tl.png')`,
+    '--quest-panel-tr': `url('${panelBase}/panel_tr.png')`,
+    '--quest-panel-bl': `url('${panelBase}/panel_bl.png')`,
+    '--quest-panel-br': `url('${panelBase}/panel_br.png')`,
+  } as CSSProperties
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
 
@@ -26,7 +39,7 @@ export const HomePage = () => {
 
   return (
     <div className="page-stack">
-      <section className="panel hero-panel">
+      <section className="panel hero-panel" style={heroPanelStyle}>
         <p className="hero-kicker">QUEST</p>
         <h2>本日のクエスト</h2>
         <p>{nextStep}</p>

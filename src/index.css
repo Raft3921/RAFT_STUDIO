@@ -490,15 +490,15 @@ p {
   image-rendering: crisp-edges;
   background-color: #7b4e2c;
   background-image:
-    url('../panel/panel_center.png'),
-    url('../panel/panel_top.png'),
-    url('../panel/panel_bottom.png'),
-    url('../panel/panel_left.png'),
-    url('../panel/panel_right.png'),
-    url('../panel/panel_tl.png'),
-    url('../panel/panel_tr.png'),
-    url('../panel/panel_bl.png'),
-    url('../panel/panel_br.png');
+    var(--quest-panel-center, none),
+    var(--quest-panel-top, none),
+    var(--quest-panel-bottom, none),
+    var(--quest-panel-left, none),
+    var(--quest-panel-right, none),
+    var(--quest-panel-tl, none),
+    var(--quest-panel-tr, none),
+    var(--quest-panel-bl, none),
+    var(--quest-panel-br, none);
   background-repeat: repeat, repeat-x, repeat-x, repeat-y, repeat-y, no-repeat, no-repeat, no-repeat, no-repeat;
   background-position:
     top 32px left 32px,
