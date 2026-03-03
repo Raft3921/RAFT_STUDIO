@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { eventChecklistTemplates, eventTemplateNames } from '../data/templates'
 import { roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { EventChecklistItem } from '../types'
 
 type ChecklistDraftItem = Pick<EventChecklistItem, 'label' | 'scope' | 'assigneeIds'>
+const lineKey = (label: string, index: number) => `line-${index}-${label}`
 
 export const EventCreatePage = () => {
   const { id } = useParams()
@@ -22,7 +22,6 @@ export const EventCreatePage = () => {
   const [meetingPoint, setMeetingPoint] = useState(editingEvent?.meetingPoint ?? 'Discord集合')
   const [location, setLocation] = useState(editingEvent?.location ?? 'オンライン')
   const [timelineRaw, setTimelineRaw] = useState(editingEvent?.timeline.join('\n') ?? '開始\n撮影\n終了')
-  const [templateName, setTemplateName] = useState(eventTemplateNames[0])
   const [extraChecklist, setExtraChecklist] = useState(
     editingEvent ? editingEvent.checklist.map((item) => item.label).join('\n') : '',
   )
@@ -30,7 +29,7 @@ export const EventCreatePage = () => {
     editingEvent
       ? Object.fromEntries(
           editingEvent.checklist.map((item, index) => [
-            `existing-${index}-${item.id}`,
+            lineKey(item.label, index),
             item.scope === 'member' ? 'member' : 'all',
           ]),
         )
@@ -40,7 +39,7 @@ export const EventCreatePage = () => {
     editingEvent
       ? Object.fromEntries(
           editingEvent.checklist.map((item, index) => [
-            `existing-${index}-${item.id}`,
+            lineKey(item.label, index),
             item.assigneeIds ?? [],
           ]),
         )
@@ -56,26 +55,18 @@ export const EventCreatePage = () => {
     [data.members, selectedPlan],
   )
   const checklistDraft = useMemo(() => {
-    if (editingEvent) {
-      return editingEvent.checklist.map((item, index) => ({
-        key: `existing-${index}-${item.id}`,
-        label: item.label,
-        defaultScope: item.scope === 'member' ? 'member' : 'all',
-      }))
-    }
-    const templateItems = eventChecklistTemplates[templateName].map((item) => ({ ...item, source: 'template' as const }))
     const extraItems = extraChecklist
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((label) => ({ label, scope: 'all' as const, source: 'extra' as const }))
+      .map((label, index) => ({ key: lineKey(label, index), label }))
 
-    return [...templateItems, ...extraItems].map((item, index) => ({
-      key: `${item.source}-${index}-${item.label}`,
+    return extraItems.map((item) => ({
+      key: item.key,
       label: item.label,
-      defaultScope: item.scope,
+      defaultScope: 'all' as const,
     }))
-  }, [editingEvent, templateName, extraChecklist])
+  }, [extraChecklist])
 
   const missingEditTarget = Boolean(id && !editingEvent)
 
@@ -167,25 +158,7 @@ export const EventCreatePage = () => {
       </section>
 
       <section className="panel">
-        {!editingEvent && (
-          <>
-            <label>持ち物テンプレ</label>
-            <div className="chip-row">
-              {eventTemplateNames.map((name) => (
-                <button
-                  className={`chip ${templateName === name ? 'active' : ''}`}
-                  type="button"
-                  key={name}
-                  onClick={() => setTemplateName(name)}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        <label>{editingEvent ? '持ち物（改行区切り）' : '追加持ち物（改行区切り）'}</label>
+        <label>持ち物（改行区切り）</label>
         <textarea
           className="field"
           rows={3}
