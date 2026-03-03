@@ -8,6 +8,7 @@ import {
   participantSummaryText,
   resolveRoleNames,
 } from '../lib/plan'
+import { getMemberIcon } from '../lib/memberIcon'
 import { useApp } from '../store/AppContext'
 import type { Plan, RoleAssignments } from '../types'
 
@@ -230,7 +231,10 @@ export const PlanCreatePage = () => {
               className={`chip ${participantIds.includes(member.id) ? 'active' : ''}`}
               onClick={() => toggleParticipant(member.id)}
             >
-              {member.displayName}
+              <span className="member-chip-label">
+                <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
+                <span>{member.displayName}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -297,7 +301,10 @@ export const PlanCreatePage = () => {
                         className={`chip ${roleAssignments[role.id]?.includes(member.id) ? 'active' : ''}`}
                         onClick={() => toggleRoleMember(role.id, member.id, role.selection)}
                       >
-                        {member.displayName}
+                        <span className="member-chip-label">
+                          <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
+                          <span>{member.displayName}</span>
+                        </span>
                       </button>
                     ))}
                   </div>

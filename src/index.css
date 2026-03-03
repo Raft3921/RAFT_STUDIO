@@ -175,6 +175,27 @@ label {
   border-color: #efb2b0;
 }
 
+.member-chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.member-chip-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.member-chip-icon-lg {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
 .status-badge {
   border-radius: 6px;
   padding: 4px 9px;

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getMemberIcon } from '../lib/memberIcon'
 import { formatDateTime } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 
@@ -75,6 +76,10 @@ export const MePage = () => {
       </section>
 
       <section className="panel">
+        <div className="member-chip-label">
+          <img src={getMemberIcon(me.displayName)} alt="" className="member-chip-icon member-chip-icon-lg" />
+          <strong>{me.displayName}</strong>
+        </div>
         <label>表示名</label>
         <input
           className="field"
