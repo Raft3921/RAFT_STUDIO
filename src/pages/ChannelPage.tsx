@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface YouTubeVideo {
   id: string
@@ -114,30 +114,54 @@ export const ChannelPage = () => {
   const [videos, setVideos] = useState<YouTubeVideo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const requestIdRef = useRef(0)
 
   const isConfigured = useMemo(() => !!apiKey, [apiKey])
 
-  const onFetch = async () => {
+  useEffect(() => {
     if (!isConfigured || !apiKey) {
       setError('YouTube APIキー（VITE_YT_API_KEY）が未設定です。')
-      return
-    }
-    setLoading(true)
-    setError('')
-    try {
-      const channel = await resolveChannel(apiKey, channelUrl)
-      const latest = await loadLatestVideos(apiKey, channel.channelId)
-      setChannelName(channel.title)
-      setVideos(latest)
-      localStorage.setItem(channelUrlStorageKey, channelUrl.trim())
-    } catch {
       setVideos([])
       setChannelName('')
-      setError('URLの形式かAPI設定を確認してください。例: /channel/xxxx または /@handle')
-    } finally {
-      setLoading(false)
+      return
     }
-  }
+
+    const raw = channelUrl.trim()
+    if (!raw) {
+      setVideos([])
+      setChannelName('')
+      setError('チャンネルURLを入力してください。')
+      return
+    }
+
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    const timer = window.setTimeout(() => {
+      setLoading(true)
+      setError('')
+      void (async () => {
+        try {
+          const channel = await resolveChannel(apiKey, raw)
+          const latest = await loadLatestVideos(apiKey, channel.channelId)
+          if (requestId !== requestIdRef.current) return
+          setChannelName(channel.title)
+          setVideos(latest)
+          localStorage.setItem(channelUrlStorageKey, raw)
+        } catch {
+          if (requestId !== requestIdRef.current) return
+          setVideos([])
+          setChannelName('')
+          setError('URLの形式かAPI設定を確認してください。例: /channel/xxxx または /@handle')
+        } finally {
+          if (requestId === requestIdRef.current) {
+            setLoading(false)
+          }
+        }
+      })()
+    }, 380)
+
+    return () => window.clearTimeout(timer)
+  }, [apiKey, channelUrl, isConfigured])
 
   return (
     <div className="page-stack">
@@ -151,9 +175,7 @@ export const ChannelPage = () => {
           placeholder="https://youtube.com/channel/..."
         />
         <div className="inline-row">
-          <button className="btn" type="button" onClick={() => void onFetch()} disabled={loading}>
-            {loading ? '取得中...' : '最新動画を取得'}
-          </button>
+          <span className="muted">{loading ? '動画を自動取得中...' : 'チャンネルタブで自動取得'}</span>
           {channelName && <span className="muted">チャンネル: {channelName}</span>}
         </div>
         {!isConfigured && (
@@ -163,7 +185,7 @@ export const ChannelPage = () => {
       </section>
 
       <section className="panel">
-        {videos.length === 0 && <p className="muted">まだ動画がありません。上のURLで取得してください。</p>}
+        {videos.length === 0 && <p className="muted">{loading ? '読み込み中...' : '表示できる動画がありません。'}</p>}
         <div className="channel-video-grid">
           {videos.map((video) => (
             <a className="channel-video-card" key={video.id} href={video.videoUrl} target="_blank" rel="noreferrer">
