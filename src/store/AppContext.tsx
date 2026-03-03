@@ -468,6 +468,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
+          const previousUserId = currentUserId
           if (nextUserId !== currentUserId) {
             const myResponses = data.responses.filter((item) => item.userId === currentUserId)
             await Promise.all(
@@ -503,6 +504,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             { merge: true },
           )
           if (nextUserId !== currentUserId) {
+            await setDoc(
+              doc(db, 'workspaces', workspaceId, 'members', previousUserId),
+              { lastActiveAt: null },
+              { merge: true },
+            )
             setCurrentUserId(nextUserId)
           }
           return

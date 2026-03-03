@@ -40,6 +40,30 @@ export const HomePage = () => {
     const activeDiff = nowMs - new Date(member.lastActiveAt).getTime()
     return activeDiff <= 120000
   })
+  const uniqueOnlineMembers = onlineMembers.reduce<typeof onlineMembers>((acc, member) => {
+    const nameKey = member.displayName.trim().toLowerCase()
+    const existingIndex = acc.findIndex((item) => item.displayName.trim().toLowerCase() === nameKey)
+    if (existingIndex === -1) {
+      acc.push(member)
+      return acc
+    }
+
+    const existing = acc[existingIndex]
+    if (member.id === currentUserId) {
+      acc[existingIndex] = member
+      return acc
+    }
+    if (existing.id === currentUserId) {
+      return acc
+    }
+
+    const existingAt = existing.lastActiveAt ? new Date(existing.lastActiveAt).getTime() : 0
+    const nextAt = member.lastActiveAt ? new Date(member.lastActiveAt).getTime() : 0
+    if (nextAt > existingAt) {
+      acc[existingIndex] = member
+    }
+    return acc
+  }, [])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000)
@@ -81,10 +105,10 @@ export const HomePage = () => {
       <section className="panel">
         <div className="section-head">
           <h2>現在オンライン</h2>
-          <span className="muted">{onlineMembers.length}人</span>
+          <span className="muted">{uniqueOnlineMembers.length}人</span>
         </div>
         <div className="chip-row">
-          {onlineMembers.map((member) => (
+          {uniqueOnlineMembers.map((member) => (
             member.id === currentUserId ? (
               <span className="chip active" key={member.id}>
                 <span className="member-chip-label">
