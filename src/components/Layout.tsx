@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { RaftGuide } from './RaftGuide'
 
 const tabs = [
   { to: '/home', label: 'ホーム' },
@@ -18,6 +19,7 @@ export const Layout = () => {
       <main className="app-main">
         <Outlet />
       </main>
+      <RaftGuide />
       <nav className="bottom-nav">
         {tabs.map((tab) => (
           <NavLink
