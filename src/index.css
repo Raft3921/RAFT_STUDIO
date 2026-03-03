@@ -224,6 +224,21 @@ label {
   border-radius: 6px;
 }
 
+.plan-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-creator-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
 .status-badge {
   border-radius: 6px;
   padding: 4px 9px;

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
+import { getMemberIcon } from '../lib/memberIcon'
 import { statusLabel, statusOrder } from '../lib/utils'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
@@ -52,18 +53,29 @@ export const PlansPage = () => {
 
       <section className="panel">
         {filtered.length === 0 && <p className="muted">条件に一致する企画はありません。</p>}
-        {filtered.map((plan) => (
+        {filtered.map((plan) => {
+          const creator = data.members.find((member) => member.id === plan.createdBy)
+          return (
           <Link key={plan.id} to={`/plans/${plan.id}`} className="card link-card">
             <div className="section-head">
               <strong>{plan.title}</strong>
-              <StatusBadge status={plan.status} />
+              <div className="plan-card-meta">
+                <StatusBadge status={plan.status} />
+                <img
+                  src={getMemberIcon(creator?.displayName ?? 'ラフト')}
+                  alt={creator?.displayName ? `${creator.displayName}が作成` : '作成者'}
+                  title={creator?.displayName ? `作成者: ${creator.displayName}` : '作成者'}
+                  className="plan-creator-icon"
+                />
+              </div>
             </div>
             <p>
               {plan.templateType} / {formatDuration(plan.durationSec)} / {participantSummaryText(plan, data.members)}
             </p>
             <p className="muted">{roleSummaryText(plan, data.members)}</p>
           </Link>
-        ))}
+          )
+        })}
       </section>
     </div>
   )

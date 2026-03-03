@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
 import { roleDefinitions } from '../data/templates'
 import { StatusBadge } from '../components/StatusBadge'
+import { getMemberIcon } from '../lib/memberIcon'
 import { buildShareUrl, statusLabel, statusOrder } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
@@ -29,13 +30,22 @@ export const PlanDetailPage = () => {
     await deletePlan(plan.id)
     navigate('/plans')
   }
+  const creator = data.members.find((member) => member.id === plan.createdBy)
 
   return (
     <div className="page-stack">
       <section className="panel">
         <div className="section-head">
           <h2>{plan.title}</h2>
-          <StatusBadge status={plan.status} />
+          <div className="plan-card-meta">
+            <StatusBadge status={plan.status} />
+            <img
+              src={getMemberIcon(creator?.displayName ?? 'ラフト')}
+              alt={creator?.displayName ? `${creator.displayName}が作成` : '作成者'}
+              title={creator?.displayName ? `作成者: ${creator.displayName}` : '作成者'}
+              className="plan-creator-icon"
+            />
+          </div>
         </div>
         <p>{plan.templateType}</p>
         <p>{plan.memo || 'メモなし'}</p>
