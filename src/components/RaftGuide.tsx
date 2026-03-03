@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 
 type MotionMode = 'idle' | 'run' | 'squat'
-type HintKind = '案内' | '状況ツッコミ' | '成功ほめ'
+type HintKind = '案内'
 
 interface HintItem {
   kind: HintKind
@@ -30,26 +30,26 @@ const frameSets: Record<MotionMode, string[]> = {
 const tabGuides: Record<string, HintItem[]> = {
   '/home': [
     hint('案内', 'まず企画。話はそれから。'),
-    hint('状況ツッコミ', '出欠、空欄。犯人はだれ。'),
+    hint('案内', '出欠、空欄。犯人はだれ。'),
     hint('案内', '集合書いとこ。聞かれる回数が減る。'),
     hint('案内', '未定でも押しとこ。あとで変えられる。'),
   ],
   '/plans': [
     hint('案内', 'タイトル迷ったら、あとでいい。'),
     hint('案内', '尺を決めると、編集が助かる。'),
-    hint('状況ツッコミ', 'ジャンル0はさすがに無属性。'),
-    hint('状況ツッコミ', '司会いないと進行が迷子。'),
+    hint('案内', 'ジャンル0はさすがに無属性。'),
+    hint('案内', '司会いないと進行が迷子。'),
   ],
   '/plans/new': [
     hint('案内', '出るメンバー先に選ぶと迷子にならない。'),
     hint('案内', '役割は必須だけ先に埋めればOK。'),
-    hint('状況ツッコミ', '出欠だけ押して。マジ助かる。'),
+    hint('案内', '出欠だけ押して。マジ助かる。'),
   ],
   '/events': [
     hint('案内', '集合書いとこ。聞かれる回数が減る。'),
     hint('案内', '持ち物チェックすると、当日が平和。'),
-    hint('状況ツッコミ', '未定でも押して。あとで変えられる。'),
-    hint('状況ツッコミ', '参加むずいも正義。早いほど正義。'),
+    hint('案内', '未定でも押して。あとで変えられる。'),
+    hint('案内', '参加むずいも正義。早いほど正義。'),
   ],
   '/events/new': [
     hint('案内', '集合と場所だけ入れれば運用できる。'),
@@ -57,7 +57,7 @@ const tabGuides: Record<string, HintItem[]> = {
   ],
   '/me': [
     hint('案内', '招待リンクを送ると共有が始まる。'),
-    hint('成功ほめ', '表示名を整えた。もうチーム運用できる。'),
+    hint('案内', '表示名を整えた。もうチーム運用できる。'),
   ],
 }
 
@@ -65,15 +65,15 @@ const genericAttendanceHints: HintItem[] = [
   hint('案内', '出欠だけ先に押して。マジ助かる。'),
   hint('案内', '参加/不参加だけでも押しとこ。'),
   hint('案内', '未定でもOK。押しとけば進む。'),
-  hint('状況ツッコミ', '出欠が空欄だと、予定が組めん...!'),
-  hint('状況ツッコミ', '"未回答"がいると、時間が決められないやつ。'),
+  hint('案内', '出欠が空欄だと、予定が組めん...!'),
+  hint('案内', '"未回答"がいると、時間が決められないやつ。'),
   hint('案内', '出欠は3秒。悩むのはそのあとでOK。'),
 ]
 
 const successHints: HintItem[] = [
-  hint('成功ほめ', '出欠が揃うと、段取りが決まる。'),
-  hint('成功ほめ', '出欠埋める=全員のストレス減る。'),
-  hint('成功ほめ', 'この進み方、かなり良い。次もこの調子。'),
+  hint('案内', '出欠が揃うと、段取りが決まる。'),
+  hint('案内', '出欠埋める=全員のストレス減る。'),
+  hint('案内', 'この進み方、かなり良い。次もこの調子。'),
 ]
 
 const getPathKey = (pathname: string) => {
@@ -139,19 +139,19 @@ export const RaftGuide = () => {
 
     if (situation.pendingResponses > 0) {
       return [
-        hint('状況ツッコミ', `未回答が${situation.pendingResponses}人いる。先に回収しよう。`),
+        hint('案内', `未回答が${situation.pendingResponses}人いる。先に回収しよう。`),
         ...genericAttendanceHints,
         ...scoped,
       ]
     }
 
     if (!situation.hasMeetingInfo) {
-      return [hint('状況ツッコミ', '集合か場所が未入力。ここ埋まると当日が静か。'), ...scoped]
+      return [hint('案内', '集合か場所が未入力。ここ埋まると当日が静か。'), ...scoped]
     }
 
     if (situation.pendingChecklist > 0) {
       return [
-        hint('状況ツッコミ', `持ち物の未チェックが${situation.pendingChecklist}個。今のうちに潰そう。`),
+        hint('案内', `持ち物の未チェックが${situation.pendingChecklist}個。今のうちに潰そう。`),
         ...scoped,
       ]
     }

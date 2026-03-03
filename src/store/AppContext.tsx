@@ -53,8 +53,15 @@ interface AppContextValue {
   ready: boolean
   data: AppData
   createPlan: (input: CreatePlanInput) => Promise<void>
+  updatePlan: (planId: string, patch: Partial<Pick<Plan, 'title' | 'templateType' | 'durationSec' | 'memo'>>) => Promise<void>
+  deletePlan: (planId: string) => Promise<void>
   updatePlanStatus: (planId: string, status: PlanStatus) => Promise<void>
   createEvent: (input: CreateEventInput) => Promise<void>
+  updateEvent: (
+    eventId: string,
+    patch: Partial<Pick<EventItem, 'title' | 'datetime' | 'meetingPoint' | 'location' | 'timeline'>>,
+  ) => Promise<void>
+  deleteEvent: (eventId: string) => Promise<void>
   setAttendance: (eventId: string, response: Attendance, comment?: string) => Promise<void>
   toggleChecklist: (eventId: string, itemId: string) => Promise<void>
   updateMyProfile: (displayName: string) => Promise<void>
@@ -287,6 +294,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
         setData((prev) => ({ ...prev, plans: [plan, ...prev.plans] }))
       },
+      updatePlan: async (planId, patch) => {
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await updateDoc(doc(db, 'workspaces', workspaceId, 'plans', planId), patch)
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          plans: prev.plans.map((plan) => (plan.id === planId ? { ...plan, ...patch } : plan)),
+        }))
+      },
+      deletePlan: async (planId) => {
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await deleteDoc(doc(db, 'workspaces', workspaceId, 'plans', planId))
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          plans: prev.plans.filter((plan) => plan.id !== planId),
+        }))
+      },
       updatePlanStatus: async (planId, status) => {
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
@@ -324,6 +353,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           checklist,
         }
         setData((prev) => ({ ...prev, events: [event, ...prev.events] }))
+      },
+      updateEvent: async (eventId, patch) => {
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await updateDoc(doc(db, 'workspaces', workspaceId, 'events', eventId), patch)
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          events: prev.events.map((event) => (event.id === eventId ? { ...event, ...patch } : event)),
+        }))
+      },
+      deleteEvent: async (eventId) => {
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await deleteDoc(doc(db, 'workspaces', workspaceId, 'events', eventId))
+          const relatedResponses = data.responses.filter((item) => item.eventId === eventId)
+          await Promise.all(
+            relatedResponses.map((item) =>
+              deleteDoc(doc(db, 'workspaces', workspaceId, 'responses', `${item.eventId}_${item.userId}`)),
+            ),
+          )
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          events: prev.events.filter((event) => event.id !== eventId),
+          responses: prev.responses.filter((item) => item.eventId !== eventId),
+        }))
       },
       setAttendance: async (eventId, response, comment) => {
         const nextItem: EventResponse = { eventId, userId: currentUserId, response, comment }

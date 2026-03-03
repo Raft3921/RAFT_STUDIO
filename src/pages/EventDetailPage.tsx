@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { roleDefinitions } from '../data/templates'
 import { resolveRoleNames } from '../lib/plan'
 import { attendanceLabel, buildLineMessage, buildShareUrl, formatDateTime, responseCount } from '../lib/utils'
@@ -10,8 +10,15 @@ const attendanceOptions: Attendance[] = ['yes', 'no', 'maybe']
 
 export const EventDetailPage = () => {
   const { id } = useParams()
-  const { data, setAttendance, toggleChecklist, currentUserId } = useApp()
+  const navigate = useNavigate()
+  const { data, setAttendance, toggleChecklist, currentUserId, updateEvent, deleteEvent } = useApp()
   const [comment, setComment] = useState('')
+  const [draft, setDraft] = useState<{
+    title: string
+    datetime: string
+    meetingPoint: string
+    location: string
+  } | null>(null)
 
   const event = data.events.find((item) => item.id === id)
   const linkedPlan = data.plans.find((plan) => plan.id === event?.planId)
@@ -31,6 +38,7 @@ export const EventDetailPage = () => {
   if (!event || !counts) {
     return <p className="panel">撮影日が見つかりません。</p>
   }
+  const editing = draft !== null
 
   const share = async () => {
     const url = buildShareUrl(`/events/${event.id}`)
@@ -43,13 +51,137 @@ export const EventDetailPage = () => {
     window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`, '_blank')
   }
 
+  const saveEdit = async () => {
+    if (!draft) return
+    await updateEvent(event.id, {
+      title: draft.title.trim() || event.title,
+      datetime: draft.datetime,
+      meetingPoint: draft.meetingPoint.trim() || event.meetingPoint,
+      location: draft.location.trim() || event.location,
+    })
+    setDraft(null)
+  }
+
+  const removeEvent = async () => {
+    if (!window.confirm('この撮影日を削除しますか？')) return
+    await deleteEvent(event.id)
+    navigate('/events')
+  }
+
   return (
     <div className="page-stack">
       <section className="panel">
-        <h2>{event.title}</h2>
-        <p>{formatDateTime(event.datetime)}</p>
-        <p>集合: {event.meetingPoint}</p>
-        <p>場所: {event.location}</p>
+        <h2>{editing ? '撮影日を編集' : event.title}</h2>
+        {editing ? (
+          <>
+            <label>タイトル</label>
+            <input
+              className="field"
+              value={draft?.title ?? ''}
+              onChange={(e) =>
+                setDraft((prev) =>
+                  prev
+                    ? { ...prev, title: e.target.value }
+                    : {
+                        title: e.target.value,
+                        datetime: event.datetime,
+                        meetingPoint: event.meetingPoint,
+                        location: event.location,
+                      },
+                )
+              }
+            />
+            <label>日時</label>
+            <input
+              className="field"
+              type="datetime-local"
+              value={draft?.datetime ?? ''}
+              onChange={(e) =>
+                setDraft((prev) =>
+                  prev
+                    ? { ...prev, datetime: e.target.value }
+                    : {
+                        title: event.title,
+                        datetime: e.target.value,
+                        meetingPoint: event.meetingPoint,
+                        location: event.location,
+                      },
+                )
+              }
+            />
+            <label>集合</label>
+            <input
+              className="field"
+              value={draft?.meetingPoint ?? ''}
+              onChange={(e) =>
+                setDraft((prev) =>
+                  prev
+                    ? { ...prev, meetingPoint: e.target.value }
+                    : {
+                        title: event.title,
+                        datetime: event.datetime,
+                        meetingPoint: e.target.value,
+                        location: event.location,
+                      },
+                )
+              }
+            />
+            <label>場所</label>
+            <input
+              className="field"
+              value={draft?.location ?? ''}
+              onChange={(e) =>
+                setDraft((prev) =>
+                  prev
+                    ? { ...prev, location: e.target.value }
+                    : {
+                        title: event.title,
+                        datetime: event.datetime,
+                        meetingPoint: event.meetingPoint,
+                        location: e.target.value,
+                      },
+                )
+              }
+            />
+          </>
+        ) : (
+          <>
+            <p>{formatDateTime(event.datetime)}</p>
+            <p>集合: {event.meetingPoint}</p>
+            <p>場所: {event.location}</p>
+          </>
+        )}
+        <div className="inline-row">
+          {editing ? (
+            <>
+              <button className="btn" onClick={saveEdit}>
+                保存
+              </button>
+              <button className="btn ghost" onClick={() => setDraft(null)}>
+                キャンセル
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="btn ghost"
+                onClick={() =>
+                  setDraft({
+                    title: event.title,
+                    datetime: event.datetime,
+                    meetingPoint: event.meetingPoint,
+                    location: event.location,
+                  })
+                }
+              >
+                編集
+              </button>
+              <button className="btn warn" onClick={removeEvent}>
+                削除
+              </button>
+            </>
+          )}
+        </div>
       </section>
 
       {linkedPlan && (

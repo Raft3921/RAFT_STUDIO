@@ -371,10 +371,11 @@ p {
 .raft-guide {
   position: fixed;
   right: max(10px, calc((100vw - 520px) / 2 + 10px));
-  bottom: 84px;
+  top: 74px;
+  bottom: auto;
   z-index: 18;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
   transition: transform 1s ease;
 }
