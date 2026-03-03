@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { useSearchParams } from 'react-router-dom'
 import { getMemberIcon } from '../lib/memberIcon'
 import { firestoreDb } from '../lib/firebase'
 import { useApp } from '../store/AppContext'
@@ -8,6 +9,7 @@ interface RafineMessage {
   id: string
   text: string
   userId: string
+  recipientId?: string
   displayName: string
   createdAt: string
 }
@@ -36,7 +38,10 @@ const formatTime = (iso: string) => {
 
 export const RafinePage = () => {
   const { data, currentUserId, workspaceId, storageMode } = useApp()
+  const [searchParams, setSearchParams] = useSearchParams()
   const me = data.members.find((member) => member.id === currentUserId) ?? data.members[0]
+  const dmTargetId = searchParams.get('dm') ?? ''
+  const dmTarget = data.members.find((member) => member.id === dmTargetId && member.id !== currentUserId)
   const [text, setText] = useState('')
   const [messages, setMessages] = useState<RafineMessage[]>([])
   const [localVersion, setLocalVersion] = useState(0)
@@ -50,7 +55,18 @@ export const RafinePage = () => {
     void localVersion
     return loadLocalMessages(workspaceId)
   }, [workspaceId, localVersion])
-  const displayedMessages = storageMode === 'firebase' ? messages : localMessages
+  const allMessages = storageMode === 'firebase' ? messages : localMessages
+  const displayedMessages = useMemo(
+    () =>
+      allMessages.filter((message) => {
+        if (!dmTarget) return !message.recipientId
+        return (
+          (message.userId === currentUserId && message.recipientId === dmTarget.id) ||
+          (message.userId === dmTarget.id && message.recipientId === currentUserId)
+        )
+      }),
+    [allMessages, currentUserId, dmTarget],
+  )
 
   useEffect(() => {
     if (storageMode !== 'firebase' || !firestoreDb) return
@@ -111,6 +127,7 @@ export const RafinePage = () => {
     const payload: Omit<RafineMessage, 'id'> = {
       text: text.trim(),
       userId: currentUserId,
+      recipientId: dmTarget?.id,
       displayName: me.displayName,
       createdAt: new Date().toISOString(),
     }
@@ -154,7 +171,13 @@ export const RafinePage = () => {
       <section className="panel">
         <h2>RAFINE</h2>
         <p className="muted">メッセージ</p>
+        {dmTarget && <p className="muted">DM相手: {dmTarget.displayName}</p>}
         <div className="inline-row">
+          {dmTarget && (
+            <button className="btn ghost" type="button" onClick={() => setSearchParams({})}>
+              全体チャットへ戻る
+            </button>
+          )}
           <button className="btn ghost" type="button" onClick={() => void requestNotification()}>
             通知を許可
           </button>

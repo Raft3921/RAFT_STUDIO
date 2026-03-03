@@ -85,12 +85,21 @@ export const HomePage = () => {
         </div>
         <div className="chip-row">
           {onlineMembers.map((member) => (
-            <span className={`chip ${member.id === currentUserId ? 'active' : ''}`} key={member.id}>
-              <span className="member-chip-label">
-                <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
-                <span>{member.displayName}</span>
+            member.id === currentUserId ? (
+              <span className="chip active" key={member.id}>
+                <span className="member-chip-label">
+                  <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
+                  <span>{member.displayName}</span>
+                </span>
               </span>
-            </span>
+            ) : (
+              <Link className="chip" to={`/rafine?dm=${member.id}`} key={member.id}>
+                <span className="member-chip-label">
+                  <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
+                  <span>{member.displayName}にDM</span>
+                </span>
+              </Link>
+            )
           ))}
         </div>
       </section>
