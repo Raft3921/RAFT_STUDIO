@@ -35,7 +35,7 @@ export const PlanCreatePage = () => {
 
   const [templateType, setTemplateType] = useState(planTemplates[0])
   const [durationSec, setDurationSec] = useState(480)
-  const [participantIds, setParticipantIds] = useState<string[]>(['m-raft'])
+  const [participantIds, setParticipantIds] = useState<string[]>(() => data.members.map((member) => member.id))
   const [goal, setGoal] = useState<Plan['goal']>('笑い')
   const [assets, setAssets] = useState<string[]>(['BGM'])
   const [memo, setMemo] = useState('')
