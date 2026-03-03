@@ -83,12 +83,19 @@ export const Layout = () => {
             <p className="sync-loading-title">同期中...</p>
             <div className="sync-loading-track">
               <div className="sync-loading-fill" style={{ width: `${progress}%` }} />
-              <img
-                src={runFrames[frameIndex]}
-                className="sync-loading-raft"
-                style={{ left: `calc(${progress}% - 24px)` }}
-                alt="同期中のラフト"
-              />
+              <span className="sync-loading-raft-wrap" style={{ left: `calc(${progress}% - 24px)` }}>
+                <img
+                  src={runFrames[frameIndex]}
+                  className="sync-loading-raft sync-loading-raft-outline"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <img
+                  src={runFrames[frameIndex]}
+                  className="sync-loading-raft sync-loading-raft-base"
+                  alt="同期中のラフト"
+                />
+              </span>
             </div>
             <p className="sync-loading-percent">{Math.round(progress)}%</p>
           </div>

@@ -584,19 +584,34 @@ p {
   transition: width 0.18s linear;
 }
 
-.sync-loading-raft {
+.sync-loading-raft-wrap {
   position: absolute;
   bottom: 8px;
   width: 48px;
   height: 48px;
+  pointer-events: none;
+}
+
+.sync-loading-raft {
+  position: absolute;
+  inset: 0;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   image-rendering: pixelated;
+}
+
+.sync-loading-raft-outline {
   filter: brightness(0) invert(1)
     drop-shadow(1px 0 0 #fff)
     drop-shadow(-1px 0 0 #fff)
     drop-shadow(0 1px 0 #fff)
     drop-shadow(0 -1px 0 #fff);
-  pointer-events: none;
+  opacity: 0.95;
+}
+
+.sync-loading-raft-base {
+  filter: grayscale(1) contrast(1.2) brightness(1.05);
 }
 
 .sync-loading-percent {
