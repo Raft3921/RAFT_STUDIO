@@ -464,7 +464,7 @@ p {
 .hero-panel {
   border: 0;
   box-shadow: none;
-  padding: 18px 16px;
+  padding: 20px;
   background-image:
     url('../panel/panel_tl.png'),
     url('../panel/panel_tr.png'),
@@ -481,21 +481,21 @@ p {
     top right,
     bottom left,
     bottom right,
-    top 8px left 28px,
-    bottom 8px left 28px,
-    top 28px left 8px,
-    top 28px right 8px,
-    center;
+    top left 16px,
+    bottom left 16px,
+    top 16px left,
+    top 16px right,
+    top 16px left 16px;
   background-size:
-    28px 28px,
-    28px 28px,
-    28px 28px,
-    28px 28px,
-    calc(100% - 56px) 20px,
-    calc(100% - 56px) 20px,
-    20px calc(100% - 56px),
-    20px calc(100% - 56px),
-    calc(100% - 40px) calc(100% - 40px);
+    16px 16px,
+    16px 16px,
+    16px 16px,
+    16px 16px,
+    calc(100% - 32px) 16px,
+    calc(100% - 32px) 16px,
+    16px calc(100% - 32px),
+    16px calc(100% - 32px),
+    calc(100% - 32px) calc(100% - 32px);
 }
 
 .hero-kicker {
