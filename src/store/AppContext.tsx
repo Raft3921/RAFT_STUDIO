@@ -311,9 +311,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (mode === 'firebase' && !isFirebaseEnabled) {
           return
         }
+        if (mode === storageMode) {
+          return
+        }
         setStorageMode(mode)
         if (mode === 'local') {
-          setCurrentUserId('m-raft')
+          const localData = loadData()
+          setData(localData)
+          setCurrentUserId(localData.members[0]?.id ?? 'm-raft')
           setReady(true)
         } else {
           setReady(false)

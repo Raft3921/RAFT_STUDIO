@@ -16,14 +16,16 @@ export const MePage = () => {
     switchStorageMode,
   } = useApp()
 
-  const me = data.members.find((member) => member.id === currentUserId)
+  const me = data.members.find((member) => member.id === currentUserId) ?? data.members[0]
   const [displayName, setDisplayName] = useState(me?.displayName ?? '')
 
   if (!ready) {
     return <section className="panel">同期を開始しています...</section>
   }
 
-  if (!me) return null
+  if (!me) {
+    return <section className="panel">メンバー情報がありません。</section>
+  }
 
   const myEvents = data.responses
     .filter((response) => response.userId === currentUserId)
@@ -43,6 +45,7 @@ export const MePage = () => {
               type="button"
               className={`chip ${storageMode === 'local' ? 'active' : ''}`}
               onClick={() => switchStorageMode('local')}
+              disabled={!ready && storageMode === 'firebase'}
             >
               この端末のみ
             </button>
@@ -50,7 +53,7 @@ export const MePage = () => {
               type="button"
               className={`chip ${storageMode === 'firebase' ? 'active' : ''}`}
               onClick={() => switchStorageMode('firebase')}
-              disabled={!firebaseAvailable}
+              disabled={!firebaseAvailable || (!ready && storageMode === 'firebase')}
               title={firebaseAvailable ? 'Firebase共有に切り替え' : 'Firebase未設定'}
             >
               Firebase共有
