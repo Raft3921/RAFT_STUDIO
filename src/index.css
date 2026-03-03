@@ -658,6 +658,11 @@ p {
 .rafine-message-item.mine .rafine-message-body {
   background: #fff4f3;
   border-color: #efb2b0;
+  margin-right: 0;
+}
+
+.rafine-message-item.mine .rafine-msg-icon {
+  display: none;
 }
 
 .rafine-message-head {
