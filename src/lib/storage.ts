@@ -4,7 +4,7 @@ import { normalizePlan } from './plan'
 const APP_STORAGE_KEY = 'youtube-planner-v1'
 const legacyMemberNames = ['自分', 'メンバー', 'メンバーA', 'メンバーB', 'unknown', '名無し']
 
-const defaultMembers = [
+export const defaultMembers = [
   { id: 'm-raft', displayName: 'ラフト', role: '司会', notificationsEnabled: true },
   { id: 'm-mai', displayName: 'まい', role: '進行', notificationsEnabled: true },
   { id: 'm-tanutsuna', displayName: 'たぬつな', role: 'リアクション', notificationsEnabled: true },

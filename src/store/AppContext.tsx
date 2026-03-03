@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore'
 import { firestoreDb, firebaseAuth, isFirebaseEnabled } from '../lib/firebase'
 import { normalizePlan } from '../lib/plan'
-import { loadData, saveData } from '../lib/storage'
+import { defaultMembers, loadData, saveData } from '../lib/storage'
 import { buildWorkspaceInviteUrl, getOrCreateWorkspaceId } from '../lib/workspace'
 import type { AppData, Attendance, EventItem, EventResponse, Member, Plan, PlanStatus } from '../types'
 
@@ -72,6 +72,15 @@ const isLegacyMemberName = (name: string) =>
 const fallbackDisplayName = 'ラフト'
 const memberIdFromName = (displayName: string) =>
   `name-${encodeURIComponent(normalizeDisplayName(displayName).toLowerCase())}`
+const dedupeMembersByName = (members: Member[]) => {
+  const seen = new Set<string>()
+  return members.filter((member) => {
+    const key = normalizeDisplayName(member.displayName).toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [data, setData] = useState<AppData>(() => loadData())
@@ -124,6 +133,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         isLegacyMemberName(String(item.data().displayName ?? '')),
       )
       await Promise.all(legacyMemberDocs.map((item) => deleteDoc(doc(workspaceRef, 'members', item.id))))
+      const existingNames = new Set(
+        membersSnapshot.docs
+          .map((item) => normalizeDisplayName(String(item.data().displayName ?? '')).toLowerCase())
+          .filter((name) => !!name && !isLegacyMemberName(name)),
+      )
+      await Promise.all(
+        defaultMembers
+          .filter((member) => !existingNames.has(normalizeDisplayName(member.displayName).toLowerCase()))
+          .map((member) =>
+            setDoc(doc(workspaceRef, 'members', member.id), member, { merge: true }),
+          ),
+      )
 
       const existingByName = membersSnapshot.docs.find(
         (item) =>
@@ -165,7 +186,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const members = snapshot.docs
             .map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
             .filter((member) => !isLegacyMemberName(member.displayName))
-          setData((prev) => ({ ...prev, members }))
+          const merged = dedupeMembersByName([...members, ...defaultMembers])
+          setData((prev) => ({ ...prev, members: merged }))
         }),
       ]
     }

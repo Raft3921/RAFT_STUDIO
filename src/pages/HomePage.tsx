@@ -16,15 +16,17 @@ import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/ut
 export const HomePage = () => {
   const { data } = useApp()
   const heroPanelStyle = {
-    '--quest-panel-center': `url('${panelCenter}')`,
-    '--quest-panel-top': `url('${panelTop}')`,
-    '--quest-panel-bottom': `url('${panelBottom}')`,
-    '--quest-panel-left': `url('${panelLeft}')`,
-    '--quest-panel-right': `url('${panelRight}')`,
-    '--quest-panel-tl': `url('${panelTl}')`,
-    '--quest-panel-tr': `url('${panelTr}')`,
-    '--quest-panel-bl': `url('${panelBl}')`,
-    '--quest-panel-br': `url('${panelBr}')`,
+    backgroundImage: [
+      `url('${panelCenter}')`,
+      `url('${panelTop}')`,
+      `url('${panelBottom}')`,
+      `url('${panelLeft}')`,
+      `url('${panelRight}')`,
+      `url('${panelTl}')`,
+      `url('${panelTr}')`,
+      `url('${panelBl}')`,
+      `url('${panelBr}')`,
+    ].join(','),
   } as CSSProperties
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
