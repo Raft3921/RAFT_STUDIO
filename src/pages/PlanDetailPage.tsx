@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
 import { roleDefinitions } from '../data/templates'
 import { StatusBadge } from '../components/StatusBadge'
-import { buildShareUrl, statusOrder } from '../lib/utils'
+import { buildShareUrl, statusLabel, statusOrder } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
 
@@ -58,7 +58,7 @@ export const PlanDetailPage = () => {
               key={status}
               onClick={() => updatePlanStatus(plan.id, status as PlanStatus)}
             >
-              {status}
+              {statusLabel[status]}
             </button>
           ))}
         </div>
