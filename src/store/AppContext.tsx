@@ -67,6 +67,8 @@ const AppContext = createContext<AppContextValue | null>(null)
 
 const createId = () => crypto.randomUUID()
 const normalizeDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ')
+const isLegacyMemberName = (name: string) =>
+  ['自分', 'メンバー', 'メンバーA', 'メンバーB', 'unknown', '名無し'].includes(normalizeDisplayName(name))
 const fallbackDisplayName = 'ラフト'
 const memberIdFromName = (displayName: string) =>
   `name-${encodeURIComponent(normalizeDisplayName(displayName).toLowerCase())}`
@@ -118,8 +120,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       await setDoc(workspaceRef, { updatedAt: serverTimestamp() }, { merge: true })
 
       const membersSnapshot = await getDocs(collection(workspaceRef, 'members'))
+      const legacyMemberDocs = membersSnapshot.docs.filter((item) =>
+        isLegacyMemberName(String(item.data().displayName ?? '')),
+      )
+      await Promise.all(legacyMemberDocs.map((item) => deleteDoc(doc(workspaceRef, 'members', item.id))))
+
       const existingByName = membersSnapshot.docs.find(
         (item) =>
+          !isLegacyMemberName(String(item.data().displayName ?? '')) &&
           normalizeDisplayName(String(item.data().displayName ?? '')) ===
           normalizeDisplayName(preferredDisplayName),
       )
@@ -154,7 +162,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           setData((prev) => ({ ...prev, responses }))
         }),
         onSnapshot(collection(workspaceRef, 'members'), (snapshot) => {
-          const members = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
+          const members = snapshot.docs
+            .map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
+            .filter((member) => !isLegacyMemberName(member.displayName))
           setData((prev) => ({ ...prev, members }))
         }),
       ]

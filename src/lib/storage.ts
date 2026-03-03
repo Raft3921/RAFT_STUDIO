@@ -2,6 +2,7 @@ import type { AppData } from '../types'
 import { normalizePlan } from './plan'
 
 const APP_STORAGE_KEY = 'youtube-planner-v1'
+const legacyMemberNames = ['自分', 'メンバー', 'メンバーA', 'メンバーB', 'unknown', '名無し']
 
 const defaultMembers = [
   { id: 'm-raft', displayName: 'ラフト', role: '司会', notificationsEnabled: true },
@@ -29,9 +30,7 @@ export const loadData = (): AppData => {
     const memberNames = (parsed.members ?? []).map((member) => member.displayName)
     const shouldReplaceWithDefaultMembers =
       memberNames.length === 0 ||
-      memberNames.includes('自分') ||
-      memberNames.includes('メンバーA') ||
-      memberNames.includes('メンバーB')
+      memberNames.some((name) => legacyMemberNames.includes(name))
 
     return {
       members: shouldReplaceWithDefaultMembers ? defaultData.members : parsed.members,
