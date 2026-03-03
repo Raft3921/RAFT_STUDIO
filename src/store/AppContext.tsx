@@ -172,6 +172,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           displayName: preferredDisplayName,
           role: 'メンバー',
           notificationsEnabled: true,
+          lastActiveAt: new Date().toISOString(),
         } satisfies Omit<Member, 'id'>,
         { merge: true },
       )
@@ -218,6 +219,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       saveData(data)
     }
   }, [data, storageMode])
+
+  useEffect(() => {
+    if (storageMode !== 'firebase' || !isFirebaseEnabled || !firestoreDb || !currentUserId || !ready) {
+      return
+    }
+
+    const db = firestoreDb
+    const tick = () =>
+      setDoc(
+        doc(db, 'workspaces', workspaceId, 'members', currentUserId),
+        { lastActiveAt: new Date().toISOString() },
+        { merge: true },
+      ).catch(() => {
+        // no-op: keep app usable if heartbeat fails intermittently
+      })
+
+    tick()
+    const timer = window.setInterval(tick, 30000)
+    return () => window.clearInterval(timer)
+  }, [currentUserId, ready, storageMode, workspaceId])
 
   const migrateLocalDataToFirebase = useCallback(async () => {
     if (!isFirebaseEnabled || !firebaseAuth || !firestoreDb) return false

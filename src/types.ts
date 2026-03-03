@@ -9,6 +9,7 @@ export interface Member {
   role: string
   lineContact?: string
   notificationsEnabled: boolean
+  lastActiveAt?: string
 }
 
 export interface Plan {

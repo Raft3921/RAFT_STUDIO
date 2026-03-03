@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CSSProperties } from 'react'
 import panelBl from '../assets/panel/panel_bl.png'
@@ -9,12 +10,14 @@ import panelRight from '../assets/panel/panel_right.png'
 import panelTl from '../assets/panel/panel_tl.png'
 import panelTop from '../assets/panel/panel_top.png'
 import panelTr from '../assets/panel/panel_tr.png'
+import { getMemberIcon } from '../lib/memberIcon'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 
 export const HomePage = () => {
-  const { data } = useApp()
+  const { data, currentUserId, storageMode } = useApp()
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const heroPanelStyle = {
     backgroundImage: [
       `url('${panelCenter}')`,
@@ -30,6 +33,18 @@ export const HomePage = () => {
   } as CSSProperties
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
+  const onlineMembers = data.members.filter((member) => {
+    if (storageMode === 'local') return member.id === currentUserId
+    if (member.id === currentUserId) return true
+    if (!member.lastActiveAt) return false
+    const activeDiff = nowMs - new Date(member.lastActiveAt).getTime()
+    return activeDiff <= 120000
+  })
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const completionPoints =
     (data.plans.length > 0 ? 35 : 0) +
@@ -60,6 +75,23 @@ export const HomePage = () => {
           <Link className="btn btn-secondary" to="/events/new">
             撮影日を作る
           </Link>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-head">
+          <h2>現在オンライン</h2>
+          <span className="muted">{onlineMembers.length}人</span>
+        </div>
+        <div className="chip-row">
+          {onlineMembers.map((member) => (
+            <span className={`chip ${member.id === currentUserId ? 'active' : ''}`} key={member.id}>
+              <span className="member-chip-label">
+                <img src={getMemberIcon(member.displayName)} alt="" className="member-chip-icon" />
+                <span>{member.displayName}</span>
+              </span>
+            </span>
+          ))}
         </div>
       </section>
 
