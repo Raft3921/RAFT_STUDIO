@@ -3,6 +3,14 @@ import { useLocation } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 
 type MotionMode = 'idle' | 'run' | 'squat'
+type HintKind = '案内' | '状況ツッコミ' | '成功ほめ'
+
+interface HintItem {
+  kind: HintKind
+  text: string
+}
+
+const hint = (kind: HintKind, text: string): HintItem => ({ kind, text })
 
 const assetUrl = (fileName: string) => `${import.meta.env.BASE_URL}raft/${fileName}`
 
@@ -19,14 +27,53 @@ const frameSets: Record<MotionMode, string[]> = {
   squat: [assetUrl('squat1.png'), assetUrl('squat2.png')],
 }
 
-const routeHintMap: Record<string, string[]> = {
-  '/home': ['今日やるのは1つでOK。次の撮影カードから進めよう', '未回答を埋めるだけでも進行が一気に楽になる'],
-  '/plans': ['企画はテンプレ選択だけで完成まで持っていける', '役割を先に決めると撮影日の調整が速い'],
-  '/plans/new': ['尺はプリセットから選んで10秒調整すると決めやすい', 'テンプレ割り当てで役割をまず埋めよう'],
-  '/events': ['次回撮影の未回答を0人にすると当日が安定する', '集合情報と持ち物を先に固めよう'],
-  '/events/new': ['紐づけ企画を選ぶと役割が引き継げる', '段取りは3行だけでも十分効果がある'],
-  '/me': ['招待リンクを送れば同じワークスペースで共有できる', '表示名を先に整えると役割表示が見やすい'],
+const tabGuides: Record<string, HintItem[]> = {
+  '/home': [
+    hint('案内', '今日のミッション: 出欠。'),
+    hint('状況ツッコミ', '未回答がある。誰だ。'),
+    hint('状況ツッコミ', '集合まだ。場所が泣いてる。'),
+    hint('案内', 'とりあえず出欠。話はそれから。'),
+  ],
+  '/plans': [
+    hint('案内', 'タイトル迷ったら、あとでいい。'),
+    hint('案内', '尺を決めると、編集が助かる。'),
+    hint('状況ツッコミ', 'ジャンル0はさすがに無属性。'),
+    hint('状況ツッコミ', '司会いないと進行が迷子。'),
+  ],
+  '/plans/new': [
+    hint('案内', '出るメンバー先に選ぶと迷子にならない。'),
+    hint('案内', '役割は必須だけ先に埋めればOK。'),
+    hint('状況ツッコミ', '出欠だけ押して。マジ助かる。'),
+  ],
+  '/events': [
+    hint('案内', '集合書いとこ。聞かれる回数が減る。'),
+    hint('案内', '持ち物チェックすると、当日が平和。'),
+    hint('状況ツッコミ', '未定でも押して。あとで変えられる。'),
+    hint('状況ツッコミ', '参加むずいも正義。早いほど正義。'),
+  ],
+  '/events/new': [
+    hint('案内', '集合と場所だけ入れれば運用できる。'),
+    hint('案内', '段取りは3行あれば実戦で使える。'),
+  ],
+  '/me': [
+    hint('案内', '招待リンクを送ると共有が始まる。'),
+    hint('成功ほめ', '表示名を整えた。もうチーム運用できる。'),
+  ],
 }
+
+const genericAttendanceHints: HintItem[] = [
+  hint('案内', '参加/不参加だけでも押しとこ。'),
+  hint('案内', '未定でもOK。押しとけば進む。'),
+  hint('状況ツッコミ', '出欠が空欄だと、予定が組めん...!'),
+  hint('状況ツッコミ', '"未回答"がいると、時間が決められないやつ。'),
+  hint('案内', '出欠は3秒。悩むのはそのあとでOK。'),
+]
+
+const successHints: HintItem[] = [
+  hint('成功ほめ', '出欠が揃うと、段取りが決まる。'),
+  hint('成功ほめ', '出欠埋める=全員のストレス減る。'),
+  hint('成功ほめ', 'この進み方、かなり良い。次もこの調子。'),
+]
 
 const getPathKey = (pathname: string) => {
   if (pathname.startsWith('/plans/new')) return '/plans/new'
@@ -37,6 +84,8 @@ const getPathKey = (pathname: string) => {
   if (pathname.startsWith('/me')) return '/me'
   return '/home'
 }
+
+const pickByIndex = (items: HintItem[], index: number) => items[index % items.length]
 
 export const RaftGuide = () => {
   const { pathname } = useLocation()
@@ -50,39 +99,56 @@ export const RaftGuide = () => {
 
   const pathKey = getPathKey(pathname)
 
-  const pendingResponses = useMemo(() => {
+  const situation = useMemo(() => {
     const nextEvent = data.events
       .slice()
       .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())[0]
 
-    if (!nextEvent) return 0
+    const answered = nextEvent
+      ? data.responses.filter((response) => response.eventId === nextEvent.id).length
+      : 0
 
-    const answered = data.responses.filter((response) => response.eventId === nextEvent.id).length
-    return Math.max(0, data.members.length - answered)
-  }, [data.events, data.members.length, data.responses])
+    const pendingResponses = nextEvent ? Math.max(0, data.members.length - answered) : 0
+
+    return {
+      hasPlan: data.plans.length > 0,
+      hasEvent: data.events.length > 0,
+      pendingResponses,
+      hasMeetingInfo: nextEvent ? !!nextEvent.meetingPoint && !!nextEvent.location : false,
+    }
+  }, [data.events, data.members.length, data.plans.length, data.responses])
 
   const hints = useMemo(() => {
-    const routeHints = routeHintMap[pathKey] ?? ['必要なら共有リンクを送って一緒に進めよう']
-
     if (!ready) {
-      return ['データ同期中。終わったら次の一手を案内するよ']
+      return [hint('案内', '同期中。終わったら次にやることを教える。')]
     }
 
-    if (data.plans.length === 0) {
-      return ['まずは企画を1つ作って土台を作ろう', ...routeHints]
+    const scoped = tabGuides[pathKey] ?? tabGuides['/home']
+
+    if (!situation.hasPlan) {
+      return [hint('案内', 'まず企画を1つ作ろう。ここが全部の始点。'), ...scoped]
     }
 
-    if (data.events.length === 0) {
-      return ['次は撮影日を1つ作ろう。公開までの流れが見える', ...routeHints]
+    if (!situation.hasEvent) {
+      return [hint('案内', '次は撮影日。1つ入れるだけで進行が見える。'), ...scoped]
     }
 
-    if (pendingResponses > 0) {
-      return [`次の撮影で未回答が${pendingResponses}人。ここを埋めると進行が軽くなる`, ...routeHints]
+    if (situation.pendingResponses > 0) {
+      return [
+        hint('状況ツッコミ', `未回答が${situation.pendingResponses}人いる。先に回収しよう。`),
+        ...genericAttendanceHints,
+        ...scoped,
+      ]
     }
 
-    return ['いい流れ。次は公開予定日まで埋めていこう', ...routeHints]
-  }, [pathKey, ready, data.plans.length, data.events.length, pendingResponses])
+    if (!situation.hasMeetingInfo) {
+      return [hint('状況ツッコミ', '集合か場所が未入力。ここ埋まると当日が静か。'), ...scoped]
+    }
 
+    return [...successHints, ...scoped]
+  }, [pathKey, ready, situation])
+
+  const currentHint = pickByIndex(hints, hintIndex)
   const currentFrames = frameSets[motion]
 
   useEffect(() => {
@@ -96,7 +162,7 @@ export const RaftGuide = () => {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setHintIndex((prev) => (prev + 1) % hints.length)
-    }, 13000)
+    }, 16000)
     return () => window.clearInterval(timer)
   }, [hints.length])
 
@@ -104,7 +170,7 @@ export const RaftGuide = () => {
     const timer = window.setInterval(() => {
       const roll = Math.random()
 
-      if (roll < 0.22) {
+      if (roll < 0.18) {
         setMotion('squat')
         setOffset({ x: 0, y: 4 })
         return
@@ -114,7 +180,7 @@ export const RaftGuide = () => {
       const y = Math.floor(Math.random() * 20) - 10
       setOffset({ x, y })
       setMotion(Math.abs(x) > 8 || Math.abs(y) > 4 ? 'run' : 'idle')
-    }, 3600)
+    }, 3800)
 
     return () => window.clearInterval(timer)
   }, [])
@@ -125,7 +191,8 @@ export const RaftGuide = () => {
       <div className="raft-guide-bg raft-guide-bg-b" />
 
       <div className="raft-bubble" onClick={() => setHintIndex((prev) => (prev + 1) % hints.length)}>
-        {hints[hintIndex % hints.length]}
+        <span className={`raft-bubble-kind kind-${currentHint.kind}`}>{currentHint.kind}</span>
+        <span>{currentHint.text}</span>
       </div>
 
       <button

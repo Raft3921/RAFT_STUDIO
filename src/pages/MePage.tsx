@@ -8,10 +8,12 @@ export const MePage = () => {
     currentUserId,
     workspaceId,
     storageMode,
+    firebaseAvailable,
     ready,
     copyWorkspaceLink,
     toggleMyNotification,
     updateMyProfile,
+    switchStorageMode,
   } = useApp()
 
   const me = data.members.find((member) => member.id === currentUserId)
@@ -34,8 +36,28 @@ export const MePage = () => {
   return (
     <div className="page-stack">
       <section className="panel">
-        <h2>自分</h2>
-        <p className="muted">保存先: {storageMode === 'firebase' ? 'Firebase共有' : 'この端末のみ'}</p>
+        <div className="section-head">
+          <h2>自分</h2>
+          <div className="storage-switch">
+            <button
+              type="button"
+              className={`chip ${storageMode === 'local' ? 'active' : ''}`}
+              onClick={() => switchStorageMode('local')}
+            >
+              この端末のみ
+            </button>
+            <button
+              type="button"
+              className={`chip ${storageMode === 'firebase' ? 'active' : ''}`}
+              onClick={() => switchStorageMode('firebase')}
+              disabled={!firebaseAvailable}
+              title={firebaseAvailable ? 'Firebase共有に切り替え' : 'Firebase未設定'}
+            >
+              Firebase共有
+            </button>
+          </div>
+        </div>
+        {!firebaseAvailable && <p className="muted">Firebase未設定のため共有モードは使えません。</p>}
         <p className="muted">Workspace: {workspaceId}</p>
         <button
           className="btn ghost"

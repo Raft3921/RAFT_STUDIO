@@ -40,11 +40,13 @@ interface CreateEventInput {
 }
 
 type StorageMode = 'local' | 'firebase'
+const STORAGE_MODE_KEY = 'youtube-planner-storage-mode'
 
 interface AppContextValue {
   currentUserId: string
   workspaceId: string
   storageMode: StorageMode
+  firebaseAvailable: boolean
   ready: boolean
   data: AppData
   createPlan: (input: CreatePlanInput) => Promise<void>
@@ -55,6 +57,7 @@ interface AppContextValue {
   updateMyProfile: (displayName: string) => Promise<void>
   toggleMyNotification: () => Promise<void>
   copyWorkspaceLink: () => Promise<void>
+  switchStorageMode: (mode: StorageMode) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -65,11 +68,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [data, setData] = useState<AppData>(() => loadData())
   const [workspaceId] = useState(() => getOrCreateWorkspaceId())
   const [currentUserId, setCurrentUserId] = useState('m-raft')
-  const [storageMode, setStorageMode] = useState<StorageMode>(isFirebaseEnabled ? 'firebase' : 'local')
-  const [ready, setReady] = useState(!isFirebaseEnabled)
+  const [storageMode, setStorageMode] = useState<StorageMode>(() => {
+    if (!isFirebaseEnabled) return 'local'
+    const saved = localStorage.getItem(STORAGE_MODE_KEY)
+    return saved === 'local' ? 'local' : 'firebase'
+  })
+  const [ready, setReady] = useState(!isFirebaseEnabled || storageMode === 'local')
 
   useEffect(() => {
-    if (!isFirebaseEnabled || !firebaseAuth || !firestoreDb) {
+    localStorage.setItem(STORAGE_MODE_KEY, storageMode)
+  }, [storageMode])
+
+  useEffect(() => {
+    if (storageMode !== 'firebase' || !isFirebaseEnabled || !firebaseAuth || !firestoreDb) {
       return
     }
 
@@ -129,7 +140,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       unsubscribers.forEach((unsub) => unsub())
     }
-  }, [workspaceId])
+  }, [workspaceId, storageMode])
 
   useEffect(() => {
     if (storageMode === 'local') {
@@ -142,6 +153,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       currentUserId,
       workspaceId,
       storageMode,
+      firebaseAvailable: isFirebaseEnabled,
       ready,
       data,
       createPlan: async (input) => {
@@ -294,6 +306,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       copyWorkspaceLink: async () => {
         const inviteUrl = buildWorkspaceInviteUrl(workspaceId)
         await navigator.clipboard.writeText(inviteUrl)
+      },
+      switchStorageMode: (mode) => {
+        if (mode === 'firebase' && !isFirebaseEnabled) {
+          return
+        }
+        setStorageMode(mode)
+        if (mode === 'local') {
+          setCurrentUserId('m-raft')
+          setReady(true)
+        } else {
+          setReady(false)
+        }
       },
     }),
     [currentUserId, data, ready, storageMode, workspaceId],

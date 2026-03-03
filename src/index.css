@@ -280,6 +280,22 @@ label {
   flex-wrap: wrap;
 }
 
+.storage-switch {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.storage-switch .chip {
+  padding: 6px 10px;
+  font-size: 0.74rem;
+}
+
+.storage-switch .chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 h2,
 h3,
 p {
@@ -308,6 +324,9 @@ p {
   color: #214a40;
   box-shadow: 0 8px 22px rgba(25, 60, 49, 0.16);
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .raft-bubble::after {
@@ -376,6 +395,31 @@ p {
   bottom: 34px;
   background: rgba(67, 149, 201, 0.2);
   animation: raft-bg-float-b 2.6s ease-in-out infinite;
+}
+
+.raft-bubble-kind {
+  display: inline-flex;
+  width: fit-content;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.raft-bubble-kind.kind-案内 {
+  background: #e8f6ef;
+  color: #0a6f56;
+}
+
+.raft-bubble-kind.kind-状況ツッコミ {
+  background: #fff2e7;
+  color: #a15015;
+}
+
+.raft-bubble-kind.kind-成功ほめ {
+  background: #e7efff;
+  color: #264f9d;
 }
 
 @keyframes raft-bg-float-a {
