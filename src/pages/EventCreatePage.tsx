@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { eventChecklistTemplates, eventTemplateNames } from '../data/templates'
 import { roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
+import type { EventChecklistItem } from '../types'
+
+type ChecklistDraftItem = Pick<EventChecklistItem, 'label' | 'scope' | 'assigneeIds'>
 
 export const EventCreatePage = () => {
   const { data, createEvent } = useApp()
@@ -18,17 +21,42 @@ export const EventCreatePage = () => {
   const [timelineRaw, setTimelineRaw] = useState('開始\n撮影\n終了')
   const [templateName, setTemplateName] = useState(eventTemplateNames[0])
   const [extraChecklist, setExtraChecklist] = useState('')
+  const [itemScopes, setItemScopes] = useState<Record<string, 'all' | 'member'>>({})
+  const [itemAssignees, setItemAssignees] = useState<Record<string, string[]>>({})
 
   const selectedPlan = useMemo(() => data.plans.find((plan) => plan.id === planId), [data.plans, planId])
-
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const templateItems = eventChecklistTemplates[templateName]
+  const targetMembers = useMemo(
+    () =>
+      selectedPlan
+        ? data.members.filter((member) => selectedPlan.participantIds.includes(member.id))
+        : data.members,
+    [data.members, selectedPlan],
+  )
+  const checklistDraft = useMemo(() => {
+    const templateItems = eventChecklistTemplates[templateName].map((item) => ({ ...item, source: 'template' as const }))
     const extraItems = extraChecklist
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((label) => ({ label, scope: 'all' as const }))
+      .map((label) => ({ label, scope: 'all' as const, source: 'extra' as const }))
+
+    return [...templateItems, ...extraItems].map((item, index) => ({
+      key: `${item.source}-${index}-${item.label}`,
+      label: item.label,
+      defaultScope: item.scope,
+    }))
+  }, [templateName, extraChecklist])
+
+  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const checklist: ChecklistDraftItem[] = checklistDraft.map((item) => {
+      const selectedScope = itemScopes[item.key] ?? (item.defaultScope === 'all' ? 'all' : 'member')
+      const assigneeIds = itemAssignees[item.key] ?? []
+      if (selectedScope === 'member' && assigneeIds.length > 0) {
+        return { label: item.label, scope: 'member', assigneeIds }
+      }
+      return { label: item.label, scope: 'all', assigneeIds: [] }
+    })
 
     createEvent({
       title: title.trim() || `${selectedPlan?.title ?? '新規企画'} 撮影日`,
@@ -40,7 +68,7 @@ export const EventCreatePage = () => {
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean),
-      checklist: [...templateItems, ...extraItems],
+      checklist,
     })
 
     navigate('/events')
@@ -105,6 +133,67 @@ export const EventCreatePage = () => {
           value={extraChecklist}
           onChange={(event) => setExtraChecklist(event.target.value)}
         />
+        <p className="muted">持ち物ごとに担当メンバーを設定できます。</p>
+        <div className="stack-gap">
+          {checklistDraft.map((item) => {
+            const mode = itemScopes[item.key] ?? (item.defaultScope === 'all' ? 'all' : 'member')
+            const selectedAssignees = itemAssignees[item.key] ?? []
+
+            return (
+              <div className="role-row" key={item.key}>
+                <strong>{item.label}</strong>
+                <div className="chip-row">
+                  <button
+                    type="button"
+                    className={`chip ${mode === 'all' ? 'active' : ''}`}
+                    onClick={() =>
+                      setItemScopes((prev) => ({
+                        ...prev,
+                        [item.key]: 'all',
+                      }))
+                    }
+                  >
+                    全員
+                  </button>
+                  <button
+                    type="button"
+                    className={`chip ${mode === 'member' ? 'active' : ''}`}
+                    onClick={() =>
+                      setItemScopes((prev) => ({
+                        ...prev,
+                        [item.key]: 'member',
+                      }))
+                    }
+                  >
+                    メンバー指定
+                  </button>
+                </div>
+                {mode === 'member' && (
+                  <div className="chip-row">
+                    {targetMembers.map((member) => (
+                      <button
+                        type="button"
+                        key={`${item.key}-${member.id}`}
+                        className={`chip ${selectedAssignees.includes(member.id) ? 'active' : ''}`}
+                        onClick={() =>
+                          setItemAssignees((prev) => {
+                            const current = prev[item.key] ?? []
+                            const next = current.includes(member.id)
+                              ? current.filter((id) => id !== member.id)
+                              : [...current, member.id]
+                            return { ...prev, [item.key]: next }
+                          })
+                        }
+                      >
+                        {member.displayName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
 
         <label>段取り（改行区切り）</label>
         <textarea

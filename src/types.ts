@@ -29,7 +29,8 @@ export interface Plan {
 export interface EventChecklistItem {
   id: string
   label: string
-  scope: 'all' | 'role'
+  scope: 'all' | 'role' | 'member'
+  assigneeIds?: string[]
   doneBy: string[]
 }
 

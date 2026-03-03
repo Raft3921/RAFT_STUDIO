@@ -38,7 +38,7 @@ interface CreateEventInput {
   meetingPoint: string
   location: string
   timeline: string[]
-  checklist: { label: string; scope: 'all' | 'role' }[]
+  checklist: { label: string; scope: 'all' | 'role' | 'member'; assigneeIds?: string[] }[]
 }
 
 type StorageMode = 'local' | 'firebase'
@@ -299,7 +299,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }))
       },
       createEvent: async (input) => {
-        const checklist = input.checklist.map((item) => ({ ...item, id: createId(), doneBy: [] }))
+        const checklist = input.checklist.map((item) => ({
+          ...item,
+          assigneeIds: item.scope === 'member' ? item.assigneeIds ?? [] : [],
+          id: createId(),
+          doneBy: [],
+        }))
 
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb

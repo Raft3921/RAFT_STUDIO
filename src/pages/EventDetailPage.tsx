@@ -18,6 +18,15 @@ export const EventDetailPage = () => {
   const myResponse = data.responses.find((item) => item.eventId === id && item.userId === currentUserId)
 
   const counts = useMemo(() => (event ? responseCount(event.id, data.responses) : null), [event, data.responses])
+  const visibleChecklist = useMemo(
+    () =>
+      event
+        ? event.checklist.filter(
+            (item) => item.scope !== 'member' || !item.assigneeIds || item.assigneeIds.includes(currentUserId),
+          )
+        : [],
+    [currentUserId, event],
+  )
 
   if (!event || !counts) {
     return <p className="panel">撮影日が見つかりません。</p>
@@ -83,7 +92,7 @@ export const EventDetailPage = () => {
       <section className="panel">
         <h3>持ち物チェック</h3>
         <div className="stack-gap">
-          {event.checklist.map((item) => {
+          {visibleChecklist.map((item) => {
             const checked = item.doneBy.includes(currentUserId)
             return (
               <label className="check-row" key={item.id}>
@@ -92,6 +101,7 @@ export const EventDetailPage = () => {
               </label>
             )
           })}
+          {visibleChecklist.length === 0 && <p className="muted">あなた向けの持ち物はありません。</p>}
         </div>
       </section>
 
