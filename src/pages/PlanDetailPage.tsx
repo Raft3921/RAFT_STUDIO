@@ -1,0 +1,78 @@
+import { Link, useParams } from 'react-router-dom'
+import { StatusBadge } from '../components/StatusBadge'
+import { buildShareUrl, statusOrder } from '../lib/utils'
+import { useApp } from '../store/AppContext'
+import type { PlanStatus } from '../types'
+
+export const PlanDetailPage = () => {
+  const { id } = useParams()
+  const { data, updatePlanStatus } = useApp()
+
+  const plan = data.plans.find((item) => item.id === id)
+  const relatedEvents = data.events.filter((event) => event.planId === id)
+
+  if (!plan) {
+    return <p className="panel">企画が見つかりません。</p>
+  }
+
+  const share = async () => {
+    const url = buildShareUrl(`/plans/${plan.id}`)
+    await navigator.clipboard.writeText(url)
+    window.alert('共有リンクをコピーしました')
+  }
+
+  return (
+    <div className="page-stack">
+      <section className="panel">
+        <div className="section-head">
+          <h2>{plan.title}</h2>
+          <StatusBadge status={plan.status} />
+        </div>
+        <p>{plan.templateType}</p>
+        <p>{plan.memo || 'メモなし'}</p>
+      </section>
+
+      <section className="panel">
+        <h3>ステータス</h3>
+        <div className="chip-row">
+          {statusOrder.map((status) => (
+            <button
+              className={`chip ${plan.status === status ? 'active' : ''}`}
+              key={status}
+              onClick={() => updatePlanStatus(plan.id, status as PlanStatus)}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <h3>仕様</h3>
+        <p>尺: {plan.duration}</p>
+        <p>人数: {plan.memberSize}</p>
+        <p>目的: {plan.goal}</p>
+        <p>素材: {plan.assets.join(' / ') || 'なし'}</p>
+      </section>
+
+      <section className="panel">
+        <div className="section-head">
+          <h3>関連する撮影日</h3>
+          <Link className="mini-link" to={`/events/new?planId=${plan.id}`}>
+            撮影日作成
+          </Link>
+        </div>
+        {relatedEvents.length === 0 && <p className="muted">まだ紐づく撮影日はありません。</p>}
+        {relatedEvents.map((event) => (
+          <Link key={event.id} className="card link-card" to={`/events/${event.id}`}>
+            {event.title}
+          </Link>
+        ))}
+      </section>
+
+      <button className="btn" onClick={share}>
+        共有リンクをコピー
+      </button>
+    </div>
+  )
+}
