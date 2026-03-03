@@ -7,6 +7,7 @@ const tabs = [
   { to: '/home', label: 'ホーム' },
   { to: '/plans', label: '企画' },
   { to: '/events', label: '撮影日' },
+  { to: '/rafine', label: 'RAFINE' },
   { to: '/me', label: '自分' },
 ]
 
