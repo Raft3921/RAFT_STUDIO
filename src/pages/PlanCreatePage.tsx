@@ -38,7 +38,7 @@ export const PlanCreatePage = () => {
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
   const [questionAnswerKeys, setQuestionAnswerKeys] = useState<Record<string, string>>({})
   const [freeTopic, setFreeTopic] = useState('')
-  const [titleGenVersion, setTitleGenVersion] = useState(0)
+  const [titleCandidates, setTitleCandidates] = useState<string[]>([])
 
   const normalizedGame = gameTitle.trim().toLowerCase()
   const assetOptions = gameAssets[normalizedGame] ?? genericAssets
@@ -58,14 +58,6 @@ export const PlanCreatePage = () => {
     [activeGenre, currentQuestionId],
   )
   const questionComplete = Boolean(activeGenre) && !currentQuestion
-  const titleCandidates = useMemo(() => {
-    void titleGenVersion
-    if (!activeGenre || !questionComplete) return []
-    return buildTitleCandidates(activeGenre.label, gameTitle.trim() || defaultGame, {
-      ...questionAnswers,
-      topicCustom: freeTopic.trim(),
-    })
-  }, [activeGenre, freeTopic, gameTitle, questionAnswers, questionComplete, titleGenVersion])
 
   const selectedMembersLabel = useMemo(
     () =>
@@ -96,6 +88,7 @@ export const PlanCreatePage = () => {
     setQuestionAnswerKeys({})
     setQuestionHistory([])
     setFreeTopic('')
+    setTitleCandidates([])
     setCurrentQuestionId(tree?.questions[0]?.id ?? '')
     setTitle('')
     setOverview('')
@@ -108,6 +101,7 @@ export const PlanCreatePage = () => {
     if (currentQuestion.id === 'topic' && optionKey !== 'free') {
       setFreeTopic('')
     }
+    setTitleCandidates([])
     setQuestionHistory((prev) => [...prev, currentQuestion.id])
     const mappedNext = getNextQuestionId(currentQuestion, optionKey)
     const currentIndex = activeGenre.questions.findIndex((item) => item.id === currentQuestion.id)
@@ -135,6 +129,20 @@ export const PlanCreatePage = () => {
       delete next[prevQuestionId]
       return next
     })
+    setTitleCandidates([])
+  }
+
+  const runTitleCandidates = () => {
+    if (activeGenre && questionComplete) {
+      const candidates = buildTitleCandidates(activeGenre.label, gameTitle.trim() || defaultGame, {
+        ...questionAnswers,
+        topicCustom: freeTopic.trim(),
+      })
+      setTitleCandidates(candidates)
+      return
+    }
+    const firstOptionLabel = activeGenre?.questions[0]?.options[0]?.label ?? genres[0]?.label ?? '企画'
+    setTitleCandidates([firstOptionLabel])
   }
 
   const toggleParticipant = (memberId: string) => {
@@ -252,13 +260,13 @@ export const PlanCreatePage = () => {
                 )}
                 {!currentQuestion && (
                   <div className="stack-gap">
-                    <p className="muted">質問完了。タイトル候補を生成しました。</p>
+                    <p className="muted">質問完了。ボタンでタイトル候補を生成できます。</p>
                     <div className="inline-row">
                       <button type="button" className="chip" onClick={onBackQuestion}>
                         1問戻る
                       </button>
-                      <button type="button" className="chip" onClick={() => setTitleGenVersion((prev) => prev + 1)}>
-                        候補を再生成
+                      <button type="button" className="chip" onClick={runTitleCandidates}>
+                        タイトル候補を行う
                       </button>
                     </div>
                   </div>
@@ -423,6 +431,11 @@ export const PlanCreatePage = () => {
             </div>
 
             <label>タイトル候補（質問完了後に10件）</label>
+            <div className="inline-row">
+              <button type="button" className="chip" onClick={runTitleCandidates}>
+                タイトル候補を行う
+              </button>
+            </div>
             <div className="stack-gap">
               {titleCandidates.length === 0 && <p className="muted">ジャンル質問に回答すると候補が表示されます。</p>}
               {titleCandidates.map((candidate) => (
