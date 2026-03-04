@@ -21,6 +21,8 @@ import { buildWorkspaceInviteUrl, getOrCreateWorkspaceId } from '../lib/workspac
 import type {
   AppData,
   Attendance,
+  CalendarMark,
+  CalendarMarkKind,
   DailyQuest,
   DailyQuestTemplate,
   EventItem,
@@ -59,6 +61,13 @@ interface CreateDailyQuestInput {
   customText?: string
 }
 
+interface UpsertCalendarMarkInput {
+  kind: CalendarMarkKind
+  startDate: string
+  endDate: string
+  title?: string
+}
+
 type StorageMode = 'local' | 'firebase'
 const STORAGE_MODE_KEY = 'youtube-planner-storage-mode'
 const DISPLAY_NAME_KEY = 'youtube-planner-display-name'
@@ -88,6 +97,9 @@ interface AppContextValue {
   createDailyQuests: (input: CreateDailyQuestInput) => Promise<void>
   toggleDailyQuestDone: (questId: string) => Promise<void>
   deleteDailyQuest: (questId: string) => Promise<void>
+  createCalendarMark: (input: UpsertCalendarMarkInput) => Promise<void>
+  updateCalendarMark: (markId: string, input: UpsertCalendarMarkInput) => Promise<void>
+  deleteCalendarMark: (markId: string) => Promise<void>
   updateMyProfile: (displayName: string) => Promise<void>
   toggleMyNotification: () => Promise<void>
   copyWorkspaceLink: () => Promise<void>
@@ -218,6 +230,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const dailyQuests = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<DailyQuest, 'id'>) }))
           setData((prev) => ({ ...prev, dailyQuests }))
         }),
+        onSnapshot(query(collection(workspaceRef, 'calendar_marks'), orderBy('createdAt', 'desc')), (snapshot) => {
+          const calendarMarks = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<CalendarMark, 'id'>) }))
+          setData((prev) => ({ ...prev, calendarMarks }))
+        }),
         onSnapshot(collection(workspaceRef, 'members'), (snapshot) => {
           const members = snapshot.docs
             .map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
@@ -316,6 +332,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     await Promise.all(
       localData.dailyQuests.map((quest) =>
         setDoc(doc(workspaceRef, 'daily_quests', quest.id), quest, { merge: true }),
+      ),
+    )
+
+    await Promise.all(
+      localData.calendarMarks.map((mark) =>
+        setDoc(doc(workspaceRef, 'calendar_marks', mark.id), mark, { merge: true }),
       ),
     )
 
@@ -581,6 +603,64 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           dailyQuests: prev.dailyQuests.filter((item) => item.id !== questId),
         }))
       },
+      createCalendarMark: async (input) => {
+        const actor = data.members.find((member) => member.id === currentUserId)
+        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        const start = input.startDate <= input.endDate ? input.startDate : input.endDate
+        const end = input.startDate <= input.endDate ? input.endDate : input.startDate
+        const payload = {
+          kind: input.kind,
+          startDate: start,
+          endDate: end,
+          title: input.title?.trim() || undefined,
+          createdAt: new Date().toISOString(),
+          createdBy: currentUserId,
+        }
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          const workspaceRef = doc(db, 'workspaces', workspaceId)
+          await addDoc(collection(workspaceRef, 'calendar_marks'), payload satisfies Omit<CalendarMark, 'id'>)
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          calendarMarks: [{ id: createId(), ...payload }, ...prev.calendarMarks],
+        }))
+      },
+      updateCalendarMark: async (markId, input) => {
+        const actor = data.members.find((member) => member.id === currentUserId)
+        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        const start = input.startDate <= input.endDate ? input.startDate : input.endDate
+        const end = input.startDate <= input.endDate ? input.endDate : input.startDate
+        const patch = {
+          kind: input.kind,
+          startDate: start,
+          endDate: end,
+          title: input.title?.trim() || undefined,
+        }
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await updateDoc(doc(db, 'workspaces', workspaceId, 'calendar_marks', markId), patch)
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          calendarMarks: prev.calendarMarks.map((item) => (item.id === markId ? { ...item, ...patch } : item)),
+        }))
+      },
+      deleteCalendarMark: async (markId) => {
+        const actor = data.members.find((member) => member.id === currentUserId)
+        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await deleteDoc(doc(db, 'workspaces', workspaceId, 'calendar_marks', markId))
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          calendarMarks: prev.calendarMarks.filter((item) => item.id !== markId),
+        }))
+      },
       updateMyProfile: async (displayName) => {
         const trimmed = normalizeDisplayName(displayName)
         if (!trimmed) return
@@ -630,6 +710,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 if (quest.assigneeId === currentUserId) patch.assigneeId = nextUserId
                 if (quest.createdBy === currentUserId) patch.createdBy = nextUserId
                 await updateDoc(doc(db, 'workspaces', workspaceId, 'daily_quests', quest.id), patch)
+              }),
+            )
+
+            await Promise.all(
+              data.calendarMarks.map(async (mark) => {
+                if (mark.createdBy !== currentUserId) return
+                await updateDoc(doc(db, 'workspaces', workspaceId, 'calendar_marks', mark.id), {
+                  createdBy: nextUserId,
+                })
               }),
             )
           }
@@ -687,6 +776,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             ...quest,
             assigneeId: quest.assigneeId === currentUserId ? nextUserId : quest.assigneeId,
             createdBy: quest.createdBy === currentUserId ? nextUserId : quest.createdBy,
+          })),
+          calendarMarks: prev.calendarMarks.map((mark) => ({
+            ...mark,
+            createdBy: mark.createdBy === currentUserId ? nextUserId : mark.createdBy,
           })),
         }))
         setCurrentUserId(nextUserId)

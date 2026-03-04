@@ -877,6 +877,95 @@ p {
   white-space: nowrap;
 }
 
+.calendar-cell-range {
+  outline: 2px solid #efb2b0;
+  background: #fff4f3;
+}
+
+.calendar-legend {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.calendar-mark-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.calendar-mark-dot {
+  font-size: 0.56rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-weight: 800;
+}
+
+.calendar-mark-dot.active {
+  background: #fff;
+}
+
+.calendar-mark-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.calendar-mark-dot.kind-shoot,
+.calendar-mark-badge.kind-shoot {
+  border-color: #ef4444;
+  color: #991b1b;
+  background: #fff1f2;
+}
+
+.calendar-mark-dot.kind-edit,
+.calendar-mark-badge.kind-edit {
+  border-color: #f59e0b;
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.calendar-mark-dot.kind-post,
+.calendar-mark-badge.kind-post {
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.calendar-range-arrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.calendar-range-arrow-line {
+  flex: 1;
+  min-width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, #fca5a5, #b91c1c);
+  position: relative;
+}
+
+.calendar-range-arrow-line::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid #b91c1c;
+}
+
 .onboarding-layer {
   position: fixed;
   inset: 0;

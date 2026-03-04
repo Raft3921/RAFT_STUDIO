@@ -2,6 +2,7 @@ export type PlanStatus = 'candidate' | 'confirmed' | 'shot' | 'editing' | 'publi
 export type Attendance = 'yes' | 'no' | 'maybe'
 export type RoleSelection = 'single' | 'multi'
 export type RoleAssignments = Record<string, string[]>
+export type CalendarMarkKind = 'shoot' | 'edit' | 'post'
 export type DailyQuestTemplate =
   | 'plan_create'
   | 'event_create'
@@ -76,10 +77,21 @@ export interface DailyQuest {
   createdBy: string
 }
 
+export interface CalendarMark {
+  id: string
+  kind: CalendarMarkKind
+  startDate: string
+  endDate: string
+  title?: string
+  createdAt: string
+  createdBy: string
+}
+
 export interface AppData {
   members: Member[]
   plans: Plan[]
   events: EventItem[]
   responses: EventResponse[]
   dailyQuests: DailyQuest[]
+  calendarMarks: CalendarMark[]
 }

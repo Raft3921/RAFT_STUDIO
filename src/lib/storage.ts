@@ -21,6 +21,7 @@ const defaultData: AppData = {
   events: [],
   responses: [],
   dailyQuests: [],
+  calendarMarks: [],
 }
 
 export const loadData = (): AppData => {
@@ -39,6 +40,7 @@ export const loadData = (): AppData => {
       events: parsed.events ?? [],
       responses: parsed.responses ?? [],
       dailyQuests: parsed.dailyQuests ?? [],
+      calendarMarks: parsed.calendarMarks ?? [],
     }
   } catch {
     return defaultData
