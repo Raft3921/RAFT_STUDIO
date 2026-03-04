@@ -19,13 +19,7 @@ type TitleTemplate = {
   template: string
 }
 
-export interface TitleAnswers {
-  format?: string
-  rivalry?: string
-  rule?: string
-  hook?: string
-  topic?: string
-}
+export type TitleAnswers = Record<string, string | undefined>
 
 const genreTrees = genreTreeData.genres as unknown as GenreTree[]
 const titleTemplates = titleTemplateData as TitleTemplate[]
@@ -59,14 +53,30 @@ export const buildTitleCandidates = (
   answers: TitleAnswers,
   count = 10,
 ) => {
-  const values = {
+  const topicValue =
+    answers.topic === '自由テーマ'
+      ? fill(answers.topicCustom, '未入力テーマ')
+      : fill(answers.topic, '定番お題')
+  const ruleFallback = genreLabel === '検証' ? '同条件で比較' : '追加ルールなし'
+
+  const values: Record<string, string> = {
     GENRE: fill(genreLabel, '企画'),
     GAME: fill(gameTitle, 'このゲーム'),
     FORMAT: fill(answers.format, '特殊ルール'),
+    STYLE: fill(answers.style, '定番型'),
     RIVALRY: fill(answers.rivalry, 'メンバー対決'),
-    RULE: fill(answers.rule, '制限ルール'),
+    RULE: fill(answers.rule, ruleFallback),
+    PACE: fill(answers.pace, '中盤加速'),
+    STAKES: fill(answers.stakes, 'リスクあり'),
     HOOK: fill(answers.hook, '波乱'),
-    TOPIC: fill(answers.topic, '自由テーマ'),
+    SETTING: fill(answers.setting, '通常マップ'),
+    TOPIC: topicValue,
+    TWIST: fill(answers.twist, '追加なし'),
+    AUDIENCE: fill(answers.audience, '全体向け'),
+    EDIT_STYLE: fill(answers.editStyle, 'テンポ重視'),
+    THUMB_STYLE: fill(answers.thumbStyle, 'インパクト型'),
+    OPENING: fill(answers.opening, 'いきなり本編'),
+    ENDING: fill(answers.ending, '決着'),
   }
 
   const categoryOrder = shuffle(Object.keys(byCategory))
@@ -83,14 +93,7 @@ export const buildTitleCandidates = (
   }
 
   const withText = selectedTemplates.map((template) =>
-    template.template
-      .replaceAll('{GENRE}', values.GENRE)
-      .replaceAll('{GAME}', values.GAME)
-      .replaceAll('{FORMAT}', values.FORMAT)
-      .replaceAll('{RIVALRY}', values.RIVALRY)
-      .replaceAll('{RULE}', values.RULE)
-      .replaceAll('{HOOK}', values.HOOK)
-      .replaceAll('{TOPIC}', values.TOPIC),
+    template.template.replace(/\{([A-Z_]+)\}/g, (_, key) => values[key] ?? ''),
   )
 
   const unique = Array.from(new Set(withText.map((text) => text.replace(/\s+/g, ' ').trim())))

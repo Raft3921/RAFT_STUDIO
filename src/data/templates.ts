@@ -8,7 +8,7 @@ export const eventChecklistTemplates: Record<string, Omit<EventChecklistItem, 'i
   'PC収録': [
     { label: '収録用PCの空き容量確認', scope: 'all' },
     { label: 'マイクと音量チェック', scope: 'all' },
-    { label: 'OBSシーン設定確認', scope: 'role' },
+    { label: '録画設定確認', scope: 'role' },
   ],
   'Switch収録': [
     { label: 'Switch本体と充電器', scope: 'all' },

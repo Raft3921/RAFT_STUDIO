@@ -6,69 +6,498 @@
       "questions": [
         {
           "id": "format",
-          "text": "どの形式で検証する？",
+          "text": "検証の形式は？",
           "options": [
-            { "key": "truth_check", "label": "本当なのか検証" },
-            { "key": "urban_legend", "label": "都市伝説検証" },
-            { "key": "challenge", "label": "縛りチャレンジ" },
-            { "key": "compare", "label": "比較検証" },
-            { "key": "speed", "label": "最速チャレンジ" },
-            { "key": "survival", "label": "耐久検証" }
+            {
+              "key": "truth_check",
+              "label": "本当なのか検証"
+            },
+            {
+              "key": "urban_legend",
+              "label": "都市伝説検証"
+            },
+            {
+              "key": "compare",
+              "label": "比較検証"
+            },
+            {
+              "key": "challenge",
+              "label": "縛りチャレンジ"
+            },
+            {
+              "key": "speed",
+              "label": "最速チャレンジ"
+            },
+            {
+              "key": "survival",
+              "label": "耐久検証"
+            }
           ],
           "nextMap": {
-            "truth_check": "topic",
-            "urban_legend": "topic",
-            "challenge": "rule",
-            "compare": "rivalry",
-            "speed": "rule",
-            "survival": "rule"
+            "*": "style"
+          }
+        },
+        {
+          "id": "style",
+          "text": "見せ方は？",
+          "options": [
+            {
+              "key": "serious",
+              "label": "ガチ検証"
+            },
+            {
+              "key": "variety",
+              "label": "バラエティ検証"
+            },
+            {
+              "key": "expert",
+              "label": "専門家っぽく"
+            },
+            {
+              "key": "beginner",
+              "label": "初心者目線"
+            },
+            {
+              "key": "live",
+              "label": "生配信風"
+            },
+            {
+              "key": "short",
+              "label": "短尺テンポ"
+            }
+          ],
+          "nextMap": {
+            "*": "rivalry"
           }
         },
         {
           "id": "rivalry",
-          "text": "誰と誰をぶつける？",
+          "text": "対立軸は？",
           "options": [
-            { "key": "beginner_vs_pro", "label": "初心者 vs 上級者" },
-            { "key": "solo_vs_team", "label": "ソロ vs チーム" },
-            { "key": "human_vs_ai", "label": "人間 vs AI" },
-            { "key": "new_vs_old", "label": "新ルール vs 旧ルール" }
+            {
+              "key": "beginner_vs_pro",
+              "label": "初心者 vs 上級者"
+            },
+            {
+              "key": "solo_vs_team",
+              "label": "ソロ vs チーム"
+            },
+            {
+              "key": "human_vs_ai",
+              "label": "人間 vs AI"
+            },
+            {
+              "key": "new_vs_old",
+              "label": "新ルール vs 旧ルール"
+            },
+            {
+              "key": "luck_vs_skill",
+              "label": "運 vs 実力"
+            },
+            {
+              "key": "safe_vs_risk",
+              "label": "安定 vs ギャンブル"
+            }
           ],
-          "nextMap": { "*": "rule" }
+          "nextMap": {
+            "*": "rule"
+          }
         },
         {
           "id": "rule",
           "text": "ルールは？",
           "options": [
-            { "key": "time_limit", "label": "制限時間あり" },
-            { "key": "no_items", "label": "アイテム禁止" },
-            { "key": "one_miss", "label": "1ミス即終了" },
-            { "key": "random", "label": "ランダム縛り" }
+            {
+              "key": "time_limit",
+              "label": "制限時間あり"
+            },
+            {
+              "key": "no_items",
+              "label": "アイテム禁止"
+            },
+            {
+              "key": "one_miss",
+              "label": "1ミス即終了"
+            },
+            {
+              "key": "random",
+              "label": "ランダム縛り"
+            },
+            {
+              "key": "one_try",
+              "label": "1回勝負"
+            },
+            {
+              "key": "resource_limit",
+              "label": "素材制限"
+            }
           ],
-          "nextMap": { "*": "hook" }
+          "nextMap": {
+            "*": "pace"
+          }
+        },
+        {
+          "id": "pace",
+          "text": "進行テンポは？",
+          "options": [
+            {
+              "key": "rush",
+              "label": "序盤から全開"
+            },
+            {
+              "key": "build_up",
+              "label": "徐々に難化"
+            },
+            {
+              "key": "middle_spike",
+              "label": "中盤で急展開"
+            },
+            {
+              "key": "last_burst",
+              "label": "終盤一気"
+            },
+            {
+              "key": "steady",
+              "label": "安定進行"
+            },
+            {
+              "key": "chaos",
+              "label": "最初からカオス"
+            }
+          ],
+          "nextMap": {
+            "*": "stakes"
+          }
+        },
+        {
+          "id": "stakes",
+          "text": "失敗した時の代償は？",
+          "options": [
+            {
+              "key": "penalty_game",
+              "label": "罰ゲーム"
+            },
+            {
+              "key": "reset",
+              "label": "最初からやり直し"
+            },
+            {
+              "key": "item_loss",
+              "label": "装備没収"
+            },
+            {
+              "key": "time_loss",
+              "label": "時間ロス"
+            },
+            {
+              "key": "point_loss",
+              "label": "ポイント減点"
+            },
+            {
+              "key": "none",
+              "label": "なし"
+            }
+          ],
+          "nextMap": {
+            "*": "hook"
+          }
         },
         {
           "id": "hook",
-          "text": "見せ場はどれ？",
+          "text": "フックは？",
           "options": [
-            { "key": "comeback", "label": "逆転" },
-            { "key": "accident", "label": "事故" },
-            { "key": "unexpected", "label": "想定外" },
-            { "key": "record", "label": "記録更新" }
+            {
+              "key": "comeback",
+              "label": "逆転"
+            },
+            {
+              "key": "accident",
+              "label": "事故"
+            },
+            {
+              "key": "unexpected",
+              "label": "想定外"
+            },
+            {
+              "key": "record",
+              "label": "記録更新"
+            },
+            {
+              "key": "myth_true",
+              "label": "都市伝説が当たる"
+            },
+            {
+              "key": "myth_false",
+              "label": "都市伝説が外れる"
+            }
           ],
-          "nextMap": { "*": "topic" }
+          "nextMap": {
+            "*": "setting"
+          }
+        },
+        {
+          "id": "setting",
+          "text": "舞台は？",
+          "options": [
+            {
+              "key": "overworld",
+              "label": "通常世界"
+            },
+            {
+              "key": "cave",
+              "label": "洞窟"
+            },
+            {
+              "key": "nether",
+              "label": "ネザー"
+            },
+            {
+              "key": "end",
+              "label": "エンド"
+            },
+            {
+              "key": "village",
+              "label": "村"
+            },
+            {
+              "key": "custom",
+              "label": "カスタムマップ"
+            }
+          ],
+          "nextMap": {
+            "*": "topic"
+          }
         },
         {
           "id": "topic",
-          "text": "お題を選ぶ（任意）",
+          "text": "お題は？",
           "options": [
-            { "key": "boss", "label": "ボス戦" },
-            { "key": "farm", "label": "農業" },
-            { "key": "economy", "label": "経済" },
-            { "key": "urban_story", "label": "都市伝説" },
-            { "key": "truth_story", "label": "噂の真偽" },
-            { "key": "free", "label": "自由テーマ" }
+            {
+              "key": "boss",
+              "label": "ボス戦"
+            },
+            {
+              "key": "farm",
+              "label": "農業"
+            },
+            {
+              "key": "economy",
+              "label": "経済"
+            },
+            {
+              "key": "urban_story",
+              "label": "都市伝説"
+            },
+            {
+              "key": "truth_story",
+              "label": "噂の真偽"
+            },
+            {
+              "key": "free",
+              "label": "自由テーマ"
+            }
           ],
-          "nextMap": { "*": "end" }
+          "nextMap": {
+            "*": "twist"
+          }
+        },
+        {
+          "id": "twist",
+          "text": "もう1つ仕掛ける要素は？",
+          "options": [
+            {
+              "key": "none",
+              "label": "追加なし"
+            },
+            {
+              "key": "late_twist",
+              "label": "終盤でどんでん返し"
+            },
+            {
+              "key": "double_hook",
+              "label": "フックを2段にする"
+            },
+            {
+              "key": "secret_goal",
+              "label": "裏目標を仕込む"
+            },
+            {
+              "key": "viewer_vote",
+              "label": "視聴者予想を入れる"
+            },
+            {
+              "key": "risk_up",
+              "label": "リスクを後半で上げる"
+            }
+          ],
+          "nextMap": {
+            "*": "audience"
+          }
+        },
+        {
+          "id": "audience",
+          "text": "主な想定視聴者は？",
+          "options": [
+            {
+              "key": "light",
+              "label": "ライト層"
+            },
+            {
+              "key": "core",
+              "label": "コア層"
+            },
+            {
+              "key": "beginner",
+              "label": "初心者"
+            },
+            {
+              "key": "mid",
+              "label": "中級者"
+            },
+            {
+              "key": "kids",
+              "label": "キッズ層"
+            },
+            {
+              "key": "all",
+              "label": "全体向け"
+            }
+          ],
+          "nextMap": {
+            "*": "editStyle"
+          }
+        },
+        {
+          "id": "editStyle",
+          "text": "編集スタイルは？",
+          "options": [
+            {
+              "key": "tempo",
+              "label": "テンポ重視"
+            },
+            {
+              "key": "story",
+              "label": "ストーリー重視"
+            },
+            {
+              "key": "caption",
+              "label": "字幕たっぷり"
+            },
+            {
+              "key": "minimal",
+              "label": "素材重視でシンプル"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション強調"
+            },
+            {
+              "key": "cinematic",
+              "label": "シネマ風"
+            }
+          ],
+          "nextMap": {
+            "*": "thumbStyle"
+          }
+        },
+        {
+          "id": "thumbStyle",
+          "text": "サムネの方向性は？",
+          "options": [
+            {
+              "key": "impact",
+              "label": "インパクト型"
+            },
+            {
+              "key": "clean",
+              "label": "見やすさ重視"
+            },
+            {
+              "key": "character",
+              "label": "キャラ押し"
+            },
+            {
+              "key": "mystery",
+              "label": "謎を残す"
+            },
+            {
+              "key": "data",
+              "label": "数字訴求"
+            },
+            {
+              "key": "scene",
+              "label": "名シーン切り取り"
+            }
+          ],
+          "nextMap": {
+            "*": "opening"
+          }
+        },
+        {
+          "id": "opening",
+          "text": "冒頭の入り方は？",
+          "options": [
+            {
+              "key": "cold_open",
+              "label": "いきなり本編"
+            },
+            {
+              "key": "teaser",
+              "label": "先に見どころ"
+            },
+            {
+              "key": "brief",
+              "label": "短い説明から"
+            },
+            {
+              "key": "challenge",
+              "label": "即チャレンジ開始"
+            },
+            {
+              "key": "comedy",
+              "label": "小ネタで開始"
+            },
+            {
+              "key": "result_first",
+              "label": "結果チラ見せ"
+            }
+          ],
+          "nextMap": {
+            "*": "ending"
+          }
+        },
+        {
+          "id": "ending",
+          "text": "最後はどう締める？",
+          "options": [
+            {
+              "key": "result_reveal",
+              "label": "結果公開"
+            },
+            {
+              "key": "ranking",
+              "label": "ランキング"
+            },
+            {
+              "key": "punishment",
+              "label": "罰ゲームで締め"
+            },
+            {
+              "key": "next_tease",
+              "label": "次回予告"
+            },
+            {
+              "key": "expert_comment",
+              "label": "解説付き"
+            },
+            {
+              "key": "retry",
+              "label": "再挑戦宣言"
+            }
+          ],
+          "nextMap": {
+            "*": "end"
+          }
         }
       ]
     },
@@ -80,58 +509,496 @@
           "id": "format",
           "text": "ドッキリの形式は？",
           "options": [
-            { "key": "horror_prank", "label": "ホラー系ドッキリ" },
-            { "key": "hidden_rule", "label": "隠しルール" },
-            { "key": "fake_info", "label": "偽情報" },
-            { "key": "betray", "label": "裏切り展開" },
-            { "key": "surprise", "label": "サプライズ仕掛け" }
+            {
+              "key": "horror_prank",
+              "label": "ホラー系ドッキリ"
+            },
+            {
+              "key": "hidden_rule",
+              "label": "隠しルール"
+            },
+            {
+              "key": "fake_info",
+              "label": "偽情報"
+            },
+            {
+              "key": "betray",
+              "label": "裏切り展開"
+            },
+            {
+              "key": "surprise",
+              "label": "サプライズ仕掛け"
+            },
+            {
+              "key": "voice_prank",
+              "label": "通話系ドッキリ"
+            }
           ],
-          "nextMap": { "*": "rivalry" }
+          "nextMap": {
+            "*": "style"
+          }
+        },
+        {
+          "id": "style",
+          "text": "雰囲気は？",
+          "options": [
+            {
+              "key": "scary",
+              "label": "ガチ怖い"
+            },
+            {
+              "key": "light",
+              "label": "軽めの笑い"
+            },
+            {
+              "key": "silent",
+              "label": "無言演出"
+            },
+            {
+              "key": "story",
+              "label": "ストーリー型"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション重視"
+            },
+            {
+              "key": "chaos",
+              "label": "カオス重視"
+            }
+          ],
+          "nextMap": {
+            "*": "rivalry"
+          }
         },
         {
           "id": "rivalry",
           "text": "誰に仕掛ける？",
           "options": [
-            { "key": "leader", "label": "司会役" },
-            { "key": "ace", "label": "エース役" },
-            { "key": "all", "label": "全員" },
-            { "key": "pair", "label": "2人組" }
+            {
+              "key": "leader",
+              "label": "司会役"
+            },
+            {
+              "key": "ace",
+              "label": "エース役"
+            },
+            {
+              "key": "all",
+              "label": "全員"
+            },
+            {
+              "key": "pair",
+              "label": "2人組"
+            },
+            {
+              "key": "new_member",
+              "label": "新人メンバー"
+            },
+            {
+              "key": "old_member",
+              "label": "古参メンバー"
+            }
           ],
-          "nextMap": { "*": "rule" }
+          "nextMap": {
+            "*": "rule"
+          }
         },
         {
           "id": "rule",
           "text": "ルール条件は？",
           "options": [
-            { "key": "no_notice", "label": "事前告知なし" },
-            { "key": "single_take", "label": "一発撮り" },
-            { "key": "timer", "label": "制限時間あり" },
-            { "key": "penalty", "label": "失敗ペナルティ" }
+            {
+              "key": "no_notice",
+              "label": "事前告知なし"
+            },
+            {
+              "key": "single_take",
+              "label": "一発撮り"
+            },
+            {
+              "key": "timer",
+              "label": "制限時間あり"
+            },
+            {
+              "key": "penalty",
+              "label": "失敗ペナルティ"
+            },
+            {
+              "key": "secret_mission",
+              "label": "裏ミッションあり"
+            },
+            {
+              "key": "safe_word",
+              "label": "セーフワードあり"
+            }
           ],
-          "nextMap": { "*": "hook" }
+          "nextMap": {
+            "*": "pace"
+          }
+        },
+        {
+          "id": "pace",
+          "text": "展開速度は？",
+          "options": [
+            {
+              "key": "slow_burn",
+              "label": "じわじわ"
+            },
+            {
+              "key": "instant",
+              "label": "開始直後"
+            },
+            {
+              "key": "middle_hit",
+              "label": "中盤で発動"
+            },
+            {
+              "key": "finale",
+              "label": "最後に爆発"
+            },
+            {
+              "key": "multi",
+              "label": "複数回発動"
+            },
+            {
+              "key": "random",
+              "label": "ランダム発動"
+            }
+          ],
+          "nextMap": {
+            "*": "stakes"
+          }
+        },
+        {
+          "id": "stakes",
+          "text": "失敗時の処理は？",
+          "options": [
+            {
+              "key": "confess",
+              "label": "即ネタばらし"
+            },
+            {
+              "key": "double",
+              "label": "二段ドッキリ化"
+            },
+            {
+              "key": "switch_target",
+              "label": "ターゲット変更"
+            },
+            {
+              "key": "punishment",
+              "label": "罰ゲームへ"
+            },
+            {
+              "key": "abort",
+              "label": "中止"
+            },
+            {
+              "key": "retry",
+              "label": "再挑戦"
+            }
+          ],
+          "nextMap": {
+            "*": "hook"
+          }
         },
         {
           "id": "hook",
           "text": "狙うリアクションは？",
           "options": [
-            { "key": "panic", "label": "パニック" },
-            { "key": "trust_break", "label": "信頼崩壊" },
-            { "key": "laugh", "label": "爆笑" },
-            { "key": "reverse", "label": "逆ドッキリ化" }
+            {
+              "key": "panic",
+              "label": "パニック"
+            },
+            {
+              "key": "trust_break",
+              "label": "信頼崩壊"
+            },
+            {
+              "key": "laugh",
+              "label": "爆笑"
+            },
+            {
+              "key": "reverse",
+              "label": "逆ドッキリ"
+            },
+            {
+              "key": "scream",
+              "label": "絶叫"
+            },
+            {
+              "key": "freeze",
+              "label": "フリーズ"
+            }
           ],
-          "nextMap": { "*": "topic" }
+          "nextMap": {
+            "*": "setting"
+          }
+        },
+        {
+          "id": "setting",
+          "text": "舞台は？",
+          "options": [
+            {
+              "key": "base",
+              "label": "拠点"
+            },
+            {
+              "key": "mine",
+              "label": "地下"
+            },
+            {
+              "key": "night",
+              "label": "夜の野外"
+            },
+            {
+              "key": "horror_house",
+              "label": "ホラーハウス"
+            },
+            {
+              "key": "voice_chat",
+              "label": "ボイスチャット"
+            },
+            {
+              "key": "event_area",
+              "label": "イベント会場"
+            }
+          ],
+          "nextMap": {
+            "*": "topic"
+          }
         },
         {
           "id": "topic",
           "text": "お題は？",
           "options": [
-            { "key": "base", "label": "拠点" },
-            { "key": "treasure", "label": "宝探し" },
-            { "key": "pvp", "label": "PvP中" },
-            { "key": "horror_house", "label": "ホラーハウス" },
-            { "key": "free", "label": "自由テーマ" }
+            {
+              "key": "treasure",
+              "label": "宝探し"
+            },
+            {
+              "key": "pvp",
+              "label": "PvP中"
+            },
+            {
+              "key": "quest",
+              "label": "ミッション中"
+            },
+            {
+              "key": "haunted",
+              "label": "怪奇現象"
+            },
+            {
+              "key": "urban",
+              "label": "都市伝説風"
+            },
+            {
+              "key": "free",
+              "label": "自由テーマ"
+            }
           ],
-          "nextMap": { "*": "end" }
+          "nextMap": {
+            "*": "twist"
+          }
+        },
+        {
+          "id": "twist",
+          "text": "もう1つ仕掛ける要素は？",
+          "options": [
+            {
+              "key": "none",
+              "label": "追加なし"
+            },
+            {
+              "key": "late_twist",
+              "label": "終盤でどんでん返し"
+            },
+            {
+              "key": "double_hook",
+              "label": "フックを2段にする"
+            },
+            {
+              "key": "secret_goal",
+              "label": "裏目標を仕込む"
+            },
+            {
+              "key": "viewer_vote",
+              "label": "視聴者予想を入れる"
+            },
+            {
+              "key": "risk_up",
+              "label": "リスクを後半で上げる"
+            }
+          ],
+          "nextMap": {
+            "*": "audience"
+          }
+        },
+        {
+          "id": "audience",
+          "text": "主な想定視聴者は？",
+          "options": [
+            {
+              "key": "light",
+              "label": "ライト層"
+            },
+            {
+              "key": "core",
+              "label": "コア層"
+            },
+            {
+              "key": "beginner",
+              "label": "初心者"
+            },
+            {
+              "key": "mid",
+              "label": "中級者"
+            },
+            {
+              "key": "kids",
+              "label": "キッズ層"
+            },
+            {
+              "key": "all",
+              "label": "全体向け"
+            }
+          ],
+          "nextMap": {
+            "*": "editStyle"
+          }
+        },
+        {
+          "id": "editStyle",
+          "text": "編集スタイルは？",
+          "options": [
+            {
+              "key": "tempo",
+              "label": "テンポ重視"
+            },
+            {
+              "key": "story",
+              "label": "ストーリー重視"
+            },
+            {
+              "key": "caption",
+              "label": "字幕たっぷり"
+            },
+            {
+              "key": "minimal",
+              "label": "素材重視でシンプル"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション強調"
+            },
+            {
+              "key": "cinematic",
+              "label": "シネマ風"
+            }
+          ],
+          "nextMap": {
+            "*": "thumbStyle"
+          }
+        },
+        {
+          "id": "thumbStyle",
+          "text": "サムネの方向性は？",
+          "options": [
+            {
+              "key": "impact",
+              "label": "インパクト型"
+            },
+            {
+              "key": "clean",
+              "label": "見やすさ重視"
+            },
+            {
+              "key": "character",
+              "label": "キャラ押し"
+            },
+            {
+              "key": "mystery",
+              "label": "謎を残す"
+            },
+            {
+              "key": "data",
+              "label": "数字訴求"
+            },
+            {
+              "key": "scene",
+              "label": "名シーン切り取り"
+            }
+          ],
+          "nextMap": {
+            "*": "opening"
+          }
+        },
+        {
+          "id": "opening",
+          "text": "冒頭の入り方は？",
+          "options": [
+            {
+              "key": "cold_open",
+              "label": "いきなり本編"
+            },
+            {
+              "key": "teaser",
+              "label": "先に見どころ"
+            },
+            {
+              "key": "brief",
+              "label": "短い説明から"
+            },
+            {
+              "key": "challenge",
+              "label": "即チャレンジ開始"
+            },
+            {
+              "key": "comedy",
+              "label": "小ネタで開始"
+            },
+            {
+              "key": "result_first",
+              "label": "結果チラ見せ"
+            }
+          ],
+          "nextMap": {
+            "*": "ending"
+          }
+        },
+        {
+          "id": "ending",
+          "text": "締め方は？",
+          "options": [
+            {
+              "key": "reveal",
+              "label": "ネタばらし"
+            },
+            {
+              "key": "camera_back",
+              "label": "裏側公開"
+            },
+            {
+              "key": "reaction_best",
+              "label": "リアクションまとめ"
+            },
+            {
+              "key": "counter",
+              "label": "逆襲予告"
+            },
+            {
+              "key": "vote",
+              "label": "投票で判定"
+            },
+            {
+              "key": "next",
+              "label": "次回へ続く"
+            }
+          ],
+          "nextMap": {
+            "*": "end"
+          }
         }
       ]
     },
@@ -143,56 +1010,463 @@
           "id": "format",
           "text": "建築形式は？",
           "options": [
-            { "key": "speed_build", "label": "時間制限建築" },
-            { "key": "theme_build", "label": "テーマ建築" },
-            { "key": "copy_build", "label": "再現建築" },
-            { "key": "upgrade", "label": "改築企画" }
+            {
+              "key": "speed_build",
+              "label": "時間制限建築"
+            },
+            {
+              "key": "theme_build",
+              "label": "テーマ建築"
+            },
+            {
+              "key": "copy_build",
+              "label": "再現建築"
+            },
+            {
+              "key": "upgrade",
+              "label": "改築企画"
+            },
+            {
+              "key": "gacha_build",
+              "label": "ガチャ素材建築"
+            },
+            {
+              "key": "one_chunk",
+              "label": "1チャンク建築"
+            }
           ],
-          "nextMap": { "*": "rivalry" }
+          "nextMap": {
+            "*": "style"
+          }
+        },
+        {
+          "id": "style",
+          "text": "作風は？",
+          "options": [
+            {
+              "key": "modern",
+              "label": "モダン"
+            },
+            {
+              "key": "fantasy",
+              "label": "ファンタジー"
+            },
+            {
+              "key": "japanese",
+              "label": "和風"
+            },
+            {
+              "key": "industrial",
+              "label": "工業風"
+            },
+            {
+              "key": "cute",
+              "label": "かわいい系"
+            },
+            {
+              "key": "dark",
+              "label": "ダーク系"
+            }
+          ],
+          "nextMap": {
+            "*": "rivalry"
+          }
         },
         {
           "id": "rivalry",
           "text": "対立軸は？",
           "options": [
-            { "key": "pro_vs_beginner", "label": "上級者 vs 初心者" },
-            { "key": "solo_vs_team", "label": "ソロ vs チーム" },
-            { "key": "old_vs_new", "label": "旧世代 vs 最新" },
-            { "key": "quality_vs_speed", "label": "品質 vs 速度" }
+            {
+              "key": "pro_vs_beginner",
+              "label": "上級者 vs 初心者"
+            },
+            {
+              "key": "solo_vs_team",
+              "label": "ソロ vs チーム"
+            },
+            {
+              "key": "quality_vs_speed",
+              "label": "品質 vs 速度"
+            },
+            {
+              "key": "budget_vs_luxury",
+              "label": "低コスト vs 豪華"
+            },
+            {
+              "key": "old_vs_new",
+              "label": "旧建築 vs 新建築"
+            },
+            {
+              "key": "random_vs_plan",
+              "label": "即興 vs 設計"
+            }
           ],
-          "nextMap": { "*": "rule" }
+          "nextMap": {
+            "*": "rule"
+          }
         },
         {
           "id": "rule",
           "text": "ルールは？",
           "options": [
-            { "key": "limited_blocks", "label": "ブロック制限" },
-            { "key": "limited_time", "label": "制限時間あり" },
-            { "key": "blind", "label": "設計図なし" },
-            { "key": "random_material", "label": "素材ランダム" }
+            {
+              "key": "limited_blocks",
+              "label": "ブロック制限"
+            },
+            {
+              "key": "limited_time",
+              "label": "制限時間あり"
+            },
+            {
+              "key": "blind",
+              "label": "設計図なし"
+            },
+            {
+              "key": "random_material",
+              "label": "素材ランダム"
+            },
+            {
+              "key": "one_tool",
+              "label": "道具1種のみ"
+            },
+            {
+              "key": "night_only",
+              "label": "夜だけ作業"
+            }
           ],
-          "nextMap": { "*": "hook" }
+          "nextMap": {
+            "*": "pace"
+          }
+        },
+        {
+          "id": "pace",
+          "text": "進行は？",
+          "options": [
+            {
+              "key": "rush",
+              "label": "序盤で形を作る"
+            },
+            {
+              "key": "detail_late",
+              "label": "終盤ディテール勝負"
+            },
+            {
+              "key": "stepwise",
+              "label": "段階公開"
+            },
+            {
+              "key": "sudden_theme",
+              "label": "途中でテーマ変更"
+            },
+            {
+              "key": "relay",
+              "label": "リレー建築"
+            },
+            {
+              "key": "free",
+              "label": "自由進行"
+            }
+          ],
+          "nextMap": {
+            "*": "hook"
+          }
         },
         {
           "id": "hook",
           "text": "見せ場は？",
           "options": [
-            { "key": "finish", "label": "完成度" },
-            { "key": "disaster", "label": "大事故" },
-            { "key": "reverse", "label": "逆転勝利" },
-            { "key": "judge", "label": "評価対決" }
+            {
+              "key": "finish",
+              "label": "完成度"
+            },
+            {
+              "key": "disaster",
+              "label": "大事故"
+            },
+            {
+              "key": "reverse",
+              "label": "逆転勝利"
+            },
+            {
+              "key": "judge",
+              "label": "評価対決"
+            },
+            {
+              "key": "wow",
+              "label": "ビフォーアフター"
+            },
+            {
+              "key": "unexpected",
+              "label": "予想外の完成"
+            }
           ],
-          "nextMap": { "*": "topic" }
+          "nextMap": {
+            "*": "setting"
+          }
+        },
+        {
+          "id": "setting",
+          "text": "建築場所は？",
+          "options": [
+            {
+              "key": "plain",
+              "label": "平地"
+            },
+            {
+              "key": "mountain",
+              "label": "山岳"
+            },
+            {
+              "key": "ocean",
+              "label": "海上"
+            },
+            {
+              "key": "cave",
+              "label": "洞窟"
+            },
+            {
+              "key": "nether",
+              "label": "ネザー"
+            },
+            {
+              "key": "sky",
+              "label": "空中"
+            }
+          ],
+          "nextMap": {
+            "*": "topic"
+          }
         },
         {
           "id": "topic",
           "text": "テーマは？",
           "options": [
-            { "key": "house", "label": "家" },
-            { "key": "castle", "label": "城" },
-            { "key": "farm", "label": "農業施設" },
-            { "key": "free", "label": "自由テーマ" }
+            {
+              "key": "house",
+              "label": "家"
+            },
+            {
+              "key": "castle",
+              "label": "城"
+            },
+            {
+              "key": "farm",
+              "label": "農業施設"
+            },
+            {
+              "key": "shop",
+              "label": "ショップ"
+            },
+            {
+              "key": "station",
+              "label": "駅"
+            },
+            {
+              "key": "free",
+              "label": "自由テーマ"
+            }
           ],
-          "nextMap": { "*": "end" }
+          "nextMap": {
+            "*": "twist"
+          }
+        },
+        {
+          "id": "twist",
+          "text": "もう1つ仕掛ける要素は？",
+          "options": [
+            {
+              "key": "none",
+              "label": "追加なし"
+            },
+            {
+              "key": "late_twist",
+              "label": "終盤でどんでん返し"
+            },
+            {
+              "key": "double_hook",
+              "label": "フックを2段にする"
+            },
+            {
+              "key": "secret_goal",
+              "label": "裏目標を仕込む"
+            },
+            {
+              "key": "viewer_vote",
+              "label": "視聴者予想を入れる"
+            },
+            {
+              "key": "risk_up",
+              "label": "リスクを後半で上げる"
+            }
+          ],
+          "nextMap": {
+            "*": "audience"
+          }
+        },
+        {
+          "id": "audience",
+          "text": "主な想定視聴者は？",
+          "options": [
+            {
+              "key": "light",
+              "label": "ライト層"
+            },
+            {
+              "key": "core",
+              "label": "コア層"
+            },
+            {
+              "key": "beginner",
+              "label": "初心者"
+            },
+            {
+              "key": "mid",
+              "label": "中級者"
+            },
+            {
+              "key": "kids",
+              "label": "キッズ層"
+            },
+            {
+              "key": "all",
+              "label": "全体向け"
+            }
+          ],
+          "nextMap": {
+            "*": "editStyle"
+          }
+        },
+        {
+          "id": "editStyle",
+          "text": "編集スタイルは？",
+          "options": [
+            {
+              "key": "tempo",
+              "label": "テンポ重視"
+            },
+            {
+              "key": "story",
+              "label": "ストーリー重視"
+            },
+            {
+              "key": "caption",
+              "label": "字幕たっぷり"
+            },
+            {
+              "key": "minimal",
+              "label": "素材重視でシンプル"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション強調"
+            },
+            {
+              "key": "cinematic",
+              "label": "シネマ風"
+            }
+          ],
+          "nextMap": {
+            "*": "thumbStyle"
+          }
+        },
+        {
+          "id": "thumbStyle",
+          "text": "サムネの方向性は？",
+          "options": [
+            {
+              "key": "impact",
+              "label": "インパクト型"
+            },
+            {
+              "key": "clean",
+              "label": "見やすさ重視"
+            },
+            {
+              "key": "character",
+              "label": "キャラ押し"
+            },
+            {
+              "key": "mystery",
+              "label": "謎を残す"
+            },
+            {
+              "key": "data",
+              "label": "数字訴求"
+            },
+            {
+              "key": "scene",
+              "label": "名シーン切り取り"
+            }
+          ],
+          "nextMap": {
+            "*": "opening"
+          }
+        },
+        {
+          "id": "opening",
+          "text": "冒頭の入り方は？",
+          "options": [
+            {
+              "key": "cold_open",
+              "label": "いきなり本編"
+            },
+            {
+              "key": "teaser",
+              "label": "先に見どころ"
+            },
+            {
+              "key": "brief",
+              "label": "短い説明から"
+            },
+            {
+              "key": "challenge",
+              "label": "即チャレンジ開始"
+            },
+            {
+              "key": "comedy",
+              "label": "小ネタで開始"
+            },
+            {
+              "key": "result_first",
+              "label": "結果チラ見せ"
+            }
+          ],
+          "nextMap": {
+            "*": "ending"
+          }
+        },
+        {
+          "id": "ending",
+          "text": "締め方は？",
+          "options": [
+            {
+              "key": "vote",
+              "label": "投票判定"
+            },
+            {
+              "key": "judge",
+              "label": "審査員評価"
+            },
+            {
+              "key": "tour",
+              "label": "完成ツアー"
+            },
+            {
+              "key": "destroy",
+              "label": "壊して終了"
+            },
+            {
+              "key": "next_task",
+              "label": "次回課題公開"
+            },
+            {
+              "key": "sudden_death",
+              "label": "延長戦"
+            }
+          ],
+          "nextMap": {
+            "*": "end"
+          }
         }
       ]
     },
@@ -204,56 +1478,463 @@
           "id": "format",
           "text": "PvP形式は？",
           "options": [
-            { "key": "duel", "label": "1v1決闘" },
-            { "key": "team_battle", "label": "チーム戦" },
-            { "key": "battle_royale", "label": "バトロワ" },
-            { "key": "objective", "label": "目標達成戦" }
+            {
+              "key": "duel",
+              "label": "1v1決闘"
+            },
+            {
+              "key": "team_battle",
+              "label": "チーム戦"
+            },
+            {
+              "key": "battle_royale",
+              "label": "バトロワ"
+            },
+            {
+              "key": "objective",
+              "label": "目標達成戦"
+            },
+            {
+              "key": "king",
+              "label": "王様戦"
+            },
+            {
+              "key": "raid",
+              "label": "拠点襲撃戦"
+            }
           ],
-          "nextMap": { "*": "rivalry" }
+          "nextMap": {
+            "*": "style"
+          }
+        },
+        {
+          "id": "style",
+          "text": "試合の色は？",
+          "options": [
+            {
+              "key": "aggressive",
+              "label": "攻め重視"
+            },
+            {
+              "key": "defensive",
+              "label": "守り重視"
+            },
+            {
+              "key": "mindgame",
+              "label": "読み合い重視"
+            },
+            {
+              "key": "gimmick",
+              "label": "ギミック重視"
+            },
+            {
+              "key": "speed",
+              "label": "高速展開"
+            },
+            {
+              "key": "chaos",
+              "label": "カオス展開"
+            }
+          ],
+          "nextMap": {
+            "*": "rivalry"
+          }
         },
         {
           "id": "rivalry",
           "text": "対立軸は？",
           "options": [
-            { "key": "new_vs_old", "label": "新メンバー vs 古参" },
-            { "key": "captain_vs_team", "label": "キャプテン vs 連合" },
-            { "key": "random_match", "label": "ランダム組み合わせ" },
-            { "key": "revenge", "label": "リベンジマッチ" }
+            {
+              "key": "new_vs_old",
+              "label": "新メンバー vs 古参"
+            },
+            {
+              "key": "captain_vs_team",
+              "label": "キャプテン vs 連合"
+            },
+            {
+              "key": "random_match",
+              "label": "ランダム組み合わせ"
+            },
+            {
+              "key": "revenge",
+              "label": "リベンジマッチ"
+            },
+            {
+              "key": "pro_vs_beginner",
+              "label": "上級者 vs 初心者"
+            },
+            {
+              "key": "duo_vs_duo",
+              "label": "ペア対決"
+            }
           ],
-          "nextMap": { "*": "rule" }
+          "nextMap": {
+            "*": "rule"
+          }
         },
         {
           "id": "rule",
           "text": "特別ルールは？",
           "options": [
-            { "key": "no_armor", "label": "防具なし" },
-            { "key": "limited_items", "label": "武器制限" },
-            { "key": "one_life", "label": "1ライフ制" },
-            { "key": "random_loadout", "label": "装備ランダム" }
+            {
+              "key": "no_armor",
+              "label": "防具なし"
+            },
+            {
+              "key": "limited_items",
+              "label": "武器制限"
+            },
+            {
+              "key": "one_life",
+              "label": "1ライフ制"
+            },
+            {
+              "key": "random_loadout",
+              "label": "装備ランダム"
+            },
+            {
+              "key": "no_heal",
+              "label": "回復なし"
+            },
+            {
+              "key": "sudden_death",
+              "label": "時間切れ即決着"
+            }
           ],
-          "nextMap": { "*": "hook" }
+          "nextMap": {
+            "*": "pace"
+          }
+        },
+        {
+          "id": "pace",
+          "text": "テンポは？",
+          "options": [
+            {
+              "key": "early_rush",
+              "label": "開幕ラッシュ"
+            },
+            {
+              "key": "mid_control",
+              "label": "中盤制圧"
+            },
+            {
+              "key": "late_clutch",
+              "label": "終盤クラッチ"
+            },
+            {
+              "key": "slow_battle",
+              "label": "長期戦"
+            },
+            {
+              "key": "round_based",
+              "label": "ラウンド制"
+            },
+            {
+              "key": "single_burst",
+              "label": "一撃勝負"
+            }
+          ],
+          "nextMap": {
+            "*": "hook"
+          }
         },
         {
           "id": "hook",
           "text": "見どころは？",
           "options": [
-            { "key": "clutch", "label": "クラッチ勝利" },
-            { "key": "perfect", "label": "無双展開" },
-            { "key": "comeback", "label": "逆転劇" },
-            { "key": "chaos", "label": "カオス展開" }
+            {
+              "key": "clutch",
+              "label": "クラッチ勝利"
+            },
+            {
+              "key": "perfect",
+              "label": "無双展開"
+            },
+            {
+              "key": "comeback",
+              "label": "逆転劇"
+            },
+            {
+              "key": "chaos",
+              "label": "カオス展開"
+            },
+            {
+              "key": "1hp",
+              "label": "1HP耐え"
+            },
+            {
+              "key": "snipe",
+              "label": "神エイム"
+            }
           ],
-          "nextMap": { "*": "topic" }
+          "nextMap": {
+            "*": "setting"
+          }
+        },
+        {
+          "id": "setting",
+          "text": "マップは？",
+          "options": [
+            {
+              "key": "arena",
+              "label": "闘技場"
+            },
+            {
+              "key": "forest",
+              "label": "森林"
+            },
+            {
+              "key": "nether",
+              "label": "ネザー"
+            },
+            {
+              "key": "desert",
+              "label": "砂漠"
+            },
+            {
+              "key": "city",
+              "label": "都市マップ"
+            },
+            {
+              "key": "lab",
+              "label": "実験場"
+            }
+          ],
+          "nextMap": {
+            "*": "topic"
+          }
         },
         {
           "id": "topic",
-          "text": "マップ/テーマは？",
+          "text": "お題は？",
           "options": [
-            { "key": "arena", "label": "闘技場" },
-            { "key": "forest", "label": "森林" },
-            { "key": "nether", "label": "ネザー" },
-            { "key": "free", "label": "自由テーマ" }
+            {
+              "key": "sword",
+              "label": "近接限定"
+            },
+            {
+              "key": "bow",
+              "label": "遠距離限定"
+            },
+            {
+              "key": "trap",
+              "label": "罠あり"
+            },
+            {
+              "key": "resource",
+              "label": "資源争奪"
+            },
+            {
+              "key": "base",
+              "label": "拠点防衛"
+            },
+            {
+              "key": "free",
+              "label": "自由テーマ"
+            }
           ],
-          "nextMap": { "*": "end" }
+          "nextMap": {
+            "*": "twist"
+          }
+        },
+        {
+          "id": "twist",
+          "text": "もう1つ仕掛ける要素は？",
+          "options": [
+            {
+              "key": "none",
+              "label": "追加なし"
+            },
+            {
+              "key": "late_twist",
+              "label": "終盤でどんでん返し"
+            },
+            {
+              "key": "double_hook",
+              "label": "フックを2段にする"
+            },
+            {
+              "key": "secret_goal",
+              "label": "裏目標を仕込む"
+            },
+            {
+              "key": "viewer_vote",
+              "label": "視聴者予想を入れる"
+            },
+            {
+              "key": "risk_up",
+              "label": "リスクを後半で上げる"
+            }
+          ],
+          "nextMap": {
+            "*": "audience"
+          }
+        },
+        {
+          "id": "audience",
+          "text": "主な想定視聴者は？",
+          "options": [
+            {
+              "key": "light",
+              "label": "ライト層"
+            },
+            {
+              "key": "core",
+              "label": "コア層"
+            },
+            {
+              "key": "beginner",
+              "label": "初心者"
+            },
+            {
+              "key": "mid",
+              "label": "中級者"
+            },
+            {
+              "key": "kids",
+              "label": "キッズ層"
+            },
+            {
+              "key": "all",
+              "label": "全体向け"
+            }
+          ],
+          "nextMap": {
+            "*": "editStyle"
+          }
+        },
+        {
+          "id": "editStyle",
+          "text": "編集スタイルは？",
+          "options": [
+            {
+              "key": "tempo",
+              "label": "テンポ重視"
+            },
+            {
+              "key": "story",
+              "label": "ストーリー重視"
+            },
+            {
+              "key": "caption",
+              "label": "字幕たっぷり"
+            },
+            {
+              "key": "minimal",
+              "label": "素材重視でシンプル"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション強調"
+            },
+            {
+              "key": "cinematic",
+              "label": "シネマ風"
+            }
+          ],
+          "nextMap": {
+            "*": "thumbStyle"
+          }
+        },
+        {
+          "id": "thumbStyle",
+          "text": "サムネの方向性は？",
+          "options": [
+            {
+              "key": "impact",
+              "label": "インパクト型"
+            },
+            {
+              "key": "clean",
+              "label": "見やすさ重視"
+            },
+            {
+              "key": "character",
+              "label": "キャラ押し"
+            },
+            {
+              "key": "mystery",
+              "label": "謎を残す"
+            },
+            {
+              "key": "data",
+              "label": "数字訴求"
+            },
+            {
+              "key": "scene",
+              "label": "名シーン切り取り"
+            }
+          ],
+          "nextMap": {
+            "*": "opening"
+          }
+        },
+        {
+          "id": "opening",
+          "text": "冒頭の入り方は？",
+          "options": [
+            {
+              "key": "cold_open",
+              "label": "いきなり本編"
+            },
+            {
+              "key": "teaser",
+              "label": "先に見どころ"
+            },
+            {
+              "key": "brief",
+              "label": "短い説明から"
+            },
+            {
+              "key": "challenge",
+              "label": "即チャレンジ開始"
+            },
+            {
+              "key": "comedy",
+              "label": "小ネタで開始"
+            },
+            {
+              "key": "result_first",
+              "label": "結果チラ見せ"
+            }
+          ],
+          "nextMap": {
+            "*": "ending"
+          }
+        },
+        {
+          "id": "ending",
+          "text": "締め方は？",
+          "options": [
+            {
+              "key": "best_of",
+              "label": "BO3で決着"
+            },
+            {
+              "key": "final_duel",
+              "label": "最終決闘"
+            },
+            {
+              "key": "ranking",
+              "label": "順位発表"
+            },
+            {
+              "key": "punishment",
+              "label": "最下位罰ゲーム"
+            },
+            {
+              "key": "mvp",
+              "label": "MVP発表"
+            },
+            {
+              "key": "next_match",
+              "label": "次戦予告"
+            }
+          ],
+          "nextMap": {
+            "*": "end"
+          }
         }
       ]
     },
@@ -265,56 +1946,463 @@
           "id": "format",
           "text": "ネタの形式は？",
           "options": [
-            { "key": "challenge", "label": "チャレンジ系" },
-            { "key": "roleplay", "label": "寸劇系" },
-            { "key": "quiz", "label": "クイズ系" },
-            { "key": "punishment", "label": "罰ゲーム系" }
+            {
+              "key": "challenge",
+              "label": "チャレンジ系"
+            },
+            {
+              "key": "roleplay",
+              "label": "寸劇系"
+            },
+            {
+              "key": "quiz",
+              "label": "クイズ系"
+            },
+            {
+              "key": "punishment",
+              "label": "罰ゲーム系"
+            },
+            {
+              "key": "improv",
+              "label": "即興ネタ"
+            },
+            {
+              "key": "parody",
+              "label": "パロディ"
+            }
           ],
-          "nextMap": { "*": "rivalry" }
+          "nextMap": {
+            "*": "style"
+          }
+        },
+        {
+          "id": "style",
+          "text": "笑いの方向は？",
+          "options": [
+            {
+              "key": "loud",
+              "label": "大騒ぎ"
+            },
+            {
+              "key": "wordplay",
+              "label": "言葉遊び"
+            },
+            {
+              "key": "awkward",
+              "label": "気まずさ"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション"
+            },
+            {
+              "key": "sudden",
+              "label": "唐突系"
+            },
+            {
+              "key": "deadpan",
+              "label": "真顔ボケ"
+            }
+          ],
+          "nextMap": {
+            "*": "rivalry"
+          }
         },
         {
           "id": "rivalry",
           "text": "対立軸は？",
           "options": [
-            { "key": "host_vs_guest", "label": "司会 vs 参加者" },
-            { "key": "pair_vs_pair", "label": "ペア対決" },
-            { "key": "all_for_one", "label": "全員で1人包囲" },
-            { "key": "random", "label": "ランダム対決" }
+            {
+              "key": "host_vs_guest",
+              "label": "司会 vs 参加者"
+            },
+            {
+              "key": "pair_vs_pair",
+              "label": "ペア対決"
+            },
+            {
+              "key": "all_for_one",
+              "label": "全員で1人包囲"
+            },
+            {
+              "key": "random",
+              "label": "ランダム対決"
+            },
+            {
+              "key": "mentor_vs_student",
+              "label": "師匠 vs 弟子"
+            },
+            {
+              "key": "old_vs_new",
+              "label": "古参 vs 新人"
+            }
           ],
-          "nextMap": { "*": "rule" }
+          "nextMap": {
+            "*": "rule"
+          }
         },
         {
           "id": "rule",
           "text": "ルールは？",
           "options": [
-            { "key": "time_attack", "label": "制限時間あり" },
-            { "key": "no_talk", "label": "会話制限" },
-            { "key": "no_fail", "label": "失敗即罰ゲーム" },
-            { "key": "secret", "label": "秘密ルールあり" }
+            {
+              "key": "time_attack",
+              "label": "制限時間あり"
+            },
+            {
+              "key": "no_talk",
+              "label": "会話制限"
+            },
+            {
+              "key": "no_fail",
+              "label": "失敗即罰ゲーム"
+            },
+            {
+              "key": "secret",
+              "label": "秘密ルールあり"
+            },
+            {
+              "key": "keyword",
+              "label": "NGワードあり"
+            },
+            {
+              "key": "mission",
+              "label": "裏ミッションあり"
+            }
           ],
-          "nextMap": { "*": "hook" }
+          "nextMap": {
+            "*": "pace"
+          }
+        },
+        {
+          "id": "pace",
+          "text": "テンポは？",
+          "options": [
+            {
+              "key": "fast",
+              "label": "高速ボケ連打"
+            },
+            {
+              "key": "slow",
+              "label": "じわじわ型"
+            },
+            {
+              "key": "middle_spike",
+              "label": "中盤で爆発"
+            },
+            {
+              "key": "late_spike",
+              "label": "終盤で爆発"
+            },
+            {
+              "key": "random",
+              "label": "ランダム発生"
+            },
+            {
+              "key": "steady",
+              "label": "安定進行"
+            }
+          ],
+          "nextMap": {
+            "*": "hook"
+          }
         },
         {
           "id": "hook",
           "text": "フックは？",
           "options": [
-            { "key": "laugh", "label": "爆笑" },
-            { "key": "mistake", "label": "やらかし" },
-            { "key": "reverse", "label": "逆転" },
-            { "key": "unexpected", "label": "予想外" }
+            {
+              "key": "laugh",
+              "label": "爆笑"
+            },
+            {
+              "key": "mistake",
+              "label": "やらかし"
+            },
+            {
+              "key": "reverse",
+              "label": "逆転"
+            },
+            {
+              "key": "unexpected",
+              "label": "予想外"
+            },
+            {
+              "key": "panic",
+              "label": "パニック"
+            },
+            {
+              "key": "collapse",
+              "label": "崩壊展開"
+            }
           ],
-          "nextMap": { "*": "topic" }
+          "nextMap": {
+            "*": "setting"
+          }
+        },
+        {
+          "id": "setting",
+          "text": "舞台は？",
+          "options": [
+            {
+              "key": "studio",
+              "label": "スタジオ"
+            },
+            {
+              "key": "in_game",
+              "label": "ゲーム内"
+            },
+            {
+              "key": "voice",
+              "label": "ボイスチャット"
+            },
+            {
+              "key": "outdoor",
+              "label": "外ロケ"
+            },
+            {
+              "key": "night",
+              "label": "深夜テンション"
+            },
+            {
+              "key": "event",
+              "label": "イベント会場"
+            }
+          ],
+          "nextMap": {
+            "*": "topic"
+          }
         },
         {
           "id": "topic",
           "text": "お題は？",
           "options": [
-            { "key": "daily", "label": "日常ネタ" },
-            { "key": "food", "label": "食べ物" },
-            { "key": "voice", "label": "声マネ" },
-            { "key": "free", "label": "自由テーマ" }
+            {
+              "key": "daily",
+              "label": "日常ネタ"
+            },
+            {
+              "key": "food",
+              "label": "食べ物"
+            },
+            {
+              "key": "voice",
+              "label": "声マネ"
+            },
+            {
+              "key": "urban",
+              "label": "都市伝説いじり"
+            },
+            {
+              "key": "game",
+              "label": "ゲームあるある"
+            },
+            {
+              "key": "free",
+              "label": "自由テーマ"
+            }
           ],
-          "nextMap": { "*": "end" }
+          "nextMap": {
+            "*": "twist"
+          }
+        },
+        {
+          "id": "twist",
+          "text": "もう1つ仕掛ける要素は？",
+          "options": [
+            {
+              "key": "none",
+              "label": "追加なし"
+            },
+            {
+              "key": "late_twist",
+              "label": "終盤でどんでん返し"
+            },
+            {
+              "key": "double_hook",
+              "label": "フックを2段にする"
+            },
+            {
+              "key": "secret_goal",
+              "label": "裏目標を仕込む"
+            },
+            {
+              "key": "viewer_vote",
+              "label": "視聴者予想を入れる"
+            },
+            {
+              "key": "risk_up",
+              "label": "リスクを後半で上げる"
+            }
+          ],
+          "nextMap": {
+            "*": "audience"
+          }
+        },
+        {
+          "id": "audience",
+          "text": "主な想定視聴者は？",
+          "options": [
+            {
+              "key": "light",
+              "label": "ライト層"
+            },
+            {
+              "key": "core",
+              "label": "コア層"
+            },
+            {
+              "key": "beginner",
+              "label": "初心者"
+            },
+            {
+              "key": "mid",
+              "label": "中級者"
+            },
+            {
+              "key": "kids",
+              "label": "キッズ層"
+            },
+            {
+              "key": "all",
+              "label": "全体向け"
+            }
+          ],
+          "nextMap": {
+            "*": "editStyle"
+          }
+        },
+        {
+          "id": "editStyle",
+          "text": "編集スタイルは？",
+          "options": [
+            {
+              "key": "tempo",
+              "label": "テンポ重視"
+            },
+            {
+              "key": "story",
+              "label": "ストーリー重視"
+            },
+            {
+              "key": "caption",
+              "label": "字幕たっぷり"
+            },
+            {
+              "key": "minimal",
+              "label": "素材重視でシンプル"
+            },
+            {
+              "key": "reaction",
+              "label": "リアクション強調"
+            },
+            {
+              "key": "cinematic",
+              "label": "シネマ風"
+            }
+          ],
+          "nextMap": {
+            "*": "thumbStyle"
+          }
+        },
+        {
+          "id": "thumbStyle",
+          "text": "サムネの方向性は？",
+          "options": [
+            {
+              "key": "impact",
+              "label": "インパクト型"
+            },
+            {
+              "key": "clean",
+              "label": "見やすさ重視"
+            },
+            {
+              "key": "character",
+              "label": "キャラ押し"
+            },
+            {
+              "key": "mystery",
+              "label": "謎を残す"
+            },
+            {
+              "key": "data",
+              "label": "数字訴求"
+            },
+            {
+              "key": "scene",
+              "label": "名シーン切り取り"
+            }
+          ],
+          "nextMap": {
+            "*": "opening"
+          }
+        },
+        {
+          "id": "opening",
+          "text": "冒頭の入り方は？",
+          "options": [
+            {
+              "key": "cold_open",
+              "label": "いきなり本編"
+            },
+            {
+              "key": "teaser",
+              "label": "先に見どころ"
+            },
+            {
+              "key": "brief",
+              "label": "短い説明から"
+            },
+            {
+              "key": "challenge",
+              "label": "即チャレンジ開始"
+            },
+            {
+              "key": "comedy",
+              "label": "小ネタで開始"
+            },
+            {
+              "key": "result_first",
+              "label": "結果チラ見せ"
+            }
+          ],
+          "nextMap": {
+            "*": "ending"
+          }
+        },
+        {
+          "id": "ending",
+          "text": "締め方は？",
+          "options": [
+            {
+              "key": "best_scene",
+              "label": "名場面まとめ"
+            },
+            {
+              "key": "punishment",
+              "label": "罰ゲームで締め"
+            },
+            {
+              "key": "vote",
+              "label": "視聴者投票"
+            },
+            {
+              "key": "ranking",
+              "label": "ランキング"
+            },
+            {
+              "key": "next",
+              "label": "次回予告"
+            },
+            {
+              "key": "sudden_end",
+              "label": "突然終了"
+            }
+          ],
+          "nextMap": {
+            "*": "end"
+          }
         }
       ]
     }

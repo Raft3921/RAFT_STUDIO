@@ -36,6 +36,8 @@ export const PlanCreatePage = () => {
   const [currentQuestionId, setCurrentQuestionId] = useState(activeGenre?.questions[0]?.id ?? '')
   const [questionHistory, setQuestionHistory] = useState<string[]>([])
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
+  const [questionAnswerKeys, setQuestionAnswerKeys] = useState<Record<string, string>>({})
+  const [freeTopic, setFreeTopic] = useState('')
   const [titleGenVersion, setTitleGenVersion] = useState(0)
 
   const normalizedGame = gameTitle.trim().toLowerCase()
@@ -60,13 +62,10 @@ export const PlanCreatePage = () => {
     void titleGenVersion
     if (!activeGenre || !questionComplete) return []
     return buildTitleCandidates(activeGenre.label, gameTitle.trim() || defaultGame, {
-      format: questionAnswers.format,
-      rivalry: questionAnswers.rivalry,
-      rule: questionAnswers.rule,
-      hook: questionAnswers.hook,
-      topic: questionAnswers.topic,
+      ...questionAnswers,
+      topicCustom: freeTopic.trim(),
     })
-  }, [activeGenre, gameTitle, questionAnswers, questionComplete, titleGenVersion])
+  }, [activeGenre, freeTopic, gameTitle, questionAnswers, questionComplete, titleGenVersion])
 
   const selectedMembersLabel = useMemo(
     () =>
@@ -94,26 +93,44 @@ export const PlanCreatePage = () => {
     const tree = getGenreTree(nextGenreKey)
     setGenreKey(nextGenreKey)
     setQuestionAnswers({})
+    setQuestionAnswerKeys({})
     setQuestionHistory([])
+    setFreeTopic('')
     setCurrentQuestionId(tree?.questions[0]?.id ?? '')
     setTitle('')
     setOverview('')
   }
 
   const onSelectAnswer = (optionKey: string, optionLabel: string) => {
-    if (!currentQuestion) return
+    if (!activeGenre || !currentQuestion) return
     setQuestionAnswers((prev) => ({ ...prev, [currentQuestion.id]: optionLabel }))
+    setQuestionAnswerKeys((prev) => ({ ...prev, [currentQuestion.id]: optionKey }))
+    if (currentQuestion.id === 'topic' && optionKey !== 'free') {
+      setFreeTopic('')
+    }
     setQuestionHistory((prev) => [...prev, currentQuestion.id])
-    const next = getNextQuestionId(currentQuestion, optionKey)
-    setCurrentQuestionId(next === 'end' ? '' : next)
+    const mappedNext = getNextQuestionId(currentQuestion, optionKey)
+    const currentIndex = activeGenre.questions.findIndex((item) => item.id === currentQuestion.id)
+    const nextByOrder = currentIndex >= 0 ? activeGenre.questions[currentIndex + 1]?.id ?? '' : ''
+    const hasMappedNext = mappedNext !== 'end' && activeGenre.questions.some((item) => item.id === mappedNext)
+    const resolvedNext = hasMappedNext ? mappedNext : nextByOrder
+    setCurrentQuestionId(resolvedNext)
   }
 
   const onBackQuestion = () => {
     if (!activeGenre || questionHistory.length === 0) return
     const prevQuestionId = questionHistory[questionHistory.length - 1]
+    if (prevQuestionId === 'topic') {
+      setFreeTopic('')
+    }
     setQuestionHistory((prev) => prev.slice(0, -1))
     setCurrentQuestionId(prevQuestionId)
     setQuestionAnswers((prev) => {
+      const next = { ...prev }
+      delete next[prevQuestionId]
+      return next
+    })
+    setQuestionAnswerKeys((prev) => {
       const next = { ...prev }
       delete next[prevQuestionId]
       return next
@@ -145,6 +162,10 @@ export const PlanCreatePage = () => {
     }
     if (!questionComplete) {
       window.alert('タイトル質問に最後まで回答してください。')
+      return
+    }
+    if (questionAnswerKeys.topic === 'free' && freeTopic.trim().length === 0) {
+      window.alert('自由テーマの内容を入力してください。')
       return
     }
 
@@ -246,6 +267,17 @@ export const PlanCreatePage = () => {
                   <button type="button" className="chip" onClick={onBackQuestion}>
                     1問戻る
                   </button>
+                )}
+                {questionAnswerKeys.topic === 'free' && (
+                  <div className="stack-gap">
+                    <label>自由テーマの内容</label>
+                    <input
+                      className="field"
+                      value={freeTopic}
+                      onChange={(event) => setFreeTopic(event.target.value)}
+                      placeholder="例: 最強防具だけでボス討伐 / 深夜の廃村探索"
+                    />
+                  </div>
                 )}
               </div>
             )}

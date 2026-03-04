@@ -14,5 +14,10 @@
   { "category": "速報", "template": "{TOPIC}で{FORMAT}したら結果が極端すぎた" },
   { "category": "速報", "template": "{RIVALRY}で試した{RULE}、予想の真逆になった" },
   { "category": "都市伝説", "template": "{TOPIC}は本当なのか。{RULE}で徹底検証してみた" },
-  { "category": "ホラー", "template": "{FORMAT}で仕掛けたら、{HOOK}が想像以上に怖すぎた" }
+  { "category": "ホラー", "template": "{FORMAT}で仕掛けたら、{HOOK}が想像以上に怖すぎた" },
+  { "category": "演出", "template": "{OPENING}で始まる{TOPIC}企画、{TWIST}で一気に空気が変わった" },
+  { "category": "演出", "template": "{EDIT_STYLE}編集で見せる{FORMAT}、最後は{ENDING}" },
+  { "category": "サムネ", "template": "{THUMB_STYLE}サムネで挑んだ{TOPIC}、再生の伸びを検証した" },
+  { "category": "視聴者", "template": "{AUDIENCE}向けに組んだ{FORMAT}企画、{HOOK}は刺さるのか" },
+  { "category": "構成", "template": "{OPENING}→{TWIST}→{ENDING}の流れで{TOPIC}をやってみた" }
 ]
