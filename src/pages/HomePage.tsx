@@ -10,6 +10,7 @@ import panelRight from '../../assets/panel_right.png'
 import panelTl from '../../assets/panel_tl.png'
 import panelTop from '../../assets/panel_top.png'
 import panelTr from '../../assets/panel_tr.png'
+import { firebaseAuth, firebaseProjectId } from '../lib/firebase'
 import { getMemberIcon } from '../lib/memberIcon'
 import { dailyQuestTemplates, dailyQuestText } from '../lib/dailyQuest'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
@@ -18,7 +19,7 @@ import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/ut
 import type { DailyQuestTemplate } from '../types'
 
 export const HomePage = () => {
-  const { data, currentUserId, storageMode, createDailyQuests, toggleDailyQuestDone, deleteDailyQuest } = useApp()
+  const { data, currentUserId, workspaceId, storageMode, createDailyQuests, toggleDailyQuestDone, deleteDailyQuest } = useApp()
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [questTemplate, setQuestTemplate] = useState<DailyQuestTemplate>('plan_create')
   const [questAmount, setQuestAmount] = useState(1)
@@ -205,6 +206,13 @@ export const HomePage = () => {
       {isQuestEditor && (
         <section className="panel">
           <h2>本日のクエスト設定（ラフト専用）</h2>
+          {storageMode === 'firebase' && (
+            <div className="stack-gap">
+              <p className="muted">接続先 Firebase: {firebaseProjectId || '未設定'}</p>
+              <p className="muted">Workspace: {workspaceId}</p>
+              <p className="muted">認証: {firebaseAuth?.currentUser ? 'ログイン済み' : '未ログイン'}</p>
+            </div>
+          )}
           <label>テンプレート</label>
           <select className="field" value={questTemplate} onChange={(event) => setQuestTemplate(event.target.value as DailyQuestTemplate)}>
             {dailyQuestTemplates.map((template) => (
