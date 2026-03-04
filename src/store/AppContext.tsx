@@ -388,14 +388,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setData((prev) => ({ ...prev, plans: [plan, ...prev.plans] }))
       },
       updatePlan: async (planId, patch) => {
+        const plan = data.plans.find((item) => item.id === planId)
+        if (!plan) return
+        const nextPatch = {
+          ...patch,
+          createdBy: plan.createdBy,
+          createdAt: plan.createdAt,
+          updatedAt: new Date().toISOString(),
+          updatedBy: currentUserId,
+        }
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
-          await updateDoc(doc(db, 'workspaces', workspaceId, 'plans', planId), patch)
+          await updateDoc(doc(db, 'workspaces', workspaceId, 'plans', planId), nextPatch)
           return
         }
         setData((prev) => ({
           ...prev,
-          plans: prev.plans.map((plan) => (plan.id === planId ? { ...plan, ...patch } : plan)),
+          plans: prev.plans.map((item) => (item.id === planId ? { ...item, ...nextPatch } : item)),
         }))
       },
       deletePlan: async (planId) => {
@@ -704,6 +713,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             )
 
             await Promise.all(
+              data.plans.map(async (plan) => {
+                if (plan.createdBy !== currentUserId && plan.updatedBy !== currentUserId) return
+                const patch: Partial<Plan> = {}
+                if (plan.createdBy === currentUserId) patch.createdBy = nextUserId
+                if (plan.updatedBy === currentUserId) patch.updatedBy = nextUserId
+                await updateDoc(doc(db, 'workspaces', workspaceId, 'plans', plan.id), patch)
+              }),
+            )
+
+            await Promise.all(
               data.dailyQuests.map(async (quest) => {
                 if (quest.assigneeId !== currentUserId && quest.createdBy !== currentUserId) return
                 const patch: Partial<DailyQuest> = {}
@@ -771,6 +790,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               ...item,
               doneBy: item.doneBy.map((id) => (id === currentUserId ? nextUserId : id)),
             })),
+          })),
+          plans: prev.plans.map((plan) => ({
+            ...plan,
+            createdBy: plan.createdBy === currentUserId ? nextUserId : plan.createdBy,
+            updatedBy: plan.updatedBy === currentUserId ? nextUserId : plan.updatedBy,
           })),
           dailyQuests: prev.dailyQuests.map((quest) => ({
             ...quest,

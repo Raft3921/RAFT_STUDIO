@@ -31,6 +31,7 @@ export const PlanDetailPage = () => {
     navigate('/plans')
   }
   const creator = data.members.find((member) => member.id === plan.createdBy)
+  const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
 
   return (
     <div className="page-stack">
@@ -48,6 +49,10 @@ export const PlanDetailPage = () => {
           </div>
         </div>
         <p>{plan.templateType}</p>
+        <p className="muted plan-owner-line">
+          作成: {creator?.displayName ?? '不明'}
+          {editor && editor.id !== creator?.id ? ` / 編集: ${editor.displayName}` : ''}
+        </p>
         <p>{plan.memo || 'メモなし'}</p>
         <div className="inline-row">
           <Link className="btn ghost" to={`/plans/${plan.id}/edit`}>

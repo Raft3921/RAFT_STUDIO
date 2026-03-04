@@ -35,6 +35,8 @@ export interface Plan {
   memo?: string
   createdAt: string
   createdBy: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 export interface EventChecklistItem {

@@ -55,6 +55,8 @@ export const normalizePlan = (raw: LegacyPlan): Plan => {
     memo: raw.memo,
     createdAt: raw.createdAt ?? new Date().toISOString(),
     createdBy: raw.createdBy ?? 'u-me',
+    updatedAt: raw.updatedAt,
+    updatedBy: raw.updatedBy,
   }
 }
 

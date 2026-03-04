@@ -239,6 +239,10 @@ label {
   image-rendering: pixelated;
 }
 
+.plan-owner-line {
+  font-size: 0.78rem;
+}
+
 .status-badge {
   border-radius: 6px;
   padding: 4px 9px;

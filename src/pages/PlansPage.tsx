@@ -55,6 +55,7 @@ export const PlansPage = () => {
         {filtered.length === 0 && <p className="muted">条件に一致する企画はありません。</p>}
         {filtered.map((plan) => {
           const creator = data.members.find((member) => member.id === plan.createdBy)
+          const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
           return (
           <Link key={plan.id} to={`/plans/${plan.id}`} className="card link-card">
             <div className="section-head">
@@ -69,6 +70,10 @@ export const PlansPage = () => {
                 />
               </div>
             </div>
+            <p className="muted plan-owner-line">
+              作成: {creator?.displayName ?? '不明'}
+              {editor && editor.id !== creator?.id ? ` / 編集: ${editor.displayName}` : ''}
+            </p>
             <p>
               {plan.templateType} / {formatDuration(plan.durationSec)} / {participantSummaryText(plan, data.members)}
             </p>
