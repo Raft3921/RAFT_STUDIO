@@ -376,13 +376,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       ready,
       data,
       createPlan: async (input) => {
+        const resolvedCreatorId =
+          data.members.find((member) => member.id === currentUserId)?.id ??
+          data.members.find((member) => normalizeDisplayName(member.displayName) === normalizeDisplayName(preferredDisplayName))?.id ??
+          currentUserId
+
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
           const workspaceRef = doc(db, 'workspaces', workspaceId)
           await addDoc(collection(workspaceRef, 'plans'), {
             ...input,
             createdAt: new Date().toISOString(),
-            createdBy: currentUserId,
+            createdBy: resolvedCreatorId,
             status: 'candidate',
           } satisfies Omit<Plan, 'id'>)
           return
@@ -391,7 +396,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const plan: Plan = {
           id: createId(),
           createdAt: new Date().toISOString(),
-          createdBy: currentUserId,
+          createdBy: resolvedCreatorId,
           status: 'candidate',
           ...input,
         }
