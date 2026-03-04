@@ -24,7 +24,19 @@ export const HomePage = () => {
   const [questAmount, setQuestAmount] = useState(1)
   const [questCustomText, setQuestCustomText] = useState('')
   const [questAssigneeIds, setQuestAssigneeIds] = useState<string[]>([])
+  const panelImages = [
+    `url('${panelCenter}')`,
+    `url('${panelTop}')`,
+    `url('${panelBottom}')`,
+    `url('${panelLeft}')`,
+    `url('${panelRight}')`,
+    `url('${panelTl}')`,
+    `url('${panelTr}')`,
+    `url('${panelBl}')`,
+    `url('${panelBr}')`,
+  ].join(',')
   const heroPanelStyle = {
+    backgroundImage: panelImages,
     '--quest-panel-center': `url('${panelCenter}')`,
     '--quest-panel-top': `url('${panelTop}')`,
     '--quest-panel-bottom': `url('${panelBottom}')`,
