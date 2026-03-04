@@ -2,6 +2,15 @@ export type PlanStatus = 'candidate' | 'confirmed' | 'shot' | 'editing' | 'publi
 export type Attendance = 'yes' | 'no' | 'maybe'
 export type RoleSelection = 'single' | 'multi'
 export type RoleAssignments = Record<string, string[]>
+export type DailyQuestTemplate =
+  | 'plan_create'
+  | 'event_create'
+  | 'attendance_reply'
+  | 'checklist_done'
+  | 'rafine_message'
+  | 'channel_check'
+  | 'share_link'
+  | 'bring_item'
 
 export interface Member {
   id: string
@@ -54,9 +63,23 @@ export interface EventResponse {
   comment?: string
 }
 
+export interface DailyQuest {
+  id: string
+  questDate: string
+  assigneeId: string
+  template: DailyQuestTemplate
+  amount: number
+  customText?: string
+  done: boolean
+  doneAt?: string | null
+  createdAt: string
+  createdBy: string
+}
+
 export interface AppData {
   members: Member[]
   plans: Plan[]
   events: EventItem[]
   responses: EventResponse[]
+  dailyQuests: DailyQuest[]
 }

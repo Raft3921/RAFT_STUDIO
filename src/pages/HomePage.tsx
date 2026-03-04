@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CSSProperties } from 'react'
 import panelBl from '../assets/panel/panel_bl.png'
@@ -11,13 +11,19 @@ import panelTl from '../assets/panel/panel_tl.png'
 import panelTop from '../assets/panel/panel_top.png'
 import panelTr from '../assets/panel/panel_tr.png'
 import { getMemberIcon } from '../lib/memberIcon'
+import { dailyQuestTemplates, dailyQuestText } from '../lib/dailyQuest'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
+import type { DailyQuestTemplate } from '../types'
 
 export const HomePage = () => {
-  const { data, currentUserId, storageMode } = useApp()
+  const { data, currentUserId, storageMode, createDailyQuests, toggleDailyQuestDone, deleteDailyQuest } = useApp()
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [questTemplate, setQuestTemplate] = useState<DailyQuestTemplate>('plan_create')
+  const [questAmount, setQuestAmount] = useState(1)
+  const [questCustomText, setQuestCustomText] = useState('')
+  const [questAssigneeIds, setQuestAssigneeIds] = useState<string[]>([])
   const heroPanelStyle = {
     backgroundImage: [
       `url('${panelCenter}')`,
@@ -33,6 +39,23 @@ export const HomePage = () => {
   } as CSSProperties
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
+  const me = data.members.find((member) => member.id === currentUserId)
+  const isQuestEditor = (me?.displayName.trim() ?? '') === 'ラフト'
+  const todayKey = useMemo(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }, [])
+  const todayQuests = useMemo(
+    () =>
+      data.dailyQuests
+        .filter((quest) => quest.questDate === todayKey)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    [data.dailyQuests, todayKey],
+  )
+  const myQuests = todayQuests.filter((quest) => quest.assigneeId === currentUserId)
   const onlineMembers = data.members.filter((member) => {
     if (storageMode === 'local') return member.id === currentUserId
     if (!member.lastActiveAt) return false
@@ -70,16 +93,48 @@ export const HomePage = () => {
   }, [])
 
   const completionPoints =
-    (data.plans.length > 0 ? 35 : 0) +
-    (data.events.length > 0 ? 35 : 0) +
-    (upcoming ? 30 : 10)
+    myQuests.length > 0
+      ? Math.round((myQuests.filter((quest) => quest.done).length / myQuests.length) * 100)
+      : (data.plans.length > 0 ? 35 : 0) +
+        (data.events.length > 0 ? 35 : 0) +
+        (upcoming ? 30 : 10)
 
   const nextStep = (() => {
+    const nextQuest = myQuests.find((quest) => !quest.done)
+    if (nextQuest) return dailyQuestText(nextQuest)
     if (data.plans.length === 0) return 'まず企画1枚。話はそれから。'
     if (data.events.length === 0) return '撮影日を1つ作る。逃げない。'
     if (upcoming) return '次の撮影準備を進める。持ち物と段取りを確認。'
     return '次の公開へ。決定ステータスまで進める。'
   })()
+
+  const toggleQuestAssignee = (memberId: string) => {
+    setQuestAssigneeIds((prev) =>
+      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId],
+    )
+  }
+
+  const onCreateQuest = async () => {
+    if (!isQuestEditor) return
+    if (questAssigneeIds.length === 0) {
+      window.alert('対象メンバーを1人以上選択してください。')
+      return
+    }
+    if (questTemplate === 'bring_item' && questCustomText.trim().length === 0) {
+      window.alert('持ってくる物を入力してください。')
+      return
+    }
+    await createDailyQuests({
+      questDate: todayKey,
+      assigneeIds: questAssigneeIds,
+      template: questTemplate,
+      amount: questAmount,
+      customText: questCustomText,
+    })
+    setQuestAssigneeIds([])
+    setQuestAmount(1)
+    setQuestCustomText('')
+  }
 
   return (
     <div className="page-stack">
@@ -91,6 +146,15 @@ export const HomePage = () => {
           <div className="progress-fill" style={{ width: `${Math.min(100, completionPoints)}%` }} />
         </div>
         <p className="muted">進行度 {Math.min(100, completionPoints)}%</p>
+        <div className="stack-gap">
+          {myQuests.length === 0 && <p className="muted">自分に割り当てられた本日のクエストはありません。</p>}
+          {myQuests.map((quest) => (
+            <label className="check-row" key={quest.id}>
+              <input type="checkbox" checked={quest.done} onChange={() => void toggleDailyQuestDone(quest.id)} />
+              <span>{dailyQuestText(quest)}</span>
+            </label>
+          ))}
+        </div>
         <div className="inline-row">
           <Link className="btn btn-primary" to="/plans/new">
             企画を作る
@@ -100,6 +164,79 @@ export const HomePage = () => {
           </Link>
         </div>
       </section>
+
+      {isQuestEditor && (
+        <section className="panel">
+          <h2>本日のクエスト設定（ラフト専用）</h2>
+          <label>テンプレート</label>
+          <select className="field" value={questTemplate} onChange={(event) => setQuestTemplate(event.target.value as DailyQuestTemplate)}>
+            {dailyQuestTemplates.map((template) => (
+              <option key={template.value} value={template.value}>
+                {template.label}
+              </option>
+            ))}
+          </select>
+          {questTemplate !== 'bring_item' && (
+            <>
+              <label>件数</label>
+              <input
+                className="field"
+                type="number"
+                min={1}
+                max={20}
+                value={questAmount}
+                onChange={(event) => setQuestAmount(Math.max(1, Number(event.target.value) || 1))}
+              />
+            </>
+          )}
+          {questTemplate === 'bring_item' && (
+            <>
+              <label>持ってくる物</label>
+              <input
+                className="field"
+                value={questCustomText}
+                onChange={(event) => setQuestCustomText(event.target.value)}
+                placeholder="例: キャプチャーボード"
+              />
+            </>
+          )}
+          <label>対象メンバー（複数可）</label>
+          <div className="chip-row">
+            {data.members.map((member) => (
+              <button
+                type="button"
+                key={member.id}
+                className={`chip ${questAssigneeIds.includes(member.id) ? 'active' : ''}`}
+                onClick={() => toggleQuestAssignee(member.id)}
+              >
+                {member.displayName}
+              </button>
+            ))}
+          </div>
+          <button className="btn" type="button" onClick={() => void onCreateQuest()}>
+            本日のクエストを追加
+          </button>
+
+          <div className="stack-gap">
+            {todayQuests.map((quest) => {
+              const assignee = data.members.find((member) => member.id === quest.assigneeId)
+              return (
+                <div key={quest.id} className="card">
+                  <p>
+                    {assignee?.displayName ?? 'メンバー'}: {dailyQuestText(quest)}
+                  </p>
+                  <div className="inline-row">
+                    <span className="muted">{quest.done ? '完了' : '未完了'}</span>
+                    <button className="btn warn" type="button" onClick={() => void deleteDailyQuest(quest.id)}>
+                      削除
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="section-head">

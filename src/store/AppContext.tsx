@@ -18,7 +18,17 @@ import { firestoreDb, firebaseAuth, isFirebaseEnabled } from '../lib/firebase'
 import { normalizePlan } from '../lib/plan'
 import { defaultMembers, loadData, saveData } from '../lib/storage'
 import { buildWorkspaceInviteUrl, getOrCreateWorkspaceId } from '../lib/workspace'
-import type { AppData, Attendance, EventItem, EventResponse, Member, Plan, PlanStatus } from '../types'
+import type {
+  AppData,
+  Attendance,
+  DailyQuest,
+  DailyQuestTemplate,
+  EventItem,
+  EventResponse,
+  Member,
+  Plan,
+  PlanStatus,
+} from '../types'
 
 interface CreatePlanInput {
   title: string
@@ -39,6 +49,14 @@ interface CreateEventInput {
   location: string
   timeline: string[]
   checklist: { label: string; scope: 'all' | 'role' | 'member'; assigneeIds?: string[] }[]
+}
+
+interface CreateDailyQuestInput {
+  questDate: string
+  assigneeIds: string[]
+  template: DailyQuestTemplate
+  amount?: number
+  customText?: string
 }
 
 type StorageMode = 'local' | 'firebase'
@@ -67,6 +85,9 @@ interface AppContextValue {
   deleteEvent: (eventId: string) => Promise<void>
   setAttendance: (eventId: string, response: Attendance, comment?: string) => Promise<void>
   toggleChecklist: (eventId: string, itemId: string) => Promise<void>
+  createDailyQuests: (input: CreateDailyQuestInput) => Promise<void>
+  toggleDailyQuestDone: (questId: string) => Promise<void>
+  deleteDailyQuest: (questId: string) => Promise<void>
   updateMyProfile: (displayName: string) => Promise<void>
   toggleMyNotification: () => Promise<void>
   copyWorkspaceLink: () => Promise<void>
@@ -193,6 +214,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const responses = snapshot.docs.map((item) => item.data() as EventResponse)
           setData((prev) => ({ ...prev, responses }))
         }),
+        onSnapshot(query(collection(workspaceRef, 'daily_quests'), orderBy('createdAt', 'desc')), (snapshot) => {
+          const dailyQuests = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<DailyQuest, 'id'>) }))
+          setData((prev) => ({ ...prev, dailyQuests }))
+        }),
         onSnapshot(collection(workspaceRef, 'members'), (snapshot) => {
           const members = snapshot.docs
             .map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
@@ -285,6 +310,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     await Promise.all(
       localData.responses.map((response) =>
         setDoc(doc(workspaceRef, 'responses', `${response.eventId}_${response.userId}`), response, { merge: true }),
+      ),
+    )
+
+    await Promise.all(
+      localData.dailyQuests.map((quest) =>
+        setDoc(doc(workspaceRef, 'daily_quests', quest.id), quest, { merge: true }),
       ),
     )
 
@@ -471,6 +502,85 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           events: prev.events.map((item) => (item.id === eventId ? { ...item, checklist: nextChecklist } : item)),
         }))
       },
+      createDailyQuests: async (input) => {
+        const assigneeIds = Array.from(new Set(input.assigneeIds.filter((id) => !!id)))
+        if (assigneeIds.length === 0) return
+
+        const actor = data.members.find((member) => member.id === currentUserId)
+        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+
+        const payloadBase = {
+          questDate: input.questDate,
+          template: input.template,
+          amount: Math.max(1, input.amount ?? 1),
+          customText: input.customText?.trim() || undefined,
+          done: false,
+          createdAt: new Date().toISOString(),
+          createdBy: currentUserId,
+        }
+
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          const workspaceRef = doc(db, 'workspaces', workspaceId)
+          await Promise.all(
+            assigneeIds.map((assigneeId) =>
+              addDoc(collection(workspaceRef, 'daily_quests'), {
+                ...payloadBase,
+                assigneeId,
+              } satisfies Omit<DailyQuest, 'id'>),
+            ),
+          )
+          return
+        }
+
+        setData((prev) => ({
+          ...prev,
+          dailyQuests: [
+            ...assigneeIds.map((assigneeId) => ({
+              id: createId(),
+              ...payloadBase,
+              assigneeId,
+            })),
+            ...prev.dailyQuests,
+          ],
+        }))
+      },
+      toggleDailyQuestDone: async (questId) => {
+        const quest = data.dailyQuests.find((item) => item.id === questId)
+        if (!quest) return
+        const actor = data.members.find((member) => member.id === currentUserId)
+        const isAdmin = normalizeDisplayName(actor?.displayName ?? '') === 'ラフト'
+        if (quest.assigneeId !== currentUserId && !isAdmin) return
+
+        const nextDone = !quest.done
+        const patch = {
+          done: nextDone,
+          doneAt: nextDone ? new Date().toISOString() : null,
+        }
+
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await updateDoc(doc(db, 'workspaces', workspaceId, 'daily_quests', questId), patch)
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          dailyQuests: prev.dailyQuests.map((item) => (item.id === questId ? { ...item, ...patch } : item)),
+        }))
+      },
+      deleteDailyQuest: async (questId) => {
+        const actor = data.members.find((member) => member.id === currentUserId)
+        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await deleteDoc(doc(db, 'workspaces', workspaceId, 'daily_quests', questId))
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          dailyQuests: prev.dailyQuests.filter((item) => item.id !== questId),
+        }))
+      },
       updateMyProfile: async (displayName) => {
         const trimmed = normalizeDisplayName(displayName)
         if (!trimmed) return
@@ -510,6 +620,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                   doneBy: item.doneBy.map((id) => (id === currentUserId ? nextUserId : id)),
                 }))
                 await updateDoc(doc(db, 'workspaces', workspaceId, 'events', event.id), { checklist })
+              }),
+            )
+
+            await Promise.all(
+              data.dailyQuests.map(async (quest) => {
+                if (quest.assigneeId !== currentUserId && quest.createdBy !== currentUserId) return
+                const patch: Partial<DailyQuest> = {}
+                if (quest.assigneeId === currentUserId) patch.assigneeId = nextUserId
+                if (quest.createdBy === currentUserId) patch.createdBy = nextUserId
+                await updateDoc(doc(db, 'workspaces', workspaceId, 'daily_quests', quest.id), patch)
               }),
             )
           }
@@ -562,6 +682,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               ...item,
               doneBy: item.doneBy.map((id) => (id === currentUserId ? nextUserId : id)),
             })),
+          })),
+          dailyQuests: prev.dailyQuests.map((quest) => ({
+            ...quest,
+            assigneeId: quest.assigneeId === currentUserId ? nextUserId : quest.assigneeId,
+            createdBy: quest.createdBy === currentUserId ? nextUserId : quest.createdBy,
           })),
         }))
         setCurrentUserId(nextUserId)

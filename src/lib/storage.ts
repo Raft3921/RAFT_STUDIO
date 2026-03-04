@@ -20,6 +20,7 @@ const defaultData: AppData = {
   plans: [],
   events: [],
   responses: [],
+  dailyQuests: [],
 }
 
 export const loadData = (): AppData => {
@@ -37,6 +38,7 @@ export const loadData = (): AppData => {
       plans: (parsed.plans ?? []).map((plan) => normalizePlan(plan)),
       events: parsed.events ?? [],
       responses: parsed.responses ?? [],
+      dailyQuests: parsed.dailyQuests ?? [],
     }
   } catch {
     return defaultData
