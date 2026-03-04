@@ -75,8 +75,9 @@ export const PlansPage = () => {
               {editor && editor.id !== creator?.id ? ` / 編集: ${editor.displayName}` : ''}
             </p>
             <p>
-              {plan.templateType} / {formatDuration(plan.durationSec)} / {participantSummaryText(plan, data.members)}
+              {(plan.gameTitle || '未設定ゲーム')} / {plan.templateType} / {formatDuration(plan.durationSec)} / {participantSummaryText(plan, data.members)}
             </p>
+            {plan.overview && <p className="muted">{plan.overview}</p>}
             <p className="muted">{roleSummaryText(plan, data.members)}</p>
           </Link>
           )

@@ -37,6 +37,7 @@ export const normalizePlan = (raw: LegacyPlan): Plan => {
   return {
     id: raw.id,
     title: raw.title ?? '無題の企画',
+    gameTitle: raw.gameTitle ?? 'Minecraft',
     templateType: raw.templateType ?? '検証',
     status: raw.status ?? 'candidate',
     durationSec: clampDuration(legacyDuration ?? 480),
@@ -51,6 +52,7 @@ export const normalizePlan = (raw: LegacyPlan): Plan => {
           : ['m-raft'],
     goal: raw.goal ?? '笑い',
     assets: raw.assets ?? [],
+    overview: raw.overview ?? '',
     roleAssignments,
     memo: raw.memo,
     createdAt: raw.createdAt ?? new Date().toISOString(),

@@ -34,11 +34,13 @@ import type {
 
 interface CreatePlanInput {
   title: string
+  gameTitle?: string
   templateType: string
   durationSec: number
   participantIds: Plan['participantIds']
   goal: Plan['goal']
   assets: string[]
+  overview?: string
   roleAssignments: Plan['roleAssignments']
   memo?: string
 }

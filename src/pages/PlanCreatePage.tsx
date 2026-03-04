@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { assetChoices, durationPresets, planTemplates, roleDefinitions, roleTemplatePresets } from '../data/templates'
+import { durationPresets, roleDefinitions } from '../data/templates'
 import {
   clampDuration,
   createEmptyRoleAssignments,
@@ -13,6 +13,17 @@ import { useApp } from '../store/AppContext'
 import type { Plan, RoleAssignments } from '../types'
 
 const goals: Plan['goal'][] = ['笑い', '驚き', '感動', '学び', '上達']
+const defaultGame = 'Minecraft'
+const genericTemplates = ['検証', '攻略', '建築', '対戦', '協力', '雑談', 'Shorts切り抜き']
+const genericAssets = ['BGM', 'SE', 'サムネ素材', '立ち絵', '特殊効果']
+const gameTemplates: Record<string, string[]> = {
+  minecraft: ['世界探索', '農業', '建築', '検証', 'PvP', 'マルチ企画', 'Shorts切り抜き'],
+  mc: ['世界探索', '農業', '建築', '検証', 'PvP', 'マルチ企画', 'Shorts切り抜き'],
+}
+const gameAssets: Record<string, string[]> = {
+  minecraft: ['BGM', 'SE', 'サムネ素材', '立ち絵', '字幕', '建築素材メモ'],
+  mc: ['BGM', 'SE', 'サムネ素材', '立ち絵', '字幕', '建築素材メモ'],
+}
 
 const roleGroups = [
   {
@@ -25,10 +36,6 @@ const roleGroups = [
   },
 ]
 
-const findMemberIdsByNames = (names: string[], members: { id: string; displayName: string }[]) => {
-  return names.map((name) => members.find((member) => member.displayName === name)?.id).filter((value): value is string => !!value)
-}
-
 export const PlanCreatePage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -36,7 +43,12 @@ export const PlanCreatePage = () => {
   const editingPlan = id ? data.plans.find((plan) => plan.id === id) : null
   const missingEditTarget = Boolean(id && !editingPlan)
 
-  const [templateType, setTemplateType] = useState(editingPlan?.templateType ?? planTemplates[0])
+  const [gameTitle, setGameTitle] = useState(editingPlan?.gameTitle ?? defaultGame)
+  const normalizedGame = gameTitle.trim().toLowerCase()
+  const templateOptions = gameTemplates[normalizedGame] ?? genericTemplates
+  const assetOptions = gameAssets[normalizedGame] ?? genericAssets
+  const [templateType, setTemplateType] = useState(editingPlan?.templateType ?? templateOptions[0])
+  const selectedTemplateType = templateOptions.includes(templateType) ? templateType : templateOptions[0]
   const [durationSec, setDurationSec] = useState(editingPlan?.durationSec ?? 480)
   const [participantIds, setParticipantIds] = useState<string[]>(
     editingPlan?.participantIds ?? [],
@@ -45,6 +57,7 @@ export const PlanCreatePage = () => {
   const [assets, setAssets] = useState<string[]>(editingPlan?.assets ?? ['BGM'])
   const [memo, setMemo] = useState(editingPlan?.memo ?? '')
   const [title, setTitle] = useState(editingPlan?.title ?? '')
+  const [overview, setOverview] = useState(editingPlan?.overview ?? '')
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>(
     editingPlan?.roleAssignments ?? createEmptyRoleAssignments(),
   )
@@ -55,7 +68,7 @@ export const PlanCreatePage = () => {
         {
           id: 'tmp',
           title: '',
-          templateType,
+          templateType: selectedTemplateType,
           status: 'candidate',
           durationSec,
           participantIds,
@@ -68,16 +81,16 @@ export const PlanCreatePage = () => {
         data.members,
         8,
       ),
-    [data.members, durationSec, goal, participantIds, templateType],
+    [data.members, durationSec, goal, participantIds, selectedTemplateType],
   )
 
   const titleCandidates = useMemo(
     () => [
-      `${templateType}で${goal}を狙う${formatDuration(durationSec)}企画`,
-      `${selectedMembersLabel}で挑む${templateType}チャレンジ`,
-      `${templateType}の結果で${goal}を作る`,
+      `${gameTitle} / ${selectedTemplateType}で${goal}を狙う${formatDuration(durationSec)}企画`,
+      `${gameTitle}で${selectedMembersLabel}が挑む${selectedTemplateType}`,
+      `${gameTitle}の${selectedTemplateType}で${goal}を作る`,
     ],
-    [templateType, goal, durationSec, selectedMembersLabel],
+    [gameTitle, selectedTemplateType, goal, durationSec, selectedMembersLabel],
   )
 
   const toggleParticipant = (memberId: string) => {
@@ -106,58 +119,18 @@ export const PlanCreatePage = () => {
     })
   }
 
-  const applyPreset = (presetKey: keyof typeof roleTemplatePresets) => {
-    const preset = roleTemplatePresets[presetKey]
-    const next = createEmptyRoleAssignments()
-
-    Object.entries(preset.membersByRole).forEach(([roleId, names]) => {
-      next[roleId] = findMemberIdsByNames([...names], data.members)
-    })
-
-    setRoleAssignments(next)
-  }
-
-  const copyLatestRoles = () => {
-    const latest = data.plans[0]
-    if (!latest) return
-    setRoleAssignments({ ...createEmptyRoleAssignments(), ...latest.roleAssignments })
-  }
-
-  const autoFillRoles = () => {
-    if (data.members.length === 0) return
-
-    setRoleAssignments((prev) => {
-      let cursor = 0
-      const next = { ...prev }
-
-      roleDefinitions.forEach((definition) => {
-        const current = next[definition.id] ?? []
-        if (current.length > 0) return
-
-        if (definition.selection === 'single') {
-          next[definition.id] = [data.members[cursor % data.members.length].id]
-          cursor += 1
-          return
-        }
-
-        next[definition.id] = [data.members[cursor % data.members.length].id]
-        cursor += 1
-      })
-
-      return next
-    })
-  }
-
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (editingPlan) {
       await updatePlan(editingPlan.id, {
         title: title.trim() || editingPlan.title,
-        templateType,
+        gameTitle: gameTitle.trim(),
+        templateType: selectedTemplateType,
         durationSec,
         participantIds,
         goal,
         assets,
+        overview: overview.trim(),
         roleAssignments,
         memo,
       })
@@ -166,11 +139,13 @@ export const PlanCreatePage = () => {
     }
     await createPlan({
       title: title.trim() || titleCandidates[0],
-      templateType,
+      gameTitle: gameTitle.trim(),
+      templateType: selectedTemplateType,
       durationSec,
       participantIds,
       goal,
       assets,
+      overview: overview.trim() || titleCandidates[0],
       roleAssignments,
       memo,
     })
@@ -189,14 +164,21 @@ export const PlanCreatePage = () => {
 
       <section className="panel">
         <h3>1. 基本設定</h3>
+        <label>ゲーム</label>
+        <input
+          className="field"
+          value={gameTitle}
+          onChange={(event) => setGameTitle(event.target.value)}
+          placeholder="例: Minecraft / VALORANT / APEX"
+        />
 
         <label>テンプレ</label>
         <div className="chip-row" data-tour="plan-template">
-          {planTemplates.map((item) => (
+          {templateOptions.map((item) => (
             <button
               type="button"
               key={item}
-              className={`chip ${templateType === item ? 'active' : ''}`}
+              className={`chip ${selectedTemplateType === item ? 'active' : ''}`}
               onClick={() => setTemplateType(item)}
             >
               {item}
@@ -283,24 +265,6 @@ export const PlanCreatePage = () => {
           <span className="muted">兼務OK</span>
         </div>
 
-        <div className="plan-tools-row">
-          <button type="button" className="chip" onClick={() => applyPreset('minecraftVerification')}>
-            マイクラ検証テンプレ
-          </button>
-          <button type="button" className="chip" onClick={() => applyPreset('minecraftLargeGroup')}>
-            マイクラ多人数テンプレ
-          </button>
-          <button type="button" className="chip" onClick={() => applyPreset('shortsClip')}>
-            Shortsテンプレ
-          </button>
-          <button type="button" className="chip" onClick={copyLatestRoles}>
-            前回コピー
-          </button>
-          <button type="button" className="chip" onClick={autoFillRoles}>
-            自動配置
-          </button>
-        </div>
-
         {roleGroups.map((group) => (
           <div key={group.label} className="role-group">
             <p className="role-group-title">{group.label}</p>
@@ -344,7 +308,7 @@ export const PlanCreatePage = () => {
 
         <label>必要素材</label>
         <div className="chip-row">
-          {assetChoices.map((item) => {
+          {assetOptions.map((item) => {
             const selected = assets.includes(item)
             return (
               <button
@@ -366,11 +330,21 @@ export const PlanCreatePage = () => {
         <label>タイトル候補</label>
         <div className="stack-gap">
           {titleCandidates.map((candidate) => (
-            <button type="button" className="btn ghost full" key={candidate} onClick={() => setTitle(candidate)}>
+            <button
+              type="button"
+              className="btn ghost full"
+              key={candidate}
+              onClick={() => {
+                setTitle(candidate)
+                setOverview(candidate)
+              }}
+            >
               {candidate}
             </button>
           ))}
         </div>
+        <label>カード概要（タイトル候補）</label>
+        <input className="field" value={overview} onChange={(event) => setOverview(event.target.value)} />
         <label>タイトル（任意で修正）</label>
         <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} />
         <label>ひとことで（任意）</label>

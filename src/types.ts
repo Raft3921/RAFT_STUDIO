@@ -25,12 +25,14 @@ export interface Member {
 export interface Plan {
   id: string
   title: string
+  gameTitle?: string
   templateType: string
   status: PlanStatus
   durationSec: number
   participantIds: string[]
   goal: '笑い' | '驚き' | '感動' | '学び' | '上達'
   assets: string[]
+  overview?: string
   roleAssignments: RoleAssignments
   memo?: string
   createdAt: string

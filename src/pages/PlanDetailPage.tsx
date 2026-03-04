@@ -48,11 +48,12 @@ export const PlanDetailPage = () => {
             />
           </div>
         </div>
-        <p>{plan.templateType}</p>
+        <p>{plan.gameTitle || '未設定ゲーム'} / {plan.templateType}</p>
         <p className="muted plan-owner-line">
           作成: {creator?.displayName ?? '不明'}
           {editor && editor.id !== creator?.id ? ` / 編集: ${editor.displayName}` : ''}
         </p>
+        {plan.overview && <p>{plan.overview}</p>}
         <p>{plan.memo || 'メモなし'}</p>
         <div className="inline-row">
           <Link className="btn ghost" to={`/plans/${plan.id}/edit`}>
