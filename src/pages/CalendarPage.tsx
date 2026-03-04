@@ -148,8 +148,8 @@ export const CalendarPage = () => {
               <div key={key} className="calendar-cell">
                 <div className="calendar-date">{cell.date.getDate()}</div>
                 <div className="calendar-day-flags">
-                  <span className={`calendar-day-flag flag-shoot ${hasShoot ? 'active' : ''}`}>●撮</span>
-                  <span className={`calendar-day-flag flag-post ${hasPost ? 'active' : ''}`}>▲投</span>
+                  {hasShoot && <span className="calendar-day-flag flag-shoot active">●撮</span>}
+                  {hasPost && <span className="calendar-day-flag flag-post active">▲投</span>}
                 </div>
                 <div className="calendar-events">
                   {events.slice(0, 2).map((event) => (

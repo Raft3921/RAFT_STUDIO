@@ -40,7 +40,7 @@ export const HomePage = () => {
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
   const me = data.members.find((member) => member.id === currentUserId)
-  const isQuestEditor = (me?.displayName.trim() ?? '') === 'ラフト'
+  const isQuestEditor = currentUserId === 'm-raft' || (me?.displayName.trim() ?? '') === 'ラフト'
   const todayKey = useMemo(() => {
     const now = new Date()
     const y = now.getFullYear()
@@ -124,16 +124,21 @@ export const HomePage = () => {
       window.alert('持ってくる物を入力してください。')
       return
     }
-    await createDailyQuests({
-      questDate: todayKey,
-      assigneeIds: questAssigneeIds,
-      template: questTemplate,
-      amount: questAmount,
-      customText: questCustomText,
-    })
-    setQuestAssigneeIds([])
-    setQuestAmount(1)
-    setQuestCustomText('')
+    try {
+      await createDailyQuests({
+        questDate: todayKey,
+        assigneeIds: questAssigneeIds,
+        template: questTemplate,
+        amount: questAmount,
+        customText: questCustomText,
+      })
+      setQuestAssigneeIds([])
+      setQuestAmount(1)
+      setQuestCustomText('')
+      window.alert('本日のクエストを追加しました。')
+    } catch {
+      window.alert('クエスト追加に失敗しました。Firebase権限または通信状態を確認してください。')
+    }
   }
 
   return (

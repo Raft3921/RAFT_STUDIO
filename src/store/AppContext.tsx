@@ -115,6 +115,8 @@ const isLegacyMemberName = (name: string) =>
 const fallbackDisplayName = 'ラフト'
 const memberIdFromName = (displayName: string) =>
   `name-${encodeURIComponent(normalizeDisplayName(displayName).toLowerCase())}`
+const isRaftMember = (memberId: string, displayName?: string) =>
+  memberId === 'm-raft' || normalizeDisplayName(displayName ?? '') === 'ラフト'
 const dedupeMembersByName = (members: Member[]) => {
   const seen = new Set<string>()
   return members.filter((member) => {
@@ -538,7 +540,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (assigneeIds.length === 0) return
 
         const actor = data.members.find((member) => member.id === currentUserId)
-        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (!isRaftMember(currentUserId, actor?.displayName)) return
 
         const payloadBase = {
           questDate: input.questDate,
@@ -601,7 +603,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       },
       deleteDailyQuest: async (questId) => {
         const actor = data.members.find((member) => member.id === currentUserId)
-        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (!isRaftMember(currentUserId, actor?.displayName)) return
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
           await deleteDoc(doc(db, 'workspaces', workspaceId, 'daily_quests', questId))
@@ -614,7 +616,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       },
       createCalendarMark: async (input) => {
         const actor = data.members.find((member) => member.id === currentUserId)
-        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (!isRaftMember(currentUserId, actor?.displayName)) return
         const start = input.startDate <= input.endDate ? input.startDate : input.endDate
         const end = input.startDate <= input.endDate ? input.endDate : input.startDate
         const payload = {
@@ -638,7 +640,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       },
       updateCalendarMark: async (markId, input) => {
         const actor = data.members.find((member) => member.id === currentUserId)
-        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (!isRaftMember(currentUserId, actor?.displayName)) return
         const start = input.startDate <= input.endDate ? input.startDate : input.endDate
         const end = input.startDate <= input.endDate ? input.endDate : input.startDate
         const patch = {
@@ -659,7 +661,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       },
       deleteCalendarMark: async (markId) => {
         const actor = data.members.find((member) => member.id === currentUserId)
-        if (normalizeDisplayName(actor?.displayName ?? '') !== 'ラフト') return
+        if (!isRaftMember(currentUserId, actor?.displayName)) return
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
           await deleteDoc(doc(db, 'workspaces', workspaceId, 'calendar_marks', markId))
