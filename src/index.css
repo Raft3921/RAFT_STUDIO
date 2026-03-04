@@ -549,7 +549,7 @@ p {
   padding: 28px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  background: transparent;
+  background-color: #7b4e2c;
 }
 
 .hero-panel-content {
