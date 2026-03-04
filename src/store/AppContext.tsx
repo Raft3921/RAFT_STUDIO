@@ -86,6 +86,7 @@ interface AppContextValue {
     planId: string,
     patch: Partial<Omit<Plan, 'id' | 'createdAt' | 'createdBy'>>,
   ) => Promise<void>
+  reassignPlanCreator: (planId: string, creatorId: string) => Promise<void>
   deletePlan: (planId: string) => Promise<void>
   updatePlanStatus: (planId: string, status: PlanStatus) => Promise<void>
   createEvent: (input: CreateEventInput) => Promise<void>
@@ -420,6 +421,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setData((prev) => ({
           ...prev,
           plans: prev.plans.map((item) => (item.id === planId ? { ...item, ...nextPatch } : item)),
+        }))
+      },
+      reassignPlanCreator: async (planId, creatorId) => {
+        const creator = data.members.find((member) => member.id === creatorId)
+        if (!creator) return
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await updateDoc(doc(db, 'workspaces', workspaceId, 'plans', planId), {
+            createdBy: creatorId,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUserId,
+          })
+          return
+        }
+        setData((prev) => ({
+          ...prev,
+          plans: prev.plans.map((plan) =>
+            plan.id === planId
+              ? {
+                  ...plan,
+                  createdBy: creatorId,
+                  updatedAt: new Date().toISOString(),
+                  updatedBy: currentUserId,
+                }
+              : plan,
+          ),
         }))
       },
       deletePlan: async (planId) => {

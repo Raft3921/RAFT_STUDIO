@@ -255,6 +255,16 @@ label {
   image-rendering: pixelated;
 }
 
+.plan-creator-button {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
 .plan-owner-line {
   font-size: 0.78rem;
 }

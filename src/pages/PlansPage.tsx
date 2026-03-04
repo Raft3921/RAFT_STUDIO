@@ -9,7 +9,7 @@ import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
 
 export const PlansPage = () => {
-  const { data, currentUserId, workspaceId } = useApp()
+  const { data, currentUserId, workspaceId, reassignPlanCreator } = useApp()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<PlanStatus | 'all'>('all')
   const seenPlansAt = loadSeenState(workspaceId, currentUserId).plans
@@ -59,6 +59,18 @@ export const PlansPage = () => {
           const creator = data.members.find((member) => member.id === plan.createdBy)
           const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
           const isNew = plan.createdBy !== currentUserId && isNewerThanSeen(plan.createdAt, seenPlansAt)
+          const onChangeCreator = async () => {
+            const options = data.members.map((member, index) => `${index + 1}: ${member.displayName}`).join('\n')
+            const selected = window.prompt(`作成者を選んでください:\n${options}`)
+            if (!selected) return
+            const pickedIndex = Number(selected) - 1
+            const picked = data.members[pickedIndex]
+            if (!picked) {
+              window.alert('番号が正しくありません。')
+              return
+            }
+            await reassignPlanCreator(plan.id, picked.id)
+          }
           return (
           <Link key={plan.id} to={`/plans/${plan.id}`} className="card link-card">
             <div className="section-head">
@@ -68,12 +80,22 @@ export const PlansPage = () => {
               </strong>
               <div className="plan-card-meta">
                 <StatusBadge status={plan.status} />
-                <img
-                  src={getMemberIcon(creator?.displayName ?? 'ラフト')}
-                  alt={creator?.displayName ? `${creator.displayName}が作成` : '作成者'}
-                  title={creator?.displayName ? `作成者: ${creator.displayName}` : '作成者'}
-                  className="plan-creator-icon"
-                />
+                <button
+                  type="button"
+                  className="plan-creator-button"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    void onChangeCreator()
+                  }}
+                >
+                  <img
+                    src={getMemberIcon(creator?.displayName ?? 'ラフト')}
+                    alt={creator?.displayName ? `${creator.displayName}が作成` : '作成者'}
+                    title={creator?.displayName ? `作成者: ${creator.displayName}（クリックで変更）` : '作成者（クリックで変更）'}
+                    className="plan-creator-icon"
+                  />
+                </button>
               </div>
             </div>
             <p className="muted plan-owner-line">

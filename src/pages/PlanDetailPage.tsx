@@ -10,7 +10,7 @@ import type { PlanStatus } from '../types'
 export const PlanDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data, updatePlanStatus, deletePlan } = useApp()
+  const { data, updatePlanStatus, deletePlan, reassignPlanCreator } = useApp()
 
   const plan = data.plans.find((item) => item.id === id)
   const relatedEvents = data.events.filter((event) => event.planId === id)
@@ -32,6 +32,18 @@ export const PlanDetailPage = () => {
   }
   const creator = data.members.find((member) => member.id === plan.createdBy)
   const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
+  const changeCreator = async () => {
+    const options = data.members.map((member, index) => `${index + 1}: ${member.displayName}`).join('\n')
+    const selected = window.prompt(`作成者を選んでください:\n${options}`)
+    if (!selected) return
+    const pickedIndex = Number(selected) - 1
+    const picked = data.members[pickedIndex]
+    if (!picked) {
+      window.alert('番号が正しくありません。')
+      return
+    }
+    await reassignPlanCreator(plan.id, picked.id)
+  }
 
   return (
     <div className="page-stack">
@@ -40,12 +52,14 @@ export const PlanDetailPage = () => {
           <h2>{plan.title}</h2>
           <div className="plan-card-meta">
             <StatusBadge status={plan.status} />
-            <img
-              src={getMemberIcon(creator?.displayName ?? 'ラフト')}
-              alt={creator?.displayName ? `${creator.displayName}が作成` : '作成者'}
-              title={creator?.displayName ? `作成者: ${creator.displayName}` : '作成者'}
-              className="plan-creator-icon"
-            />
+            <button type="button" className="plan-creator-button" onClick={() => void changeCreator()}>
+              <img
+                src={getMemberIcon(creator?.displayName ?? 'ラフト')}
+                alt={creator?.displayName ? `${creator.displayName}が作成` : '作成者'}
+                title={creator?.displayName ? `作成者: ${creator.displayName}（クリックで変更）` : '作成者（クリックで変更）'}
+                className="plan-creator-icon"
+              />
+            </button>
           </div>
         </div>
         <p>{plan.gameTitle || '未設定ゲーム'} / {plan.templateType}</p>
