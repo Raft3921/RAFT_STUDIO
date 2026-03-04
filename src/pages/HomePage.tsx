@@ -154,29 +154,42 @@ export const HomePage = () => {
   return (
     <div className="page-stack">
       <section className="panel hero-panel" style={heroPanelStyle}>
-        <p className="hero-kicker">QUEST</p>
-        <h2>本日のクエスト</h2>
-        <p>{nextStep}</p>
-        <div className="progress-wrap" aria-label="進行度">
-          <div className="progress-fill" style={{ width: `${Math.min(100, completionPoints)}%` }} />
+        <div className="quest-panel-skin" aria-hidden>
+          <span className="quest-panel-part quest-panel-tl" />
+          <span className="quest-panel-part quest-panel-top" />
+          <span className="quest-panel-part quest-panel-tr" />
+          <span className="quest-panel-part quest-panel-left" />
+          <span className="quest-panel-part quest-panel-center" />
+          <span className="quest-panel-part quest-panel-right" />
+          <span className="quest-panel-part quest-panel-bl" />
+          <span className="quest-panel-part quest-panel-bottom" />
+          <span className="quest-panel-part quest-panel-br" />
         </div>
-        <p className="muted">進行度 {Math.min(100, completionPoints)}%</p>
-        <div className="stack-gap">
-          {myQuests.length === 0 && <p className="muted">自分に割り当てられた本日のクエストはありません。</p>}
-          {myQuests.map((quest) => (
-            <label className="check-row" key={quest.id}>
-              <input type="checkbox" checked={quest.done} onChange={() => void toggleDailyQuestDone(quest.id)} />
-              <span>{dailyQuestText(quest)}</span>
-            </label>
-          ))}
-        </div>
-        <div className="inline-row">
-          <Link className="btn btn-primary" to="/plans/new">
-            企画を作る
-          </Link>
-          <Link className="btn btn-secondary" to="/events/new">
-            撮影日を作る
-          </Link>
+        <div className="hero-panel-content">
+          <p className="hero-kicker">QUEST</p>
+          <h2>本日のクエスト</h2>
+          <p>{nextStep}</p>
+          <div className="progress-wrap" aria-label="進行度">
+            <div className="progress-fill" style={{ width: `${Math.min(100, completionPoints)}%` }} />
+          </div>
+          <p className="muted">進行度 {Math.min(100, completionPoints)}%</p>
+          <div className="stack-gap">
+            {myQuests.length === 0 && <p className="muted">自分に割り当てられた本日のクエストはありません。</p>}
+            {myQuests.map((quest) => (
+              <label className="check-row" key={quest.id}>
+                <input type="checkbox" checked={quest.done} onChange={() => void toggleDailyQuestDone(quest.id)} />
+                <span>{dailyQuestText(quest)}</span>
+              </label>
+            ))}
+          </div>
+          <div className="inline-row">
+            <Link className="btn btn-primary" to="/plans/new">
+              企画を作る
+            </Link>
+            <Link className="btn btn-secondary" to="/events/new">
+              撮影日を作る
+            </Link>
+          </div>
         </div>
       </section>
 
