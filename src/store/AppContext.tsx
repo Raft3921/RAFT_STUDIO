@@ -265,6 +265,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [data, storageMode])
 
+  const ensureFirebaseSignedIn = useCallback(async () => {
+    if (!isFirebaseEnabled || !firebaseAuth) return
+    if (firebaseAuth.currentUser) return
+    await signInAnonymously(firebaseAuth)
+  }, [])
+
   useEffect(() => {
     if (storageMode !== 'firebase' || !isFirebaseEnabled || !firestoreDb || !currentUserId || !ready) {
       return
@@ -555,6 +561,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (storageMode === 'firebase' && firestoreDb) {
+          await ensureFirebaseSignedIn()
+          if (!firebaseAuth?.currentUser) {
+            throw new Error('firebase-auth-required')
+          }
           const db = firestoreDb
           const workspaceRef = doc(db, 'workspaces', workspaceId)
           await Promise.all(
@@ -863,7 +873,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
       },
     }),
-    [currentUserId, data, migrateLocalDataToFirebase, preferredDisplayName, ready, storageMode, workspaceId],
+    [
+      currentUserId,
+      data,
+      ensureFirebaseSignedIn,
+      migrateLocalDataToFirebase,
+      preferredDisplayName,
+      ready,
+      storageMode,
+      workspaceId,
+    ],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

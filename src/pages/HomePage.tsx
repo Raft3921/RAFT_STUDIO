@@ -146,7 +146,16 @@ export const HomePage = () => {
       setQuestAmount(1)
       setQuestCustomText('')
       window.alert('本日のクエストを追加しました。')
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      if (message.includes('auth/admin-restricted-operation')) {
+        window.alert('匿名ログインが無効です。Firebase Console の Authentication > Sign-in method で匿名認証を有効にしてください。')
+        return
+      }
+      if (message.includes('permission-denied')) {
+        window.alert('Firestore権限エラーです。ルールとログイン状態を確認してください。')
+        return
+      }
       window.alert('クエスト追加に失敗しました。Firebase権限または通信状態を確認してください。')
     }
   }
