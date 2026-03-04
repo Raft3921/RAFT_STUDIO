@@ -877,6 +877,41 @@ p {
   white-space: nowrap;
 }
 
+.calendar-day-flags {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.calendar-day-flag {
+  font-size: 0.62rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  font-weight: 800;
+  background: #f3f4f6;
+  color: #6b7280;
+  line-height: 1.3;
+}
+
+.calendar-day-flag.active {
+  background: #fff;
+}
+
+.calendar-mark-badge.flag-shoot,
+.calendar-day-flag.flag-shoot {
+  border-color: #ef4444;
+  color: #991b1b;
+  background: #fff1f2;
+}
+
+.calendar-mark-badge.flag-post,
+.calendar-day-flag.flag-post {
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
 .calendar-cell-range {
   outline: 2px solid #efb2b0;
   background: #fff4f3;
