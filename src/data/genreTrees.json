@@ -1,0 +1,309 @@
+{
+  "genres": [
+    {
+      "key": "verification",
+      "label": "検証",
+      "questions": [
+        {
+          "id": "format",
+          "text": "どの形式で検証する？",
+          "options": [
+            { "key": "challenge", "label": "縛りチャレンジ" },
+            { "key": "compare", "label": "比較検証" },
+            { "key": "speed", "label": "最速チャレンジ" },
+            { "key": "survival", "label": "耐久検証" }
+          ],
+          "nextMap": { "challenge": "rule", "compare": "rivalry", "speed": "rule", "survival": "rule" }
+        },
+        {
+          "id": "rivalry",
+          "text": "誰と誰をぶつける？",
+          "options": [
+            { "key": "beginner_vs_pro", "label": "初心者 vs 上級者" },
+            { "key": "solo_vs_team", "label": "ソロ vs チーム" },
+            { "key": "human_vs_ai", "label": "人間 vs AI" },
+            { "key": "new_vs_old", "label": "新ルール vs 旧ルール" }
+          ],
+          "nextMap": { "*": "rule" }
+        },
+        {
+          "id": "rule",
+          "text": "ルールは？",
+          "options": [
+            { "key": "time_limit", "label": "制限時間あり" },
+            { "key": "no_items", "label": "アイテム禁止" },
+            { "key": "one_miss", "label": "1ミス即終了" },
+            { "key": "random", "label": "ランダム縛り" }
+          ],
+          "nextMap": { "*": "hook" }
+        },
+        {
+          "id": "hook",
+          "text": "見せ場はどれ？",
+          "options": [
+            { "key": "comeback", "label": "逆転" },
+            { "key": "accident", "label": "事故" },
+            { "key": "unexpected", "label": "想定外" },
+            { "key": "record", "label": "記録更新" }
+          ],
+          "nextMap": { "*": "topic" }
+        },
+        {
+          "id": "topic",
+          "text": "お題を選ぶ（任意）",
+          "options": [
+            { "key": "boss", "label": "ボス戦" },
+            { "key": "farm", "label": "農業" },
+            { "key": "economy", "label": "経済" },
+            { "key": "free", "label": "自由テーマ" }
+          ],
+          "nextMap": { "*": "end" }
+        }
+      ]
+    },
+    {
+      "key": "prank",
+      "label": "ドッキリ",
+      "questions": [
+        {
+          "id": "format",
+          "text": "ドッキリの形式は？",
+          "options": [
+            { "key": "hidden_rule", "label": "隠しルール" },
+            { "key": "fake_info", "label": "偽情報" },
+            { "key": "betray", "label": "裏切り展開" },
+            { "key": "surprise", "label": "サプライズ仕掛け" }
+          ],
+          "nextMap": { "*": "rivalry" }
+        },
+        {
+          "id": "rivalry",
+          "text": "誰に仕掛ける？",
+          "options": [
+            { "key": "leader", "label": "司会役" },
+            { "key": "ace", "label": "エース役" },
+            { "key": "all", "label": "全員" },
+            { "key": "pair", "label": "2人組" }
+          ],
+          "nextMap": { "*": "rule" }
+        },
+        {
+          "id": "rule",
+          "text": "ルール条件は？",
+          "options": [
+            { "key": "no_notice", "label": "事前告知なし" },
+            { "key": "single_take", "label": "一発撮り" },
+            { "key": "timer", "label": "制限時間あり" },
+            { "key": "penalty", "label": "失敗ペナルティ" }
+          ],
+          "nextMap": { "*": "hook" }
+        },
+        {
+          "id": "hook",
+          "text": "狙うリアクションは？",
+          "options": [
+            { "key": "panic", "label": "パニック" },
+            { "key": "trust_break", "label": "信頼崩壊" },
+            { "key": "laugh", "label": "爆笑" },
+            { "key": "reverse", "label": "逆ドッキリ化" }
+          ],
+          "nextMap": { "*": "topic" }
+        },
+        {
+          "id": "topic",
+          "text": "お題は？",
+          "options": [
+            { "key": "base", "label": "拠点" },
+            { "key": "treasure", "label": "宝探し" },
+            { "key": "pvp", "label": "PvP中" },
+            { "key": "free", "label": "自由テーマ" }
+          ],
+          "nextMap": { "*": "end" }
+        }
+      ]
+    },
+    {
+      "key": "build",
+      "label": "建築",
+      "questions": [
+        {
+          "id": "format",
+          "text": "建築形式は？",
+          "options": [
+            { "key": "speed_build", "label": "時間制限建築" },
+            { "key": "theme_build", "label": "テーマ建築" },
+            { "key": "copy_build", "label": "再現建築" },
+            { "key": "upgrade", "label": "改築企画" }
+          ],
+          "nextMap": { "*": "rivalry" }
+        },
+        {
+          "id": "rivalry",
+          "text": "対立軸は？",
+          "options": [
+            { "key": "pro_vs_beginner", "label": "上級者 vs 初心者" },
+            { "key": "solo_vs_team", "label": "ソロ vs チーム" },
+            { "key": "old_vs_new", "label": "旧世代 vs 最新" },
+            { "key": "quality_vs_speed", "label": "品質 vs 速度" }
+          ],
+          "nextMap": { "*": "rule" }
+        },
+        {
+          "id": "rule",
+          "text": "ルールは？",
+          "options": [
+            { "key": "limited_blocks", "label": "ブロック制限" },
+            { "key": "limited_time", "label": "制限時間あり" },
+            { "key": "blind", "label": "設計図なし" },
+            { "key": "random_material", "label": "素材ランダム" }
+          ],
+          "nextMap": { "*": "hook" }
+        },
+        {
+          "id": "hook",
+          "text": "見せ場は？",
+          "options": [
+            { "key": "finish", "label": "完成度" },
+            { "key": "disaster", "label": "大事故" },
+            { "key": "reverse", "label": "逆転勝利" },
+            { "key": "judge", "label": "評価対決" }
+          ],
+          "nextMap": { "*": "topic" }
+        },
+        {
+          "id": "topic",
+          "text": "テーマは？",
+          "options": [
+            { "key": "house", "label": "家" },
+            { "key": "castle", "label": "城" },
+            { "key": "farm", "label": "農業施設" },
+            { "key": "free", "label": "自由テーマ" }
+          ],
+          "nextMap": { "*": "end" }
+        }
+      ]
+    },
+    {
+      "key": "pvp",
+      "label": "PvP",
+      "questions": [
+        {
+          "id": "format",
+          "text": "PvP形式は？",
+          "options": [
+            { "key": "duel", "label": "1v1決闘" },
+            { "key": "team_battle", "label": "チーム戦" },
+            { "key": "battle_royale", "label": "バトロワ" },
+            { "key": "objective", "label": "目標達成戦" }
+          ],
+          "nextMap": { "*": "rivalry" }
+        },
+        {
+          "id": "rivalry",
+          "text": "対立軸は？",
+          "options": [
+            { "key": "new_vs_old", "label": "新メンバー vs 古参" },
+            { "key": "captain_vs_team", "label": "キャプテン vs 連合" },
+            { "key": "random_match", "label": "ランダム組み合わせ" },
+            { "key": "revenge", "label": "リベンジマッチ" }
+          ],
+          "nextMap": { "*": "rule" }
+        },
+        {
+          "id": "rule",
+          "text": "特別ルールは？",
+          "options": [
+            { "key": "no_armor", "label": "防具なし" },
+            { "key": "limited_items", "label": "武器制限" },
+            { "key": "one_life", "label": "1ライフ制" },
+            { "key": "random_loadout", "label": "装備ランダム" }
+          ],
+          "nextMap": { "*": "hook" }
+        },
+        {
+          "id": "hook",
+          "text": "見どころは？",
+          "options": [
+            { "key": "clutch", "label": "クラッチ勝利" },
+            { "key": "perfect", "label": "無双展開" },
+            { "key": "comeback", "label": "逆転劇" },
+            { "key": "chaos", "label": "カオス展開" }
+          ],
+          "nextMap": { "*": "topic" }
+        },
+        {
+          "id": "topic",
+          "text": "マップ/テーマは？",
+          "options": [
+            { "key": "arena", "label": "闘技場" },
+            { "key": "forest", "label": "森林" },
+            { "key": "nether", "label": "ネザー" },
+            { "key": "free", "label": "自由テーマ" }
+          ],
+          "nextMap": { "*": "end" }
+        }
+      ]
+    },
+    {
+      "key": "gag",
+      "label": "ネタ",
+      "questions": [
+        {
+          "id": "format",
+          "text": "ネタの形式は？",
+          "options": [
+            { "key": "challenge", "label": "チャレンジ系" },
+            { "key": "roleplay", "label": "寸劇系" },
+            { "key": "quiz", "label": "クイズ系" },
+            { "key": "punishment", "label": "罰ゲーム系" }
+          ],
+          "nextMap": { "*": "rivalry" }
+        },
+        {
+          "id": "rivalry",
+          "text": "対立軸は？",
+          "options": [
+            { "key": "host_vs_guest", "label": "司会 vs 参加者" },
+            { "key": "pair_vs_pair", "label": "ペア対決" },
+            { "key": "all_for_one", "label": "全員で1人包囲" },
+            { "key": "random", "label": "ランダム対決" }
+          ],
+          "nextMap": { "*": "rule" }
+        },
+        {
+          "id": "rule",
+          "text": "ルールは？",
+          "options": [
+            { "key": "time_attack", "label": "制限時間あり" },
+            { "key": "no_talk", "label": "会話制限" },
+            { "key": "no_fail", "label": "失敗即罰ゲーム" },
+            { "key": "secret", "label": "秘密ルールあり" }
+          ],
+          "nextMap": { "*": "hook" }
+        },
+        {
+          "id": "hook",
+          "text": "フックは？",
+          "options": [
+            { "key": "laugh", "label": "爆笑" },
+            { "key": "mistake", "label": "やらかし" },
+            { "key": "reverse", "label": "逆転" },
+            { "key": "unexpected", "label": "予想外" }
+          ],
+          "nextMap": { "*": "topic" }
+        },
+        {
+          "id": "topic",
+          "text": "お題は？",
+          "options": [
+            { "key": "daily", "label": "日常ネタ" },
+            { "key": "food", "label": "食べ物" },
+            { "key": "voice", "label": "声マネ" },
+            { "key": "free", "label": "自由テーマ" }
+          ],
+          "nextMap": { "*": "end" }
+        }
+      ]
+    }
+  ]
+}

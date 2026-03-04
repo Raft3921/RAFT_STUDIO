@@ -1,0 +1,16 @@
+[
+  { "category": "VS", "template": "{TOPIC}で{RIVALRY}、{RULE}で決着はつくのか" },
+  { "category": "VS", "template": "{FORMAT}で{RIVALRY}激突。{HOOK}は本当に起きる？" },
+  { "category": "制限", "template": "{TOPIC}を{RULE}でやったら、想像以上に地獄だった" },
+  { "category": "制限", "template": "{FORMAT}×{RULE}で{TOPIC}挑戦。最後まで耐えられるか" },
+  { "category": "事故", "template": "{TOPIC}企画、開始3分で{HOOK}が発生した" },
+  { "category": "事故", "template": "{RIVALRY}で{FORMAT}したら、まさかの{HOOK}" },
+  { "category": "逆転", "template": "{RULE}で不利スタートからの{HOOK}、展開が熱すぎた" },
+  { "category": "逆転", "template": "{TOPIC}対決、{RIVALRY}が土壇場でひっくり返した" },
+  { "category": "評価", "template": "{FORMAT}で{TOPIC}を本気評価。結論はこれ" },
+  { "category": "評価", "template": "{RIVALRY}で{TOPIC}検証、最終結果を公開します" },
+  { "category": "挑戦", "template": "{HOOK}狙いで{FORMAT}に挑戦。成功率は何％？" },
+  { "category": "挑戦", "template": "{TOPIC}を{RULE}でやり切るまで終われません" },
+  { "category": "速報", "template": "{TOPIC}で{FORMAT}したら結果が極端すぎた" },
+  { "category": "速報", "template": "{RIVALRY}で試した{RULE}、予想の真逆になった" }
+]
