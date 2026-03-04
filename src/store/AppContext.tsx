@@ -550,14 +550,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const actor = data.members.find((member) => member.id === currentUserId)
         if (!isRaftMember(currentUserId, actor?.displayName)) return
 
+        const trimmedCustomText = input.customText?.trim()
         const payloadBase = {
           questDate: input.questDate,
           template: input.template,
           amount: Math.max(1, input.amount ?? 1),
-          customText: input.customText?.trim() || undefined,
           done: false,
           createdAt: new Date().toISOString(),
           createdBy: currentUserId,
+          ...(trimmedCustomText ? { customText: trimmedCustomText } : {}),
         }
 
         if (storageMode === 'firebase' && firestoreDb) {
