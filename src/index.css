@@ -230,6 +230,22 @@ label {
   gap: 6px;
 }
 
+.card-title-with-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.item-new-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 1px #efb2b0;
+  flex-shrink: 0;
+}
+
 .plan-creator-icon {
   width: 22px;
   height: 22px;
@@ -297,6 +313,24 @@ label {
   border-radius: 8px;
   color: var(--muted);
   position: relative;
+}
+
+.tab-label-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-dot {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 1px solid #fff;
 }
 
 .bottom-nav-item.active {

@@ -4,6 +4,7 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import { useSearchParams } from 'react-router-dom'
 import { getMemberIcon } from '../lib/memberIcon'
 import { firebaseStorage, firestoreDb } from '../lib/firebase'
+import { isNewerThanSeen, loadSeenState } from '../lib/notice'
 import { useApp } from '../store/AppContext'
 
 interface RafineMessage {
@@ -81,6 +82,7 @@ export const RafinePage = () => {
     [attachedFile],
   )
   const allMessages = storageMode === 'firebase' ? messages : localMessages
+  const seenRafineAt = loadSeenState(workspaceId, currentUserId).rafine
   const displayedMessages = useMemo(
     () =>
       allMessages.filter((message) => {
@@ -270,12 +272,19 @@ export const RafinePage = () => {
           {displayedMessages.length === 0 && <p className="muted">まだメッセージがありません。</p>}
           {displayedMessages.map((message) => {
             const mine = message.userId === currentUserId
+            const isNew =
+              !mine &&
+              (!message.recipientId || message.recipientId === currentUserId) &&
+              isNewerThanSeen(message.createdAt, seenRafineAt)
             return (
               <div key={message.id} className={`rafine-message-item ${mine ? 'mine' : ''}`}>
                 <img src={getMemberIcon(message.displayName)} alt="" className="member-chip-icon rafine-msg-icon" />
                 <div className="rafine-message-body">
                   <div className="rafine-message-head">
-                    <strong>{message.displayName}</strong>
+                    <strong className="card-title-with-dot">
+                      {message.displayName}
+                      {isNew && <span className="item-new-dot" aria-label="新着" />}
+                    </strong>
                     <div className="rafine-message-actions">
                       <span className="muted">{formatTime(message.createdAt)}</span>
                       {mine && (

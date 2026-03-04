@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
+import { isNewerThanSeen, loadSeenState } from '../lib/notice'
 import { formatDateTime, responseCount } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 
 export const EventsPage = () => {
-  const { data } = useApp()
+  const { data, currentUserId, workspaceId } = useApp()
+  const seenEventsAt = loadSeenState(workspaceId, currentUserId).events
 
   const events = [...data.events].sort(
     (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime(),
@@ -31,9 +33,13 @@ export const EventsPage = () => {
           const counts = responseCount(event.id, data.responses)
           const pending = data.members.length - (counts.yes + counts.no + counts.maybe)
           const unchecked = event.checklist.filter((item) => item.doneBy.length === 0).length
+          const isNew = (event.createdBy ?? '') !== currentUserId && isNewerThanSeen(event.createdAt, seenEventsAt)
           return (
             <Link key={event.id} to={`/events/${event.id}`} className="card link-card">
-              <strong>{event.title}</strong>
+              <strong className="card-title-with-dot">
+                {event.title}
+                {isNew && <span className="item-new-dot" aria-label="新着" />}
+              </strong>
               <p>{formatDateTime(event.datetime)}</p>
               <p>
                 集合: {event.meetingPoint} / 場所: {event.location}

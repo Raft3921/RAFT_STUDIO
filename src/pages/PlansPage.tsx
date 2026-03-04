@@ -2,15 +2,17 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { getMemberIcon } from '../lib/memberIcon'
+import { isNewerThanSeen, loadSeenState } from '../lib/notice'
 import { statusLabel, statusOrder } from '../lib/utils'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
 
 export const PlansPage = () => {
-  const { data } = useApp()
+  const { data, currentUserId, workspaceId } = useApp()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<PlanStatus | 'all'>('all')
+  const seenPlansAt = loadSeenState(workspaceId, currentUserId).plans
 
   const filtered = useMemo(() => {
     return data.plans.filter((plan) => {
@@ -56,10 +58,14 @@ export const PlansPage = () => {
         {filtered.map((plan) => {
           const creator = data.members.find((member) => member.id === plan.createdBy)
           const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
+          const isNew = plan.createdBy !== currentUserId && isNewerThanSeen(plan.createdAt, seenPlansAt)
           return (
           <Link key={plan.id} to={`/plans/${plan.id}`} className="card link-card">
             <div className="section-head">
-              <strong>{plan.title}</strong>
+              <strong className="card-title-with-dot">
+                {plan.title}
+                {isNew && <span className="item-new-dot" aria-label="新着" />}
+              </strong>
               <div className="plan-card-meta">
                 <StatusBadge status={plan.status} />
                 <img

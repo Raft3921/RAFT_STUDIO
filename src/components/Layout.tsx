@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { firestoreDb } from '../lib/firebase'
+import { isNewerThanSeen, loadSeenState } from '../lib/notice'
 import { useApp } from '../store/AppContext'
 import { RaftGuide } from './RaftGuide'
 
@@ -33,6 +34,8 @@ export const Layout = () => {
   const [displayLoading, setDisplayLoading] = useState(!ready)
   const [progress, setProgress] = useState(12)
   const [homeMessageNotice, setHomeMessageNotice] = useState('')
+  const [seenState, setSeenState] = useState(() => loadSeenState(workspaceId, currentUserId))
+  const [rafineUnreadCount, setRafineUnreadCount] = useState(0)
   const seenMessageIdRef = useRef<string | null>(null)
   const noticeTimerRef = useRef<number | null>(null)
   const runFrames = useMemo(
@@ -246,6 +249,65 @@ export const Layout = () => {
   }, [])
 
   useEffect(() => {
+    setSeenState(loadSeenState(workspaceId, currentUserId))
+  }, [workspaceId, currentUserId])
+
+  const planUnreadCount = useMemo(
+    () =>
+      data.plans.filter(
+        (plan) =>
+          plan.createdBy !== currentUserId &&
+          isNewerThanSeen(plan.createdAt, seenState.plans),
+      ).length,
+    [currentUserId, data.plans, seenState.plans],
+  )
+
+  const eventUnreadCount = useMemo(
+    () =>
+      data.events.filter(
+        (event) =>
+          (event.createdBy ?? '') !== currentUserId &&
+          isNewerThanSeen(event.createdAt, seenState.events),
+      ).length,
+    [currentUserId, data.events, seenState.events],
+  )
+
+  useEffect(() => {
+    const countUnread = (items: Array<{ createdAt: string; userId?: string; recipientId?: string }>) => {
+      const count = items.filter((item) => {
+        if (item.userId === currentUserId) return false
+        if (item.recipientId && item.recipientId !== currentUserId) return false
+        return isNewerThanSeen(item.createdAt, seenState.rafine)
+      }).length
+      setRafineUnreadCount(count)
+    }
+
+    if (storageMode === 'firebase' && firestoreDb) {
+      const ref = collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages')
+      const unsub = onSnapshot(query(ref, orderBy('createdAt', 'desc'), limit(100)), (snap) => {
+        countUnread(
+          snap.docs.map((item) => {
+            const msg = item.data() as { createdAt: string; userId?: string; recipientId?: string }
+            return msg
+          }),
+        )
+      })
+      return () => unsub()
+    }
+
+    try {
+      const raw = localStorage.getItem(`rafine-messages-${workspaceId}`)
+      if (!raw) {
+        setRafineUnreadCount(0)
+        return
+      }
+      countUnread(JSON.parse(raw) as Array<{ createdAt: string; userId?: string; recipientId?: string }>)
+    } catch {
+      setRafineUnreadCount(0)
+    }
+  }, [currentUserId, seenState.rafine, storageMode, workspaceId])
+
+  useEffect(() => {
     const showNotice = (text: string) => {
       if (noticeTimerRef.current) {
         window.clearTimeout(noticeTimerRef.current)
@@ -339,7 +401,12 @@ export const Layout = () => {
             data-tour={tab.tour}
             className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
           >
-            {tab.label}
+            <span className="tab-label-wrap">
+              {tab.label}
+              {tab.to === '/plans' && planUnreadCount > 0 && <span className="tab-dot" aria-label="新着あり" />}
+              {tab.to === '/events' && eventUnreadCount > 0 && <span className="tab-dot" aria-label="新着あり" />}
+              {tab.to === '/rafine' && rafineUnreadCount > 0 && <span className="tab-dot" aria-label="新着あり" />}
+            </span>
           </NavLink>
         ))}
       </nav>
