@@ -1,4 +1,4 @@
-import type { DailyQuest, DailyQuestTemplate } from '../types'
+import type { AppData, DailyQuest, DailyQuestTemplate } from '../types'
 
 export const dailyQuestTemplates: Array<{ value: DailyQuestTemplate; label: string; defaultAmount: number }> = [
   { value: 'plan_create', label: '企画を作る', defaultAmount: 1 },
@@ -34,3 +34,51 @@ export const dailyQuestText = (quest: Pick<DailyQuest, 'template' | 'amount' | '
       return '本日のクエスト'
   }
 }
+
+const toDateKey = (isoText?: string) => {
+  if (!isoText) return ''
+  const date = new Date(isoText)
+  if (Number.isNaN(date.getTime())) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+export const dailyQuestProgress = (quest: DailyQuest, data: AppData) => {
+  const eventById = new Map(data.events.map((event) => [event.id, event]))
+  const assigneeId = quest.assigneeId
+
+  switch (quest.template) {
+    case 'plan_create':
+      return data.plans.filter(
+        (plan) => plan.createdBy === assigneeId && toDateKey(plan.createdAt) === quest.questDate,
+      ).length
+    case 'event_create':
+      return data.events.filter(
+        (event) => event.createdBy === assigneeId && toDateKey(event.createdAt) === quest.questDate,
+      ).length
+    case 'attendance_reply':
+      return data.responses.filter((response) => {
+        if (response.userId !== assigneeId) return false
+        if (toDateKey(response.respondedAt) === quest.questDate) return true
+        const linkedEvent = eventById.get(response.eventId)
+        return toDateKey(linkedEvent?.datetime) === quest.questDate
+      }).length
+    case 'checklist_done':
+      return data.events.reduce((sum, event) => {
+        if (toDateKey(event.datetime) !== quest.questDate) return sum
+        return sum + event.checklist.filter((item) => item.doneBy.includes(assigneeId)).length
+      }, 0)
+    case 'bring_item':
+      return data.events.reduce((sum, event) => {
+        if (toDateKey(event.datetime) !== quest.questDate) return sum
+        return sum + event.checklist.filter((item) => item.doneBy.includes(assigneeId)).length
+      }, 0)
+    default:
+      return 0
+  }
+}
+
+export const isDailyQuestDone = (quest: DailyQuest, data: AppData) =>
+  dailyQuestProgress(quest, data) >= Math.max(1, quest.amount || 1)

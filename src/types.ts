@@ -59,6 +59,7 @@ export interface EventItem {
   timeline: string[]
   checklist: EventChecklistItem[]
   createdAt: string
+  createdBy?: string
 }
 
 export interface EventResponse {
@@ -66,6 +67,7 @@ export interface EventResponse {
   userId: string
   response: Attendance
   comment?: string
+  respondedAt?: string
 }
 
 export interface DailyQuest {

@@ -12,14 +12,14 @@ import panelTop from '../../assets/panel_top.png'
 import panelTr from '../../assets/panel_tr.png'
 import { firebaseAuth, firebaseProjectId } from '../lib/firebase'
 import { getMemberIcon } from '../lib/memberIcon'
-import { dailyQuestTemplates, dailyQuestText } from '../lib/dailyQuest'
+import { dailyQuestProgress, dailyQuestTemplates, dailyQuestText, isDailyQuestDone } from '../lib/dailyQuest'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 import type { DailyQuestTemplate } from '../types'
 
 export const HomePage = () => {
-  const { data, currentUserId, workspaceId, storageMode, createDailyQuests, toggleDailyQuestDone, deleteDailyQuest } = useApp()
+  const { data, currentUserId, workspaceId, storageMode, createDailyQuests, deleteDailyQuest } = useApp()
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [questTemplate, setQuestTemplate] = useState<DailyQuestTemplate>('plan_create')
   const [questAmount, setQuestAmount] = useState(1)
@@ -67,6 +67,11 @@ export const HomePage = () => {
     [data.dailyQuests, todayKey],
   )
   const myQuests = todayQuests.filter((quest) => quest.assigneeId === currentUserId)
+  const myQuestStates = myQuests.map((quest) => ({
+    quest,
+    progress: dailyQuestProgress(quest, data),
+    done: isDailyQuestDone(quest, data),
+  }))
   const onlineMembers = data.members.filter((member) => {
     if (storageMode === 'local') return member.id === currentUserId
     if (!member.lastActiveAt) return false
@@ -105,13 +110,13 @@ export const HomePage = () => {
 
   const completionPoints =
     myQuests.length > 0
-      ? Math.round((myQuests.filter((quest) => quest.done).length / myQuests.length) * 100)
+      ? Math.round((myQuestStates.filter((item) => item.done).length / myQuests.length) * 100)
       : (data.plans.length > 0 ? 35 : 0) +
         (data.events.length > 0 ? 35 : 0) +
         (upcoming ? 30 : 10)
 
   const nextStep = (() => {
-    const nextQuest = myQuests.find((quest) => !quest.done)
+    const nextQuest = myQuestStates.find((item) => !item.done)?.quest
     if (nextQuest) return dailyQuestText(nextQuest)
     if (data.plans.length === 0) return 'まず企画1枚。話はそれから。'
     if (data.events.length === 0) return '撮影日を1つ作る。逃げない。'
@@ -185,11 +190,14 @@ export const HomePage = () => {
           <p className="muted">進行度 {Math.min(100, completionPoints)}%</p>
           <div className="stack-gap">
             {myQuests.length === 0 && <p className="muted">自分に割り当てられた本日のクエストはありません。</p>}
-            {myQuests.map((quest) => (
-              <label className="check-row" key={quest.id}>
-                <input type="checkbox" checked={quest.done} onChange={() => void toggleDailyQuestDone(quest.id)} />
-                <span>{dailyQuestText(quest)}</span>
-              </label>
+            {myQuestStates.map(({ quest, progress, done }) => (
+              <div className="check-row" key={quest.id}>
+                <span>{done ? '✅' : '⏳'}</span>
+                <span>
+                  {dailyQuestText(quest)} ({Math.min(Math.max(1, quest.amount || 1), progress)}/
+                  {Math.max(1, quest.amount || 1)})
+                </span>
+              </div>
             ))}
           </div>
           <div className="inline-row">
@@ -265,13 +273,17 @@ export const HomePage = () => {
           <div className="stack-gap">
             {todayQuests.map((quest) => {
               const assignee = data.members.find((member) => member.id === quest.assigneeId)
+              const done = isDailyQuestDone(quest, data)
+              const progress = dailyQuestProgress(quest, data)
               return (
                 <div key={quest.id} className="card">
                   <p>
                     {assignee?.displayName ?? 'メンバー'}: {dailyQuestText(quest)}
                   </p>
                   <div className="inline-row">
-                    <span className="muted">{quest.done ? '完了' : '未完了'}</span>
+                    <span className="muted">
+                      {done ? '達成' : `進捗 ${Math.min(Math.max(1, quest.amount || 1), progress)}/${Math.max(1, quest.amount || 1)}`}
+                    </span>
                     <button className="btn warn" type="button" onClick={() => void deleteDailyQuest(quest.id)}>
                       削除
                     </button>

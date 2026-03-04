@@ -454,6 +454,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             ...input,
             checklist,
             createdAt: new Date().toISOString(),
+            createdBy: currentUserId,
           } satisfies Omit<EventItem, 'id'>)
           return
         }
@@ -461,6 +462,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const event: EventItem = {
           id: createId(),
           createdAt: new Date().toISOString(),
+          createdBy: currentUserId,
           ...input,
           checklist,
         }
@@ -496,7 +498,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }))
       },
       setAttendance: async (eventId, response, comment) => {
-        const nextItem: EventResponse = { eventId, userId: currentUserId, response, comment }
+        const nextItem: EventResponse = {
+          eventId,
+          userId: currentUserId,
+          response,
+          comment,
+          respondedAt: new Date().toISOString(),
+        }
 
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
