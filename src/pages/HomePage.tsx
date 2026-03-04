@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CSSProperties } from 'react'
-import panelBl from '../assets/panel/panel_bl.png'
-import panelBottom from '../assets/panel/panel_bottom.png'
-import panelBr from '../assets/panel/panel_br.png'
-import panelCenter from '../assets/panel/panel_center.png'
-import panelLeft from '../assets/panel/panel_left.png'
-import panelRight from '../assets/panel/panel_right.png'
-import panelTl from '../assets/panel/panel_tl.png'
-import panelTop from '../assets/panel/panel_top.png'
-import panelTr from '../assets/panel/panel_tr.png'
+import panelBl from '../../assets/panel_bl.png'
+import panelBottom from '../../assets/panel_bottom.png'
+import panelBr from '../../assets/panel_br.png'
+import panelCenter from '../../assets/panel_center.png'
+import panelLeft from '../../assets/panel_left.png'
+import panelRight from '../../assets/panel_right.png'
+import panelTl from '../../assets/panel_tl.png'
+import panelTop from '../../assets/panel_top.png'
+import panelTr from '../../assets/panel_tr.png'
 import { getMemberIcon } from '../lib/memberIcon'
 import { dailyQuestTemplates, dailyQuestText } from '../lib/dailyQuest'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
@@ -25,17 +25,15 @@ export const HomePage = () => {
   const [questCustomText, setQuestCustomText] = useState('')
   const [questAssigneeIds, setQuestAssigneeIds] = useState<string[]>([])
   const heroPanelStyle = {
-    backgroundImage: [
-      `url('${panelCenter}')`,
-      `url('${panelTop}')`,
-      `url('${panelBottom}')`,
-      `url('${panelLeft}')`,
-      `url('${panelRight}')`,
-      `url('${panelTl}')`,
-      `url('${panelTr}')`,
-      `url('${panelBl}')`,
-      `url('${panelBr}')`,
-    ].join(','),
+    '--quest-panel-center': `url('${panelCenter}')`,
+    '--quest-panel-top': `url('${panelTop}')`,
+    '--quest-panel-bottom': `url('${panelBottom}')`,
+    '--quest-panel-left': `url('${panelLeft}')`,
+    '--quest-panel-right': `url('${panelRight}')`,
+    '--quest-panel-tl': `url('${panelTl}')`,
+    '--quest-panel-tr': `url('${panelTr}')`,
+    '--quest-panel-bl': `url('${panelBl}')`,
+    '--quest-panel-br': `url('${panelBr}')`,
   } as CSSProperties
   const upcoming = nextEvent(data.events)
   const inProgressPlans = data.plans.filter((plan) => ['confirmed', 'shot'].includes(plan.status)).slice(0, 4)
