@@ -8,12 +8,21 @@
           "id": "format",
           "text": "どの形式で検証する？",
           "options": [
+            { "key": "truth_check", "label": "本当なのか検証" },
+            { "key": "urban_legend", "label": "都市伝説検証" },
             { "key": "challenge", "label": "縛りチャレンジ" },
             { "key": "compare", "label": "比較検証" },
             { "key": "speed", "label": "最速チャレンジ" },
             { "key": "survival", "label": "耐久検証" }
           ],
-          "nextMap": { "challenge": "rule", "compare": "rivalry", "speed": "rule", "survival": "rule" }
+          "nextMap": {
+            "truth_check": "topic",
+            "urban_legend": "topic",
+            "challenge": "rule",
+            "compare": "rivalry",
+            "speed": "rule",
+            "survival": "rule"
+          }
         },
         {
           "id": "rivalry",
@@ -55,6 +64,8 @@
             { "key": "boss", "label": "ボス戦" },
             { "key": "farm", "label": "農業" },
             { "key": "economy", "label": "経済" },
+            { "key": "urban_story", "label": "都市伝説" },
+            { "key": "truth_story", "label": "噂の真偽" },
             { "key": "free", "label": "自由テーマ" }
           ],
           "nextMap": { "*": "end" }
@@ -69,6 +80,7 @@
           "id": "format",
           "text": "ドッキリの形式は？",
           "options": [
+            { "key": "horror_prank", "label": "ホラー系ドッキリ" },
             { "key": "hidden_rule", "label": "隠しルール" },
             { "key": "fake_info", "label": "偽情報" },
             { "key": "betray", "label": "裏切り展開" },
@@ -116,6 +128,7 @@
             { "key": "base", "label": "拠点" },
             { "key": "treasure", "label": "宝探し" },
             { "key": "pvp", "label": "PvP中" },
+            { "key": "horror_house", "label": "ホラーハウス" },
             { "key": "free", "label": "自由テーマ" }
           ],
           "nextMap": { "*": "end" }

@@ -12,5 +12,7 @@
   { "category": "挑戦", "template": "{HOOK}狙いで{FORMAT}に挑戦。成功率は何％？" },
   { "category": "挑戦", "template": "{TOPIC}を{RULE}でやり切るまで終われません" },
   { "category": "速報", "template": "{TOPIC}で{FORMAT}したら結果が極端すぎた" },
-  { "category": "速報", "template": "{RIVALRY}で試した{RULE}、予想の真逆になった" }
+  { "category": "速報", "template": "{RIVALRY}で試した{RULE}、予想の真逆になった" },
+  { "category": "都市伝説", "template": "{TOPIC}は本当なのか。{RULE}で徹底検証してみた" },
+  { "category": "ホラー", "template": "{FORMAT}で仕掛けたら、{HOOK}が想像以上に怖すぎた" }
 ]
