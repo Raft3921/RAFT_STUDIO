@@ -47,9 +47,6 @@ export const roleDefinitions: RoleDefinition[] = [
   { id: 'action', label: 'アクション', selection: 'multi' },
   { id: 'tech', label: '技術', selection: 'single', required: true },
   { id: 'progress', label: '進行', selection: 'single' },
-  { id: 'recording', label: '撮影', selection: 'single' },
-  { id: 'edit', label: '編集', selection: 'single', required: true },
-  { id: 'thumbnail', label: 'サムネ', selection: 'single', required: true },
 ]
 
 export const roleTemplatePresets = {
@@ -60,8 +57,6 @@ export const roleTemplatePresets = {
       tech: ['ムート'],
       reaction: ['まい', 'たぬつな'],
       action: ['やんさん'],
-      edit: ['ウィーク'],
-      thumbnail: ['もろん'],
     },
   },
   minecraftLargeGroup: {
@@ -71,16 +66,12 @@ export const roleTemplatePresets = {
       progress: ['まい'],
       tech: ['ムート'],
       reaction: ['ラフト', 'まい', 'たぬつな', 'やんさん', 'ムート', 'もろん', 'ウィーク', 'ギョーザ'],
-      edit: ['ウィーク'],
-      thumbnail: ['もろん'],
     },
   },
   shortsClip: {
     label: 'Shorts切り抜き',
     membersByRole: {
       mc: ['ラフト'],
-      edit: ['ウィーク'],
-      thumbnail: ['もろん'],
     },
   },
 } as const

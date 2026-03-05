@@ -17,7 +17,7 @@ const gameAssets: Record<string, string[]> = {
 
 const roleGroups = [
   { label: '画面に出る役割', ids: ['mc', 'reaction', 'action'] },
-  { label: '制作・進行の役割', ids: ['tech', 'progress', 'recording', 'edit', 'thumbnail'] },
+  { label: '制作・進行の役割', ids: ['tech', 'progress'] },
 ]
 
 const genres = getGenreTrees()
