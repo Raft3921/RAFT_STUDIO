@@ -20,9 +20,16 @@ const genres = getGenreTrees()
 const findGenreKeyByLabel = (label?: string) => genres.find((genre) => genre.label === label)?.key ?? ''
 interface SpeechRecognitionResultLike {
   transcript?: string
+  confidence?: number
+}
+interface SpeechRecognitionAlternativeLike {
+  0?: SpeechRecognitionResultLike
+  isFinal?: boolean
+  length?: number
 }
 interface SpeechRecognitionEventLike {
-  results?: ArrayLike<ArrayLike<SpeechRecognitionResultLike>>
+  results?: ArrayLike<SpeechRecognitionAlternativeLike>
+  resultIndex?: number
 }
 interface SpeechRecognitionErrorEventLike {
   error?: string
@@ -72,6 +79,7 @@ export const PlanCreatePage = () => {
   )
   const overviewRecognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const keepListeningRef = useRef(false)
+  const lastTranscriptRef = useRef('')
 
   const activeGenre = useMemo(() => getGenrePromptFlow(genreKey), [genreKey])
   const questionCount = activeGenre?.questions.length ?? 0
@@ -216,9 +224,25 @@ export const PlanCreatePage = () => {
       setIsListeningOverview(true)
 
       recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim()
-        if (!transcript) return
-        setOverview((prev) => (prev.trim().length > 0 ? `${prev.trim()}\n${transcript}` : transcript))
+        const results = event.results
+        if (!results || results.length === 0) return
+        const start = Math.max(0, event.resultIndex ?? 0)
+        const chunks: string[] = []
+        for (let index = start; index < results.length; index += 1) {
+          const result = results[index]
+          if (!result?.isFinal) continue
+          const transcript = result[0]?.transcript?.trim()
+          if (!transcript) continue
+          if (transcript === lastTranscriptRef.current) continue
+          chunks.push(transcript)
+          lastTranscriptRef.current = transcript
+        }
+        if (chunks.length === 0) return
+        setOverview((prev) => {
+          const base = prev.trim()
+          const appended = chunks.join('\n')
+          return base.length > 0 ? `${base}\n${appended}` : appended
+        })
       }
 
       recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
@@ -258,6 +282,7 @@ export const PlanCreatePage = () => {
     }
 
     keepListeningRef.current = true
+    lastTranscriptRef.current = ''
     startSession()
   }
 
