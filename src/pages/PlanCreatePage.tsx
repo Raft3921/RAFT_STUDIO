@@ -32,6 +32,7 @@ export const PlanCreatePage = () => {
 
   const [gameTitle, setGameTitle] = useState(editingPlan?.gameTitle ?? defaultGame)
   const [genreKey, setGenreKey] = useState(() => findGenreKeyByLabel(editingPlan?.templateType))
+  const [titleFlowStarted, setTitleFlowStarted] = useState(Boolean(editingPlan))
   const [questionIndex, setQuestionIndex] = useState(0)
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
   const [draftAnswer, setDraftAnswer] = useState('')
@@ -80,6 +81,7 @@ export const PlanCreatePage = () => {
 
   const resetGenreFlow = (nextGenreKey: string) => {
     setGenreKey(nextGenreKey)
+    setTitleFlowStarted(false)
     setQuestionIndex(0)
     setQuestionAnswers({})
     setDraftAnswer('')
@@ -123,6 +125,12 @@ export const PlanCreatePage = () => {
     if (!activeGenre) {
       window.alert('最初にジャンルを選択してください。')
       setKeywordPreview([])
+      return
+    }
+    if (!titleFlowStarted) {
+      setTitleFlowStarted(true)
+      setQuestionIndex(0)
+      setDraftAnswer(questionAnswers[activeGenre.questions[0]?.id ?? ''] ?? '')
       return
     }
     const mergedAnswers = { ...questionAnswers }
@@ -238,8 +246,13 @@ export const PlanCreatePage = () => {
             {activeGenre && (
               <div className="card">
                 <p className="muted">ジャンル: {activeGenre.label}</p>
-                <p className="muted">Q {Math.min(questionIndex + 1, questionCount)} / {questionCount}</p>
-                {currentQuestion && (
+                {!titleFlowStarted && (
+                  <p className="muted">下の「タイトル候補を行う」を押すと質問が始まります。</p>
+                )}
+                {titleFlowStarted && (
+                  <p className="muted">Q {Math.min(questionIndex + 1, questionCount)} / {questionCount}</p>
+                )}
+                {titleFlowStarted && currentQuestion && (
                   <div className="stack-gap">
                     <label>{currentQuestion.text}</label>
                     <p className="muted">{currentQuestion.hint}</p>
@@ -260,7 +273,7 @@ export const PlanCreatePage = () => {
                     </div>
                   </div>
                 )}
-                {questionComplete && (
+                {titleFlowStarted && questionComplete && (
                   <div className="stack-gap">
                     <p className="muted">質問完了。タイトル候補を行うボタンで3案を生成します。</p>
                     <div className="inline-row">
@@ -419,7 +432,7 @@ export const PlanCreatePage = () => {
             <label>タイトル候補（3案）</label>
             <div className="inline-row">
               <button type="button" className="chip" onClick={runTitleCandidates}>
-                タイトル候補を行う
+                {titleFlowStarted ? 'タイトル候補を行う' : 'タイトル候補を行う（質問開始）'}
               </button>
             </div>
             <div className="stack-gap">
