@@ -96,7 +96,8 @@ export const PlanCreatePage = () => {
       window.alert('回答を入力してください。')
       return
     }
-    setQuestionAnswers((prev) => ({ ...prev, [currentQuestion.id]: nextAnswer }))
+    const mergedAnswers = { ...questionAnswers, [currentQuestion.id]: nextAnswer }
+    setQuestionAnswers(mergedAnswers)
     const nextIndex = questionIndex + 1
     if (!activeGenre) return
     if (nextIndex >= activeGenre.questions.length) {
@@ -106,7 +107,7 @@ export const PlanCreatePage = () => {
     }
     const nextQuestion = activeGenre.questions[nextIndex]
     setQuestionIndex(nextIndex)
-    setDraftAnswer(questionAnswers[nextQuestion.id] ?? '')
+    setDraftAnswer(mergedAnswers[nextQuestion.id] ?? '')
   }
 
   const onBackQuestion = () => {
@@ -120,7 +121,7 @@ export const PlanCreatePage = () => {
 
   const runTitleCandidates = () => {
     if (!activeGenre) {
-      setTitleCandidates([genres[0]?.label ?? '企画'])
+      window.alert('最初にジャンルを選択してください。')
       setKeywordPreview([])
       return
     }
@@ -129,7 +130,13 @@ export const PlanCreatePage = () => {
       mergedAnswers[currentQuestion.id] = draftAnswer.trim()
     }
     const hasAnyAnswer = Object.values(mergedAnswers).some((value) => value.trim().length > 0)
-    if (!hasAnyAnswer || !questionComplete) {
+    if (!questionComplete) {
+      window.alert('質問に最後まで回答してから実行してください。')
+      setTitleCandidates([])
+      setKeywordPreview([])
+      return
+    }
+    if (!hasAnyAnswer) {
       setTitleCandidates([activeGenre.fallbackTitle])
       setKeywordPreview([])
       return
@@ -462,4 +469,3 @@ export const PlanCreatePage = () => {
     </form>
   )
 }
-

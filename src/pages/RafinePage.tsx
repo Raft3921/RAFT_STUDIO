@@ -4,7 +4,7 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import { useSearchParams } from 'react-router-dom'
 import { getMemberIcon } from '../lib/memberIcon'
 import { firebaseStorage, firestoreDb } from '../lib/firebase'
-import { isNewerThanSeen, loadSeenState } from '../lib/notice'
+import { isNewerThanSeen, loadSeenState, markSeenNow } from '../lib/notice'
 import { useApp } from '../store/AppContext'
 
 interface RafineMessage {
@@ -94,6 +94,11 @@ export const RafinePage = () => {
       }),
     [allMessages, currentUserId, dmTarget],
   )
+
+  useEffect(() => {
+    if (displayedMessages.length === 0) return
+    markSeenNow(workspaceId, currentUserId, 'rafine')
+  }, [displayedMessages.length, workspaceId, currentUserId])
 
   useEffect(() => {
     if (storageMode !== 'firebase' || !firestoreDb) return

@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { roleDefinitions } from '../data/templates'
 import { resolveRoleNames } from '../lib/plan'
+import { markSeenNow } from '../lib/notice'
 import { attendanceLabel, buildLineMessage, buildShareUrl, formatDateTime, responseCount } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 import type { Attendance } from '../types'
@@ -11,7 +12,7 @@ const attendanceOptions: Attendance[] = ['yes', 'no', 'maybe']
 export const EventDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data, setAttendance, toggleChecklist, currentUserId, deleteEvent } = useApp()
+  const { data, setAttendance, toggleChecklist, currentUserId, deleteEvent, workspaceId } = useApp()
   const [comment, setComment] = useState('')
 
   const event = data.events.find((item) => item.id === id)
@@ -28,6 +29,10 @@ export const EventDetailPage = () => {
         : [],
     [currentUserId, event],
   )
+
+  useEffect(() => {
+    markSeenNow(workspaceId, currentUserId, 'events')
+  }, [workspaceId, currentUserId])
 
   if (!event || !counts) {
     return <p className="panel">撮影日が見つかりません。</p>
