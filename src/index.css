@@ -377,6 +377,21 @@ label {
   gap: 6px;
 }
 
+.overview-input-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.voice-input-chip {
+  min-width: 40px;
+  text-align: center;
+  padding-inline: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .check-row {
   display: flex;
   gap: 8px;

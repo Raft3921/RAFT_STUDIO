@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { durationPresets, roleDefinitions } from '../data/templates'
 import { buildGenreTitleCandidates, getGenrePromptFlow, getGenreTrees } from '../lib/titleGenerator'
@@ -18,6 +18,27 @@ const roleGroups = [
 
 const genres = getGenreTrees()
 const findGenreKeyByLabel = (label?: string) => genres.find((genre) => genre.label === label)?.key ?? ''
+interface SpeechRecognitionResultLike {
+  transcript?: string
+}
+interface SpeechRecognitionEventLike {
+  results?: ArrayLike<ArrayLike<SpeechRecognitionResultLike>>
+}
+interface SpeechRecognitionLike {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike
+interface SpeechRecognitionWindow extends Window {
+  SpeechRecognition?: SpeechRecognitionCtor
+  webkitSpeechRecognition?: SpeechRecognitionCtor
+}
 
 export const PlanCreatePage = () => {
   const { id } = useParams()
@@ -39,12 +60,13 @@ export const PlanCreatePage = () => {
   const [participantIds, setParticipantIds] = useState<string[]>(editingPlan?.participantIds ?? [])
   const [goal, setGoal] = useState<Plan['goal']>(editingPlan?.goal ?? '笑い')
   const [subtitleStyle, setSubtitleStyle] = useState<Plan['subtitleStyle']>(editingPlan?.subtitleStyle ?? 'ちょっと字幕')
-  const [memo, setMemo] = useState(editingPlan?.memo ?? '')
+  const [isListeningOverview, setIsListeningOverview] = useState(false)
   const [title, setTitle] = useState(editingPlan?.title ?? '')
-  const [overview, setOverview] = useState(editingPlan?.overview ?? '')
+  const [overview, setOverview] = useState(editingPlan?.overview ?? editingPlan?.memo ?? '')
   const [roleAssignments, setRoleAssignments] = useState<RoleAssignments>(
     editingPlan?.roleAssignments ?? createEmptyRoleAssignments(),
   )
+  const overviewRecognitionRef = useRef<SpeechRecognitionLike | null>(null)
 
   const activeGenre = useMemo(() => getGenrePromptFlow(genreKey), [genreKey])
   const questionCount = activeGenre?.questions.length ?? 0
@@ -148,6 +170,40 @@ export const PlanCreatePage = () => {
     setKeywordPreview(result.keywords)
   }
 
+  const startOverviewVoiceInput = () => {
+    const speechWindow = window as SpeechRecognitionWindow
+    const recognitionCtor = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition
+    if (!recognitionCtor) {
+      window.alert('このブラウザは音声入力に対応していません。')
+      return
+    }
+    if (isListeningOverview) {
+      overviewRecognitionRef.current?.stop()
+      return
+    }
+
+    const recognition = new recognitionCtor()
+    overviewRecognitionRef.current = recognition
+    recognition.lang = 'ja-JP'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    setIsListeningOverview(true)
+
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim()
+      if (!transcript) return
+      setOverview((prev) => (prev.trim().length > 0 ? `${prev.trim()}\n${transcript}` : transcript))
+    }
+    recognition.onerror = () => {
+      window.alert('音声入力に失敗しました。もう一度お試しください。')
+    }
+    recognition.onend = () => {
+      setIsListeningOverview(false)
+      overviewRecognitionRef.current = null
+    }
+    recognition.start()
+  }
+
   const toggleParticipant = (memberId: string) => {
     setParticipantIds((prev) => (prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]))
   }
@@ -191,7 +247,7 @@ export const PlanCreatePage = () => {
         subtitleStyle,
         overview: selectedOverview,
         roleAssignments,
-        memo,
+        memo: '',
       })
       navigate(`/plans/${editingPlan.id}`)
       return
@@ -207,7 +263,7 @@ export const PlanCreatePage = () => {
       subtitleStyle,
       overview: selectedOverview,
       roleAssignments,
-      memo,
+      memo: '',
     })
     navigate('/plans')
   }
@@ -456,11 +512,27 @@ export const PlanCreatePage = () => {
             </div>
 
             <label>カード概要（一覧に表示）</label>
-            <input className="field" value={overview} onChange={(event) => setOverview(event.target.value)} />
+            <div className="overview-input-head">
+              <span className="muted">本格的な概要を書けます。音声入力も可能。</span>
+              <button
+                type="button"
+                className={`chip voice-input-chip ${isListeningOverview ? 'active' : ''}`}
+                onClick={startOverviewVoiceInput}
+                aria-label="概要を音声入力"
+                title="概要を音声入力"
+              >
+                🎤
+              </button>
+            </div>
+            <textarea
+              className="field"
+              rows={6}
+              value={overview}
+              onChange={(event) => setOverview(event.target.value)}
+              placeholder="企画の狙い、流れ、注意点、勝敗条件などを詳しく記入"
+            />
             <label>タイトル（任意で修正）</label>
             <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} />
-            <label>ひとことで（任意）</label>
-            <textarea className="field" rows={3} value={memo} onChange={(event) => setMemo(event.target.value)} />
           </section>
 
           <button data-tour="plan-submit" className="btn full" type="submit">

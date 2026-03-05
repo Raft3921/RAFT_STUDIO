@@ -1,4 +1,4 @@
-type GenreKey = 'verification' | 'prank' | 'building' | 'pvp' | 'gag'
+type GenreKey = 'verification' | 'prank' | 'building' | 'pvp' | 'gag' | 'other'
 
 type GenreQuestion = {
   id: string
@@ -105,6 +105,12 @@ const genreFlows: GenrePromptFlow[] = [
       { id: 'ending', text: 'どう終わる？', hint: '崩壊・逆転・全員被害者など。', placeholder: '例: 崩壊 / 逆転 / 全員被害者' },
     ],
   },
+  {
+    key: 'other',
+    label: 'その他',
+    fallbackTitle: 'その他企画を進行中',
+    questions: [],
+  },
 ]
 
 const templatesByGenre: Record<GenreKey, GenreTemplate[]> = {
@@ -132,6 +138,11 @@ const templatesByGenre: Record<GenreKey, GenreTemplate[]> = {
     { category: 'vs', text: '{RIVALRY}で{TOPIC}ネタ対決、笑ったら負け' },
     { category: 'limit', text: '{RULE}縛りの{TOPIC}、最後まで耐えられるか' },
     { category: 'twist', text: '{TOPIC}ネタが{ENDING}で全員巻き込んだ' },
+  ],
+  other: [
+    { category: 'vs', text: '{TOPIC}を{RIVALRY}で比べたら意外な差が出た' },
+    { category: 'limit', text: '{RULE}条件で{TOPIC}をやってみた結果' },
+    { category: 'twist', text: '{TOPIC}企画、最後に{ENDING}' },
   ],
 }
 
@@ -212,4 +223,3 @@ export const buildGenreTitleCandidates = (
     keywords: unique([topic, rivalry, rule, ending, person, time, ...tokens]).slice(0, 12),
   }
 }
-
