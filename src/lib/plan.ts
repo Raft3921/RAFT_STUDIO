@@ -22,7 +22,7 @@ export const createEmptyRoleAssignments = (): RoleAssignments =>
     return acc
   }, {})
 
-type LegacyPlan = Partial<Plan> & { id: string; duration?: string }
+type LegacyPlan = Partial<Plan> & { id: string; duration?: string; assets?: string[] }
 
 export const normalizePlan = (raw: LegacyPlan): Plan => {
   const legacyDuration = typeof raw.durationSec === 'number' ? raw.durationSec : legacyDurationMap[String(raw.duration)]
@@ -51,7 +51,7 @@ export const normalizePlan = (raw: LegacyPlan): Plan => {
             )
           : ['m-raft'],
     goal: raw.goal ?? '笑い',
-    assets: raw.assets ?? [],
+    subtitleStyle: raw.subtitleStyle ?? 'ちょっと字幕',
     overview: raw.overview ?? '',
     roleAssignments,
     memo: raw.memo,

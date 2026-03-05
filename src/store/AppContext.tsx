@@ -39,7 +39,7 @@ interface CreatePlanInput {
   durationSec: number
   participantIds: Plan['participantIds']
   goal: Plan['goal']
-  assets: string[]
+  subtitleStyle: Plan['subtitleStyle']
   overview?: string
   roleAssignments: Plan['roleAssignments']
   memo?: string

@@ -105,7 +105,7 @@ export const PlanDetailPage = () => {
         <p>尺: {formatDuration(plan.durationSec)}</p>
         <p>メンバー: {participantSummaryText(plan, data.members, 8)}</p>
         <p>目的: {plan.goal}</p>
-        <p>素材: {plan.assets.join(' / ') || 'なし'}</p>
+        <p>編集: {plan.subtitleStyle}</p>
       </section>
 
       <section className="panel">

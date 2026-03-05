@@ -9,11 +9,7 @@ import type { Plan, RoleAssignments } from '../types'
 
 const goals: Plan['goal'][] = ['笑い', '驚き', '感動', '学び', '上達']
 const defaultGame = 'Minecraft'
-const genericAssets = ['BGM', 'SE', 'サムネ素材', '立ち絵', '特殊効果']
-const gameAssets: Record<string, string[]> = {
-  minecraft: ['BGM', 'SE', 'サムネ素材', '立ち絵', '字幕', '建築素材メモ'],
-  mc: ['BGM', 'SE', 'サムネ素材', '立ち絵', '字幕', '建築素材メモ'],
-}
+const subtitleStyles: Plan['subtitleStyle'][] = ['フル字幕', 'ちょっと字幕', '字幕無し']
 
 const roleGroups = [
   { label: '画面に出る役割', ids: ['mc', 'reaction', 'action'] },
@@ -39,12 +35,10 @@ export const PlanCreatePage = () => {
   const [titleCandidates, setTitleCandidates] = useState<string[]>([])
   const [keywordPreview, setKeywordPreview] = useState<string[]>([])
 
-  const normalizedGame = gameTitle.trim().toLowerCase()
-  const assetOptions = gameAssets[normalizedGame] ?? genericAssets
   const [durationSec, setDurationSec] = useState(editingPlan?.durationSec ?? 480)
   const [participantIds, setParticipantIds] = useState<string[]>(editingPlan?.participantIds ?? [])
   const [goal, setGoal] = useState<Plan['goal']>(editingPlan?.goal ?? '笑い')
-  const [assets, setAssets] = useState<string[]>(editingPlan?.assets ?? ['BGM'])
+  const [subtitleStyle, setSubtitleStyle] = useState<Plan['subtitleStyle']>(editingPlan?.subtitleStyle ?? 'ちょっと字幕')
   const [memo, setMemo] = useState(editingPlan?.memo ?? '')
   const [title, setTitle] = useState(editingPlan?.title ?? '')
   const [overview, setOverview] = useState(editingPlan?.overview ?? '')
@@ -68,7 +62,7 @@ export const PlanCreatePage = () => {
           durationSec,
           participantIds,
           goal,
-          assets: [],
+          subtitleStyle,
           roleAssignments: createEmptyRoleAssignments(),
           createdAt: '',
           createdBy: '',
@@ -76,7 +70,7 @@ export const PlanCreatePage = () => {
         data.members,
         8,
       ),
-    [activeGenre?.label, data.members, durationSec, goal, participantIds],
+    [activeGenre?.label, data.members, durationSec, goal, participantIds, subtitleStyle],
   )
 
   const resetGenreFlow = (nextGenreKey: string) => {
@@ -194,7 +188,7 @@ export const PlanCreatePage = () => {
         durationSec,
         participantIds,
         goal,
-        assets,
+        subtitleStyle,
         overview: selectedOverview,
         roleAssignments,
         memo,
@@ -210,7 +204,7 @@ export const PlanCreatePage = () => {
       durationSec,
       participantIds,
       goal,
-      assets,
+      subtitleStyle,
       overview: selectedOverview,
       roleAssignments,
       memo,
@@ -410,23 +404,18 @@ export const PlanCreatePage = () => {
           <section className="panel">
             <h3>4. タイトル候補</h3>
 
-            <label>必要素材</label>
+            <label>編集</label>
             <div className="chip-row">
-              {assetOptions.map((item) => {
-                const selected = assets.includes(item)
-                return (
-                  <button
-                    type="button"
-                    key={item}
-                    className={`chip ${selected ? 'active' : ''}`}
-                    onClick={() =>
-                      setAssets((prev) => (prev.includes(item) ? prev.filter((asset) => asset !== item) : [...prev, item]))
-                    }
-                  >
-                    {item}
-                  </button>
-                )
-              })}
+              {subtitleStyles.map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  className={`chip ${subtitleStyle === item ? 'active' : ''}`}
+                  onClick={() => setSubtitleStyle(item)}
+                >
+                  {item}
+                </button>
+              ))}
             </div>
 
             <label>タイトル候補（3案）</label>

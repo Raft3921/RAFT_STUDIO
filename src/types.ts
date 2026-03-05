@@ -31,7 +31,7 @@ export interface Plan {
   durationSec: number
   participantIds: string[]
   goal: '笑い' | '驚き' | '感動' | '学び' | '上達'
-  assets: string[]
+  subtitleStyle: 'フル字幕' | 'ちょっと字幕' | '字幕無し'
   overview?: string
   roleAssignments: RoleAssignments
   memo?: string
