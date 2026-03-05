@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { durationPresets, roleDefinitions } from '../data/templates'
-import { buildTitleCandidates, getGenreTree, getGenreTrees, getNextQuestionId } from '../lib/titleGenerator'
+import { buildGenreTitleCandidates, getGenrePromptFlow, getGenreTrees } from '../lib/titleGenerator'
 import { clampDuration, createEmptyRoleAssignments, formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
 import { getMemberIcon } from '../lib/memberIcon'
 import { useApp } from '../store/AppContext'
@@ -32,13 +32,11 @@ export const PlanCreatePage = () => {
 
   const [gameTitle, setGameTitle] = useState(editingPlan?.gameTitle ?? defaultGame)
   const [genreKey, setGenreKey] = useState(() => findGenreKeyByLabel(editingPlan?.templateType))
-  const activeGenre = getGenreTree(genreKey)
-  const [currentQuestionId, setCurrentQuestionId] = useState(activeGenre?.questions[0]?.id ?? '')
-  const [questionHistory, setQuestionHistory] = useState<string[]>([])
+  const [questionIndex, setQuestionIndex] = useState(0)
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
-  const [questionAnswerKeys, setQuestionAnswerKeys] = useState<Record<string, string>>({})
-  const [freeTopic, setFreeTopic] = useState('')
+  const [draftAnswer, setDraftAnswer] = useState('')
   const [titleCandidates, setTitleCandidates] = useState<string[]>([])
+  const [keywordPreview, setKeywordPreview] = useState<string[]>([])
 
   const normalizedGame = gameTitle.trim().toLowerCase()
   const assetOptions = gameAssets[normalizedGame] ?? genericAssets
@@ -53,11 +51,10 @@ export const PlanCreatePage = () => {
     editingPlan?.roleAssignments ?? createEmptyRoleAssignments(),
   )
 
-  const currentQuestion = useMemo(
-    () => activeGenre?.questions.find((question) => question.id === currentQuestionId) ?? null,
-    [activeGenre, currentQuestionId],
-  )
-  const questionComplete = Boolean(activeGenre) && !currentQuestion
+  const activeGenre = useMemo(() => getGenrePromptFlow(genreKey), [genreKey])
+  const questionCount = activeGenre?.questions.length ?? 0
+  const questionComplete = Boolean(activeGenre) && questionIndex >= questionCount
+  const currentQuestion = questionComplete ? null : activeGenre?.questions[questionIndex] ?? null
 
   const selectedMembersLabel = useMemo(
     () =>
@@ -82,67 +79,64 @@ export const PlanCreatePage = () => {
   )
 
   const resetGenreFlow = (nextGenreKey: string) => {
-    const tree = getGenreTree(nextGenreKey)
     setGenreKey(nextGenreKey)
+    setQuestionIndex(0)
     setQuestionAnswers({})
-    setQuestionAnswerKeys({})
-    setQuestionHistory([])
-    setFreeTopic('')
+    setDraftAnswer('')
     setTitleCandidates([])
-    setCurrentQuestionId(tree?.questions[0]?.id ?? '')
+    setKeywordPreview([])
     setTitle('')
     setOverview('')
   }
 
-  const onSelectAnswer = (optionKey: string, optionLabel: string) => {
-    if (!activeGenre || !currentQuestion) return
-    setQuestionAnswers((prev) => ({ ...prev, [currentQuestion.id]: optionLabel }))
-    setQuestionAnswerKeys((prev) => ({ ...prev, [currentQuestion.id]: optionKey }))
-    if (currentQuestion.id === 'topic' && optionKey !== 'free') {
-      setFreeTopic('')
+  const onNextQuestion = () => {
+    if (!currentQuestion) return
+    const nextAnswer = draftAnswer.trim()
+    if (!nextAnswer) {
+      window.alert('回答を入力してください。')
+      return
     }
-    setTitleCandidates([])
-    setQuestionHistory((prev) => [...prev, currentQuestion.id])
-    const mappedNext = getNextQuestionId(currentQuestion, optionKey)
-    const currentIndex = activeGenre.questions.findIndex((item) => item.id === currentQuestion.id)
-    const nextByOrder = currentIndex >= 0 ? activeGenre.questions[currentIndex + 1]?.id ?? '' : ''
-    const hasMappedNext = mappedNext !== 'end' && activeGenre.questions.some((item) => item.id === mappedNext)
-    const resolvedNext = hasMappedNext ? mappedNext : nextByOrder
-    setCurrentQuestionId(resolvedNext)
+    setQuestionAnswers((prev) => ({ ...prev, [currentQuestion.id]: nextAnswer }))
+    const nextIndex = questionIndex + 1
+    if (!activeGenre) return
+    if (nextIndex >= activeGenre.questions.length) {
+      setQuestionIndex(activeGenre.questions.length)
+      setDraftAnswer('')
+      return
+    }
+    const nextQuestion = activeGenre.questions[nextIndex]
+    setQuestionIndex(nextIndex)
+    setDraftAnswer(questionAnswers[nextQuestion.id] ?? '')
   }
 
   const onBackQuestion = () => {
-    if (!activeGenre || questionHistory.length === 0) return
-    const prevQuestionId = questionHistory[questionHistory.length - 1]
-    if (prevQuestionId === 'topic') {
-      setFreeTopic('')
-    }
-    setQuestionHistory((prev) => prev.slice(0, -1))
-    setCurrentQuestionId(prevQuestionId)
-    setQuestionAnswers((prev) => {
-      const next = { ...prev }
-      delete next[prevQuestionId]
-      return next
-    })
-    setQuestionAnswerKeys((prev) => {
-      const next = { ...prev }
-      delete next[prevQuestionId]
-      return next
-    })
-    setTitleCandidates([])
+    if (!activeGenre) return
+    if (questionIndex === 0) return
+    const prevIndex = Math.max(0, questionIndex - 1)
+    const prevQuestion = activeGenre.questions[prevIndex]
+    setQuestionIndex(prevIndex)
+    setDraftAnswer(questionAnswers[prevQuestion.id] ?? '')
   }
 
   const runTitleCandidates = () => {
-    if (activeGenre && questionComplete) {
-      const candidates = buildTitleCandidates(activeGenre.label, gameTitle.trim() || defaultGame, {
-        ...questionAnswers,
-        topicCustom: freeTopic.trim(),
-      })
-      setTitleCandidates(candidates)
+    if (!activeGenre) {
+      setTitleCandidates([genres[0]?.label ?? '企画'])
+      setKeywordPreview([])
       return
     }
-    const firstOptionLabel = activeGenre?.questions[0]?.options[0]?.label ?? genres[0]?.label ?? '企画'
-    setTitleCandidates([firstOptionLabel])
+    const mergedAnswers = { ...questionAnswers }
+    if (currentQuestion && draftAnswer.trim()) {
+      mergedAnswers[currentQuestion.id] = draftAnswer.trim()
+    }
+    const hasAnyAnswer = Object.values(mergedAnswers).some((value) => value.trim().length > 0)
+    if (!hasAnyAnswer || !questionComplete) {
+      setTitleCandidates([activeGenre.fallbackTitle])
+      setKeywordPreview([])
+      return
+    }
+    const result = buildGenreTitleCandidates(activeGenre.key, mergedAnswers, gameTitle.trim() || defaultGame)
+    setTitleCandidates(result.titles)
+    setKeywordPreview(result.keywords)
   }
 
   const toggleParticipant = (memberId: string) => {
@@ -169,15 +163,11 @@ export const PlanCreatePage = () => {
       return
     }
     if (!questionComplete) {
-      window.alert('タイトル質問に最後まで回答してください。')
-      return
-    }
-    if (questionAnswerKeys.topic === 'free' && freeTopic.trim().length === 0) {
-      window.alert('自由テーマの内容を入力してください。')
+      window.alert('質問に最後まで回答してください。')
       return
     }
 
-    const selectedTitle = title.trim() || titleCandidates[0] || `${activeGenre.label}企画`
+    const selectedTitle = title.trim() || titleCandidates[0] || activeGenre.fallbackTitle
     const selectedOverview =
       overview.trim() || titleCandidates[0] || `${gameTitle || defaultGame} / ${activeGenre.label} / ${selectedMembersLabel}`
 
@@ -220,7 +210,7 @@ export const PlanCreatePage = () => {
         <>
           <section className="panel">
             <h2>{editingPlan ? '企画カード編集' : '企画カード作成'}</h2>
-            <p className="muted">ジャンル選択→質問回答→タイトル候補の順で作成します。</p>
+            <p className="muted">ジャンル選択→自由入力質問→タイトル候補の順で作成します。</p>
           </section>
 
           <section className="panel">
@@ -241,50 +231,39 @@ export const PlanCreatePage = () => {
             {activeGenre && (
               <div className="card">
                 <p className="muted">ジャンル: {activeGenre.label}</p>
+                <p className="muted">Q {Math.min(questionIndex + 1, questionCount)} / {questionCount}</p>
                 {currentQuestion && (
-                  <>
-                    <label>{currentQuestion.text}</label>
-                    <div className="chip-row">
-                      {currentQuestion.options.map((option) => (
-                        <button
-                          type="button"
-                          key={`${currentQuestion.id}-${option.key}`}
-                          className="chip"
-                          onClick={() => onSelectAnswer(option.key, option.label)}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-                {!currentQuestion && (
                   <div className="stack-gap">
-                    <p className="muted">質問完了。ボタンでタイトル候補を生成できます。</p>
+                    <label>{currentQuestion.text}</label>
+                    <p className="muted">{currentQuestion.hint}</p>
+                    <textarea
+                      className="field"
+                      rows={3}
+                      value={draftAnswer}
+                      onChange={(event) => setDraftAnswer(event.target.value)}
+                      placeholder={currentQuestion.placeholder}
+                    />
                     <div className="inline-row">
-                      <button type="button" className="chip" onClick={onBackQuestion}>
-                        1問戻る
+                      <button type="button" className="chip" onClick={onBackQuestion} disabled={questionIndex === 0}>
+                        戻る
                       </button>
-                      <button type="button" className="chip" onClick={runTitleCandidates}>
-                        タイトル候補を行う
+                      <button type="button" className="chip active" onClick={onNextQuestion}>
+                        次へ
                       </button>
                     </div>
                   </div>
                 )}
-                {currentQuestion && questionHistory.length > 0 && (
-                  <button type="button" className="chip" onClick={onBackQuestion}>
-                    1問戻る
-                  </button>
-                )}
-                {questionAnswerKeys.topic === 'free' && (
+                {questionComplete && (
                   <div className="stack-gap">
-                    <label>自由テーマの内容</label>
-                    <input
-                      className="field"
-                      value={freeTopic}
-                      onChange={(event) => setFreeTopic(event.target.value)}
-                      placeholder="例: 最強防具だけでボス討伐 / 深夜の廃村探索"
-                    />
+                    <p className="muted">質問完了。タイトル候補を行うボタンで3案を生成します。</p>
+                    <div className="inline-row">
+                      <button type="button" className="chip" onClick={onBackQuestion}>
+                        戻る
+                      </button>
+                      <button type="button" className="chip active" onClick={runTitleCandidates}>
+                        タイトル候補を行う
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -430,28 +409,43 @@ export const PlanCreatePage = () => {
               })}
             </div>
 
-            <label>タイトル候補（質問完了後に10件）</label>
+            <label>タイトル候補（3案）</label>
             <div className="inline-row">
               <button type="button" className="chip" onClick={runTitleCandidates}>
                 タイトル候補を行う
               </button>
             </div>
             <div className="stack-gap">
-              {titleCandidates.length === 0 && <p className="muted">ジャンル質問に回答すると候補が表示されます。</p>}
+              {titleCandidates.length === 0 && <p className="muted">質問に回答してからボタンで候補を生成してください。</p>}
               {titleCandidates.map((candidate) => (
-                <button
-                  type="button"
-                  className="btn ghost full"
-                  key={candidate}
-                  onClick={() => {
-                    setTitle(candidate)
-                    setOverview(candidate)
-                  }}
-                >
-                  {candidate}
-                </button>
+                <div key={candidate} className="card">
+                  <p>{candidate}</p>
+                  <div className="inline-row">
+                    <button
+                      type="button"
+                      className="chip"
+                      onClick={() => {
+                        setTitle(candidate)
+                        setOverview(candidate)
+                      }}
+                    >
+                      この案を使う
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(candidate)
+                      }}
+                    >
+                      コピー
+                    </button>
+                  </div>
+                </div>
               ))}
+              {keywordPreview.length > 0 && <p className="muted">抽出キーワード: {keywordPreview.join(' / ')}</p>}
             </div>
+
             <label>カード概要（一覧に表示）</label>
             <input className="field" value={overview} onChange={(event) => setOverview(event.target.value)} />
             <label>タイトル（任意で修正）</label>
@@ -468,3 +462,4 @@ export const PlanCreatePage = () => {
     </form>
   )
 }
+
