@@ -31,6 +31,7 @@ interface SpeechRecognitionLike {
   lang: string
   interimResults: boolean
   maxAlternatives: number
+  continuous?: boolean
   onresult: ((event: SpeechRecognitionEventLike) => void) | null
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
   onend: (() => void) | null
@@ -70,6 +71,7 @@ export const PlanCreatePage = () => {
     editingPlan?.roleAssignments ?? createEmptyRoleAssignments(),
   )
   const overviewRecognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const keepListeningRef = useRef(false)
 
   const activeGenre = useMemo(() => getGenrePromptFlow(genreKey), [genreKey])
   const questionCount = activeGenre?.questions.length ?? 0
@@ -188,7 +190,10 @@ export const PlanCreatePage = () => {
       return
     }
     if (isListeningOverview) {
+      keepListeningRef.current = false
       overviewRecognitionRef.current?.stop()
+      overviewRecognitionRef.current = null
+      setIsListeningOverview(false)
       return
     }
     if (navigator.mediaDevices?.getUserMedia) {
@@ -201,40 +206,59 @@ export const PlanCreatePage = () => {
       }
     }
 
-    const recognition = new recognitionCtor()
-    overviewRecognitionRef.current = recognition
-    recognition.lang = 'ja-JP'
-    recognition.interimResults = false
-    recognition.maxAlternatives = 1
-    setIsListeningOverview(true)
+    const startSession = () => {
+      const recognition = new recognitionCtor()
+      overviewRecognitionRef.current = recognition
+      recognition.lang = 'ja-JP'
+      recognition.interimResults = false
+      recognition.maxAlternatives = 1
+      recognition.continuous = true
+      setIsListeningOverview(true)
 
-    recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim()
-      if (!transcript) return
-      setOverview((prev) => (prev.trim().length > 0 ? `${prev.trim()}\n${transcript}` : transcript))
-    }
-    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-      if (event.error === 'aborted') return
-      const messageByError: Record<string, string> = {
-        'not-allowed': 'マイク利用が拒否されました。ブラウザ設定でマイクを許可してください。',
-        'service-not-allowed': 'このブラウザでは音声認識サービスが許可されていません。',
-        'no-speech': '音声が検出できませんでした。もう一度はっきり話してください。',
-        'audio-capture': 'マイクが見つかりません。接続または権限を確認してください。',
-        network: 'ネットワークエラーで音声認識に失敗しました。通信状況を確認してください。',
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        const transcript = event.results?.[0]?.[0]?.transcript?.trim()
+        if (!transcript) return
+        setOverview((prev) => (prev.trim().length > 0 ? `${prev.trim()}\n${transcript}` : transcript))
       }
-      window.alert(messageByError[event.error ?? ''] ?? '音声入力に失敗しました。もう一度お試しください。')
+
+      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+        if (event.error === 'aborted') return
+        const messageByError: Record<string, string> = {
+          'not-allowed': 'マイク利用が拒否されました。ブラウザ設定でマイクを許可してください。',
+          'service-not-allowed': 'このブラウザでは音声認識サービスが許可されていません。',
+          'audio-capture': 'マイクが見つかりません。接続または権限を確認してください。',
+          network: 'ネットワークエラーで音声認識に失敗しました。通信状況を確認してください。',
+        }
+        if (event.error === 'no-speech') return
+        keepListeningRef.current = false
+        setIsListeningOverview(false)
+        window.alert(messageByError[event.error ?? ''] ?? '音声入力に失敗しました。もう一度お試しください。')
+      }
+
+      recognition.onend = () => {
+        overviewRecognitionRef.current = null
+        if (!keepListeningRef.current) {
+          setIsListeningOverview(false)
+          return
+        }
+        window.setTimeout(() => {
+          if (!keepListeningRef.current) return
+          startSession()
+        }, 120)
+      }
+
+      try {
+        recognition.start()
+      } catch {
+        keepListeningRef.current = false
+        setIsListeningOverview(false)
+        overviewRecognitionRef.current = null
+        window.alert('音声入力を開始できませんでした。ページ再読み込み後に再試行してください。')
+      }
     }
-    recognition.onend = () => {
-      setIsListeningOverview(false)
-      overviewRecognitionRef.current = null
-    }
-    try {
-      recognition.start()
-    } catch {
-      setIsListeningOverview(false)
-      overviewRecognitionRef.current = null
-      window.alert('音声入力を開始できませんでした。ページ再読み込み後に再試行してください。')
-    }
+
+    keepListeningRef.current = true
+    startSession()
   }
 
   const toggleParticipant = (memberId: string) => {
