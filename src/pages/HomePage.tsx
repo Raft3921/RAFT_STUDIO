@@ -19,7 +19,7 @@ import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/ut
 import type { DailyQuestTemplate } from '../types'
 
 export const HomePage = () => {
-  const { data, currentUserId, workspaceId, storageMode, createDailyQuests, deleteDailyQuest } = useApp()
+  const { data, currentUserId, workspaceId, storageMode, createDailyQuests, deleteDailyQuest, updatePlanStatus } = useApp()
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [questTemplate, setQuestTemplate] = useState<DailyQuestTemplate>('plan_create')
   const [questAmount, setQuestAmount] = useState(1)
@@ -72,6 +72,13 @@ export const HomePage = () => {
     progress: dailyQuestProgress(quest, data),
     done: isDailyQuestDone(quest, data),
   }))
+  const editingRequiredPlans = useMemo(
+    () =>
+      data.plans
+        .filter((plan) => plan.status === 'shot' || plan.status === 'editing')
+        .sort((a, b) => new Date(b.updatedAt ?? b.createdAt).getTime() - new Date(a.updatedAt ?? a.createdAt).getTime()),
+    [data.plans],
+  )
   const onlineMembers = data.members.filter((member) => {
     if (storageMode === 'local') return member.id === currentUserId
     if (!member.lastActiveAt) return false
@@ -168,6 +175,43 @@ export const HomePage = () => {
 
   return (
     <div className="page-stack">
+      {isQuestEditor && (
+        <section className="panel">
+          <div className="section-head">
+            <h2>現在の編集タスク</h2>
+            <span className="muted">{editingRequiredPlans.length}件</span>
+          </div>
+          {editingRequiredPlans.length === 0 && (
+            <p className="muted">撮影完了後に編集が必要な企画はありません。</p>
+          )}
+          {editingRequiredPlans.map((plan) => (
+            <div className="card" key={plan.id}>
+              <strong>{plan.title}</strong>
+              <p>
+                状態: {statusLabel[plan.status]} / 編集指定: {plan.subtitleStyle}
+              </p>
+              <p className="muted">{plan.overview || '概要なし'}</p>
+              <div className="inline-row">
+                <Link className="btn ghost" to={`/plans/${plan.id}`}>
+                  企画を見る
+                </Link>
+                {plan.status === 'shot' && (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      void updatePlanStatus(plan.id, 'editing')
+                    }}
+                  >
+                    編集開始
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       <section className="panel hero-panel" style={heroPanelStyle}>
         <div className="quest-panel-skin" aria-hidden>
           <span className="quest-panel-part quest-panel-tl" />
