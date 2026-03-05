@@ -24,12 +24,15 @@ interface SpeechRecognitionResultLike {
 interface SpeechRecognitionEventLike {
   results?: ArrayLike<ArrayLike<SpeechRecognitionResultLike>>
 }
+interface SpeechRecognitionErrorEventLike {
+  error?: string
+}
 interface SpeechRecognitionLike {
   lang: string
   interimResults: boolean
   maxAlternatives: number
   onresult: ((event: SpeechRecognitionEventLike) => void) | null
-  onerror: (() => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
   onend: (() => void) | null
   start: () => void
   stop: () => void
@@ -170,16 +173,32 @@ export const PlanCreatePage = () => {
     setKeywordPreview(result.keywords)
   }
 
-  const startOverviewVoiceInput = () => {
+  const startOverviewVoiceInput = async () => {
     const speechWindow = window as SpeechRecognitionWindow
     const recognitionCtor = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition
     if (!recognitionCtor) {
-      window.alert('このブラウザは音声入力に対応していません。')
+      const manualInput = window.prompt('このブラウザは音声入力に対応していません。概要を入力してください。')
+      if (manualInput?.trim()) {
+        setOverview((prev) => (prev.trim().length > 0 ? `${prev.trim()}\n${manualInput.trim()}` : manualInput.trim()))
+      }
+      return
+    }
+    if (!window.isSecureContext) {
+      window.alert('音声入力はHTTPS環境でのみ利用できます。')
       return
     }
     if (isListeningOverview) {
       overviewRecognitionRef.current?.stop()
       return
+    }
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((track) => track.stop())
+      } catch {
+        window.alert('マイク権限が必要です。ブラウザ設定でマイクを許可してください。')
+        return
+      }
     }
 
     const recognition = new recognitionCtor()
@@ -194,14 +213,28 @@ export const PlanCreatePage = () => {
       if (!transcript) return
       setOverview((prev) => (prev.trim().length > 0 ? `${prev.trim()}\n${transcript}` : transcript))
     }
-    recognition.onerror = () => {
-      window.alert('音声入力に失敗しました。もう一度お試しください。')
+    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+      if (event.error === 'aborted') return
+      const messageByError: Record<string, string> = {
+        'not-allowed': 'マイク利用が拒否されました。ブラウザ設定でマイクを許可してください。',
+        'service-not-allowed': 'このブラウザでは音声認識サービスが許可されていません。',
+        'no-speech': '音声が検出できませんでした。もう一度はっきり話してください。',
+        'audio-capture': 'マイクが見つかりません。接続または権限を確認してください。',
+        network: 'ネットワークエラーで音声認識に失敗しました。通信状況を確認してください。',
+      }
+      window.alert(messageByError[event.error ?? ''] ?? '音声入力に失敗しました。もう一度お試しください。')
     }
     recognition.onend = () => {
       setIsListeningOverview(false)
       overviewRecognitionRef.current = null
     }
-    recognition.start()
+    try {
+      recognition.start()
+    } catch {
+      setIsListeningOverview(false)
+      overviewRecognitionRef.current = null
+      window.alert('音声入力を開始できませんでした。ページ再読み込み後に再試行してください。')
+    }
   }
 
   const toggleParticipant = (memberId: string) => {
