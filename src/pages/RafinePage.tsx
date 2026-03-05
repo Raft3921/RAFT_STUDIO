@@ -49,6 +49,12 @@ const toNoticeText = (message: Pick<RafineMessage, 'text' | 'mediaType'>) => {
   return '[添付ファイル]'
 }
 
+const stripUndefinedFields = <T extends Record<string, unknown>>(value: T) => {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as T
+}
+
 export const RafinePage = () => {
   const { data, currentUserId, workspaceId, storageMode } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -184,13 +190,13 @@ export const RafinePage = () => {
 
   const onSend = async () => {
     if (!canSend) return
-    const payloadBase = {
+    const payloadBase = stripUndefinedFields({
       text: text.trim(),
       userId: currentUserId,
       recipientId: dmTarget?.id,
       displayName: me.displayName,
       createdAt: new Date().toISOString(),
-    }
+    })
     const payload: Omit<RafineMessage, 'id'> = { ...payloadBase }
 
     try {
@@ -222,7 +228,8 @@ export const RafinePage = () => {
       }
       setText('')
       clearAttachedFile()
-    } catch {
+    } catch (error) {
+      console.error('[RAFINE] send failed', error)
       setInlineNotice('送信に失敗しました。通信状態を確認して再送してください。')
       window.setTimeout(() => setInlineNotice(''), 4200)
     }
