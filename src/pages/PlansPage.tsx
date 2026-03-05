@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { getMemberIcon } from '../lib/memberIcon'
-import { isNewerThanSeen, loadSeenState } from '../lib/notice'
+import { isNewerThanSeen, loadSeenState, markSeenNow } from '../lib/notice'
 import { statusLabel, statusOrder } from '../lib/utils'
 import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
@@ -13,6 +13,10 @@ export const PlansPage = () => {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<PlanStatus | 'all'>('all')
   const seenPlansAt = loadSeenState(workspaceId, currentUserId).plans
+
+  useEffect(() => {
+    markSeenNow(workspaceId, currentUserId, 'plans')
+  }, [workspaceId, currentUserId])
 
   const filtered = useMemo(() => {
     return data.plans.filter((plan) => {

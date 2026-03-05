@@ -252,6 +252,10 @@ export const Layout = () => {
     setSeenState(loadSeenState(workspaceId, currentUserId))
   }, [workspaceId, currentUserId])
 
+  useEffect(() => {
+    setSeenState(loadSeenState(workspaceId, currentUserId))
+  }, [pathname, workspaceId, currentUserId])
+
   const planUnreadCount = useMemo(
     () =>
       data.plans.filter(

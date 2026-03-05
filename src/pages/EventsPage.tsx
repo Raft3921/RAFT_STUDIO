@@ -1,11 +1,16 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { isNewerThanSeen, loadSeenState } from '../lib/notice'
+import { isNewerThanSeen, loadSeenState, markSeenNow } from '../lib/notice'
 import { formatDateTime, responseCount } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 
 export const EventsPage = () => {
   const { data, currentUserId, workspaceId } = useApp()
   const seenEventsAt = loadSeenState(workspaceId, currentUserId).events
+
+  useEffect(() => {
+    markSeenNow(workspaceId, currentUserId, 'events')
+  }, [workspaceId, currentUserId])
 
   const events = [...data.events].sort(
     (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime(),

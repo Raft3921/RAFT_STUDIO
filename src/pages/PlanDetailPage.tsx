@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
 import { roleDefinitions } from '../data/templates'
 import { StatusBadge } from '../components/StatusBadge'
 import { getMemberIcon } from '../lib/memberIcon'
+import { markSeenNow } from '../lib/notice'
 import { buildShareUrl, statusLabel, statusOrder } from '../lib/utils'
 import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
@@ -10,10 +12,14 @@ import type { PlanStatus } from '../types'
 export const PlanDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data, updatePlanStatus, deletePlan, reassignPlanCreator } = useApp()
+  const { data, updatePlanStatus, deletePlan, reassignPlanCreator, workspaceId, currentUserId } = useApp()
 
   const plan = data.plans.find((item) => item.id === id)
   const relatedEvents = data.events.filter((event) => event.planId === id)
+
+  useEffect(() => {
+    markSeenNow(workspaceId, currentUserId, 'plans')
+  }, [workspaceId, currentUserId])
 
   if (!plan) {
     return <p className="panel">企画が見つかりません。</p>
