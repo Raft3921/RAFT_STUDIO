@@ -375,6 +375,9 @@ export const HomePage = () => {
                         </button>
                       </div>
                       <p className="muted">
+                        ID: {member.id}
+                      </p>
+                      <p className="muted">
                         最終オンライン: {member.lastActiveAt ? formatDateTime(member.lastActiveAt) : '記録なし'}
                       </p>
                       <p className="muted">

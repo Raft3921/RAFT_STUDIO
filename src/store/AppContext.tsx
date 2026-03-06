@@ -121,16 +121,6 @@ const memberIdFromName = (displayName: string) =>
   `name-${encodeURIComponent(normalizeDisplayName(displayName).toLowerCase())}`
 const isRaftMember = (memberId: string, displayName?: string) =>
   memberId === 'm-raft' || normalizeDisplayName(displayName ?? '') === 'ラフト'
-const dedupeMembersByName = (members: Member[]) => {
-  const seen = new Set<string>()
-  return members.filter((member) => {
-    const key = normalizeDisplayName(member.displayName).toLowerCase()
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [data, setData] = useState<AppData>(() => loadData())
   const [workspaceId] = useState(() => getOrCreateWorkspaceId())
@@ -244,8 +234,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const members = snapshot.docs
             .map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
             .filter((member) => !isLegacyMemberName(member.displayName))
-          const merged = dedupeMembersByName([...members, ...defaultMembers])
-          setData((prev) => ({ ...prev, members: merged }))
+          const mergedById = new Map<string, Member>()
+          defaultMembers.forEach((member) => mergedById.set(member.id, member))
+          members.forEach((member) => mergedById.set(member.id, member))
+          setData((prev) => ({ ...prev, members: Array.from(mergedById.values()) }))
         }),
       ]
     }
