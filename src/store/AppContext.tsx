@@ -104,6 +104,7 @@ interface AppContextValue {
   updateCalendarMark: (markId: string, input: UpsertCalendarMarkInput) => Promise<void>
   deleteCalendarMark: (markId: string) => Promise<void>
   updateMyProfile: (displayName: string) => Promise<void>
+  forceRenameMember: (memberId: string, displayName: string) => Promise<void>
   toggleMyNotification: () => Promise<void>
   copyWorkspaceLink: () => Promise<void>
   switchStorageMode: (mode: StorageMode) => void
@@ -862,6 +863,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           })),
         }))
         setCurrentUserId(nextUserId)
+      },
+      forceRenameMember: async (memberId, displayName) => {
+        const actor = data.members.find((member) => member.id === currentUserId)
+        if (!isRaftMember(currentUserId, actor?.displayName)) return
+        const trimmed = normalizeDisplayName(displayName)
+        if (!trimmed) return
+
+        if (storageMode === 'firebase' && firestoreDb) {
+          const db = firestoreDb
+          await setDoc(
+            doc(db, 'workspaces', workspaceId, 'members', memberId),
+            { displayName: trimmed },
+            { merge: true },
+          )
+          if (memberId === currentUserId) {
+            setPreferredDisplayName(trimmed)
+          }
+          return
+        }
+
+        setData((prev) => ({
+          ...prev,
+          members: prev.members.map((member) =>
+            member.id === memberId ? { ...member, displayName: trimmed } : member,
+          ),
+        }))
+        if (memberId === currentUserId) {
+          setPreferredDisplayName(trimmed)
+        }
       },
       toggleMyNotification: async () => {
         const me = data.members.find((member) => member.id === currentUserId)

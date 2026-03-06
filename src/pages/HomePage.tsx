@@ -19,12 +19,22 @@ import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/ut
 import type { DailyQuestTemplate } from '../types'
 
 export const HomePage = () => {
-  const { data, currentUserId, workspaceId, storageMode, createDailyQuests, deleteDailyQuest, updatePlanStatus } = useApp()
+  const {
+    data,
+    currentUserId,
+    workspaceId,
+    storageMode,
+    createDailyQuests,
+    deleteDailyQuest,
+    updatePlanStatus,
+    forceRenameMember,
+  } = useApp()
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [questTemplate, setQuestTemplate] = useState<DailyQuestTemplate>('plan_create')
   const [questAmount, setQuestAmount] = useState(1)
   const [questCustomText, setQuestCustomText] = useState('')
   const [questAssigneeIds, setQuestAssigneeIds] = useState<string[]>([])
+  const [showF4AdminPanel, setShowF4AdminPanel] = useState(false)
   const panelImages = [
     `url('${panelCenter}')`,
     `url('${panelTop}')`,
@@ -109,11 +119,92 @@ export const HomePage = () => {
     }
     return acc
   }, [])
+  const memberActionFeed = useMemo(() => {
+    const entries: Array<{ memberId: string; at: string; text: string }> = []
+    data.plans.forEach((plan) => {
+      entries.push({
+        memberId: plan.createdBy,
+        at: plan.createdAt,
+        text: `企画「${plan.title}」を作成`,
+      })
+      if (plan.updatedBy && plan.updatedAt) {
+        entries.push({
+          memberId: plan.updatedBy,
+          at: plan.updatedAt,
+          text: `企画「${plan.title}」を更新`,
+        })
+      }
+    })
+    data.events.forEach((event) => {
+      if (!event.createdBy || !event.createdAt) return
+      entries.push({
+        memberId: event.createdBy,
+        at: event.createdAt,
+        text: `撮影日「${event.title}」を作成`,
+      })
+    })
+    data.responses.forEach((response) => {
+      if (!response.respondedAt) return
+      const eventTitle = data.events.find((event) => event.id === response.eventId)?.title ?? '撮影日'
+      entries.push({
+        memberId: response.userId,
+        at: response.respondedAt,
+        text: `${eventTitle}の出欠を回答`,
+      })
+    })
+    data.dailyQuests.forEach((quest) => {
+      if (!quest.createdAt) return
+      entries.push({
+        memberId: quest.createdBy,
+        at: quest.createdAt,
+        text: '本日のクエストを追加',
+      })
+      if (quest.done && quest.doneAt) {
+        entries.push({
+          memberId: quest.assigneeId,
+          at: quest.doneAt,
+          text: '本日のクエストを達成',
+        })
+      }
+    })
+
+    const byMember = new Map<string, { at: string; text: string }>()
+    entries.forEach((entry) => {
+      const existing = byMember.get(entry.memberId)
+      if (!existing || new Date(entry.at).getTime() > new Date(existing.at).getTime()) {
+        byMember.set(entry.memberId, { at: entry.at, text: entry.text })
+      }
+    })
+    return byMember
+  }, [data.dailyQuests, data.events, data.plans, data.responses])
+  const pastMembers = useMemo(
+    () =>
+      [...data.members].sort((a, b) => {
+        const aLast = memberActionFeed.get(a.id)?.at ?? a.lastActiveAt ?? ''
+        const bLast = memberActionFeed.get(b.id)?.at ?? b.lastActiveAt ?? ''
+        return new Date(bLast || 0).getTime() - new Date(aLast || 0).getTime()
+      }),
+    [data.members, memberActionFeed],
+  )
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'F4') return
+      event.preventDefault()
+      if (!isQuestEditor) {
+        window.alert('F4管理機能はラフト専用です。')
+        return
+      }
+      setShowF4AdminPanel((prev) => !prev)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isQuestEditor])
 
   const completionPoints =
     myQuests.length > 0
@@ -256,6 +347,46 @@ export const HomePage = () => {
       </section>
 
       {isQuestEditor && (
+        <>
+          {showF4AdminPanel && (
+            <section className="panel">
+              <div className="section-head">
+                <h2>F4 管理パネル</h2>
+                <span className="muted">過去参加メンバー {pastMembers.length}人</span>
+              </div>
+              <p className="muted">F4で開閉。メンバー名の強制変更ができます。</p>
+              <div className="stack-gap">
+                {pastMembers.map((member) => {
+                  const lastAction = memberActionFeed.get(member.id)
+                  return (
+                    <div className="card" key={`admin-${member.id}`}>
+                      <div className="section-head">
+                        <strong>{member.displayName}</strong>
+                        <button
+                          className="btn warn"
+                          type="button"
+                          onClick={() => {
+                            const nextName = window.prompt(`${member.displayName} の新しい名前`, member.displayName)
+                            if (!nextName) return
+                            void forceRenameMember(member.id, nextName)
+                          }}
+                        >
+                          名前を強制変更
+                        </button>
+                      </div>
+                      <p className="muted">
+                        最終オンライン: {member.lastActiveAt ? formatDateTime(member.lastActiveAt) : '記録なし'}
+                      </p>
+                      <p className="muted">
+                        最新アクション: {lastAction ? `${lastAction.text}（${formatDateTime(lastAction.at)}）` : 'アクション記録なし'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
         <section className="panel">
           <h2>本日のクエスト設定（ラフト専用）</h2>
           {storageMode === 'firebase' && (
@@ -337,6 +468,7 @@ export const HomePage = () => {
             })}
           </div>
         </section>
+        </>
       )}
 
       <section className="panel">
