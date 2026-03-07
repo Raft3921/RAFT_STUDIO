@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchLatestVideosByChannelUrl, type YouTubeVideo } from '../lib/youtube'
+import bottleImage from '../../assets/bottle.png'
 
 const channelUrlStorageKey = 'channel-page-url'
 const defaultChannelUrl = 'https://youtube.com/channel/UCFdvUG1D6Dj6MzZjFw3Kttg'
@@ -21,6 +22,7 @@ export const ChannelPage = () => {
   const [channelUrl, setChannelUrl] = useState(initialUrl)
   const [channelName, setChannelName] = useState('')
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
+  const [isSubscriberHidden, setIsSubscriberHidden] = useState(false)
   const [videos, setVideos] = useState<YouTubeVideo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +30,10 @@ export const ChannelPage = () => {
   const bottleMax = 500
 
   const isConfigured = useMemo(() => !!apiKey, [apiKey])
-  const bottleDots = useMemo(() => Array.from({ length: bottleMax }, (_, index) => index), [])
+  const fillRatio = useMemo(() => {
+    if (!subscriberCount || subscriberCount < 0) return 0
+    return Math.min(1, subscriberCount / bottleMax)
+  }, [subscriberCount])
   const filledDots = useMemo(() => {
     if (!subscriberCount || subscriberCount < 0) return 0
     return Math.min(bottleMax, subscriberCount)
@@ -40,6 +45,7 @@ export const ChannelPage = () => {
       setVideos([])
       setChannelName('')
       setSubscriberCount(null)
+      setIsSubscriberHidden(false)
       return
     }
 
@@ -48,6 +54,7 @@ export const ChannelPage = () => {
       setVideos([])
       setChannelName('')
       setSubscriberCount(null)
+      setIsSubscriberHidden(false)
       setError('チャンネルURLを入力してください。')
       return
     }
@@ -66,6 +73,7 @@ export const ChannelPage = () => {
           if (requestId !== requestIdRef.current) return
           setChannelName(channel.title)
           setSubscriberCount(channel.subscriberCount ?? null)
+          setIsSubscriberHidden(Boolean(channel.hiddenSubscriberCount))
           setVideos(latest)
           localStorage.setItem(channelUrlStorageKey, raw)
         } catch {
@@ -73,6 +81,7 @@ export const ChannelPage = () => {
           setVideos([])
           setChannelName('')
           setSubscriberCount(null)
+          setIsSubscriberHidden(false)
           setError('URLの形式かAPI設定を確認してください。例: /channel/xxxx または /@handle')
         } finally {
           if (requestId === requestIdRef.current) {
@@ -90,23 +99,20 @@ export const ChannelPage = () => {
       <section className="panel">
         <h2>チャンネル登録者数</h2>
         <p className="channel-subscriber-count">
-          {subscriberCount === null ? '-' : subscriberCount.toLocaleString('ja-JP')}人
+          {isSubscriberHidden ? '非公開' : subscriberCount === null ? '-' : `${subscriberCount.toLocaleString('ja-JP')}人`}
         </p>
         <div className="channel-bottle-wrap" aria-label="500人MAXの登録者ボトル">
-          <div className="channel-bottle">
-            <div className="channel-bottle-dots">
-              {bottleDots.map((dotIndex) => (
-                <span
-                  key={`dot-${dotIndex}`}
-                  className={`channel-bottle-dot ${dotIndex < filledDots ? 'filled' : ''}`}
-                />
-              ))}
+          <div className="channel-bottle-pixel">
+            <div className="channel-bottle-water-layer">
+              <div className="channel-bottle-water-fill" style={{ height: `${Math.round(fillRatio * 100)}%` }} />
             </div>
+            <img src={bottleImage} className="channel-bottle-pixel-img" alt="" aria-hidden />
           </div>
         </div>
         <p className="muted">
           500人MAX表示（現在 {filledDots}/{bottleMax}）
         </p>
+        {isSubscriberHidden && <p className="muted">このチャンネルは登録者数を公開していません。</p>}
       </section>
 
       <section className="panel">

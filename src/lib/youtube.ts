@@ -10,6 +10,7 @@ export interface YouTubeChannelInfo {
   channelId: string
   title: string
   subscriberCount?: number
+  hiddenSubscriberCount?: boolean
 }
 
 interface CacheEntry<T> {
@@ -17,7 +18,7 @@ interface CacheEntry<T> {
   value: T
 }
 
-const cachePrefix = 'yt-api-cache-v1'
+const cachePrefix = 'yt-api-cache-v2'
 const defaultChannelCacheMs = 1000 * 60 * 60 * 24 * 30
 const defaultVideosCacheMs = 1000 * 60 * 60 * 6
 
@@ -87,7 +88,11 @@ export const resolveChannelInfo = async (
     ? `part=snippet,statistics&id=${encodeURIComponent(parsed.channelId)}&key=${encodeURIComponent(apiKey)}`
     : `part=snippet,statistics&forHandle=${encodeURIComponent(parsed.handle ?? '')}&key=${encodeURIComponent(apiKey)}`
   const json = await fetchJson<{
-    items?: Array<{ id?: string; snippet?: { title?: string }; statistics?: { subscriberCount?: string } }>
+    items?: Array<{
+      id?: string
+      snippet?: { title?: string }
+      statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean }
+    }>
   }>(`${base}?${query}`)
   const item = json.items?.[0]
   if (!item?.id || !item.snippet?.title) {
@@ -98,6 +103,7 @@ export const resolveChannelInfo = async (
     channelId: item.id,
     title: item.snippet.title,
     subscriberCount: Number.isFinite(parsedSubscriberCount) ? parsedSubscriberCount : undefined,
+    hiddenSubscriberCount: Boolean(item.statistics?.hiddenSubscriberCount),
   }
   writeCache(cacheKey, value)
   return value

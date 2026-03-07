@@ -926,36 +926,50 @@ p {
   justify-content: center;
 }
 
-.channel-bottle {
+.channel-bottle-pixel {
   width: min(320px, 92%);
   aspect-ratio: 3 / 4;
-  border: 2px solid #2f3138;
-  border-radius: 36px 36px 28px 28px;
-  background: linear-gradient(180deg, #ffffff 0%, #f4f6fa 100%);
-  box-shadow: inset 0 0 0 2px #ffffff, 0 8px 0 -5px rgba(0, 0, 0, 0.2);
-  padding: 18px;
+  position: relative;
 }
 
-.channel-bottle-dots {
-  height: 100%;
-  display: grid;
-  grid-template-columns: repeat(20, minmax(0, 1fr));
-  grid-template-rows: repeat(25, minmax(0, 1fr));
-  gap: 4px;
-  align-content: end;
-}
-
-.channel-bottle-dot {
+.channel-bottle-pixel-img {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 999px;
-  border: 1px solid #cfd4de;
-  background: #f2f4f8;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
+  image-rendering: pixelated;
 }
 
-.channel-bottle-dot.filled {
-  border-color: #4aa6ff;
-  background: radial-gradient(circle at 35% 30%, #d8eeff 0 34%, #4aa6ff 36% 100%);
+.channel-bottle-water-layer {
+  position: absolute;
+  z-index: 1;
+  left: 10%;
+  right: 10%;
+  bottom: 7%;
+  top: 7%;
+  border-radius: 14px 14px 18px 18px;
+  overflow: hidden;
+}
+
+.channel-bottle-water-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    #ff3b30 0%,
+    #ff9500 18%,
+    #ffd60a 36%,
+    #34c759 54%,
+    #0a84ff 72%,
+    #5e5ce6 86%,
+    #bf5af2 100%
+  );
+  image-rendering: pixelated;
+  transition: height 360ms ease;
 }
 
 .channel-video-grid {
