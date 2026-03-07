@@ -38,7 +38,6 @@ export const ChannelPage = () => {
   const bottleStyle = useMemo(
     () =>
       ({
-        '--bottle-mask-image': `url('${bottleImage}')`,
         '--bottle-fill-ratio': `${Math.max(0, Math.min(100, Math.round(animatedFillRatio * 100)))}%`,
       }) as CSSProperties,
     [animatedFillRatio],
