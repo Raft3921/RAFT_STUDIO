@@ -9,6 +9,7 @@ export interface YouTubeVideo {
 export interface YouTubeChannelInfo {
   channelId: string
   title: string
+  subscriberCount?: number
 }
 
 interface CacheEntry<T> {
@@ -83,14 +84,21 @@ export const resolveChannelInfo = async (
 
   const base = 'https://www.googleapis.com/youtube/v3/channels'
   const query = parsed.channelId
-    ? `part=snippet&id=${encodeURIComponent(parsed.channelId)}&key=${encodeURIComponent(apiKey)}`
-    : `part=snippet&forHandle=${encodeURIComponent(parsed.handle ?? '')}&key=${encodeURIComponent(apiKey)}`
-  const json = await fetchJson<{ items?: Array<{ id?: string; snippet?: { title?: string } }> }>(`${base}?${query}`)
+    ? `part=snippet,statistics&id=${encodeURIComponent(parsed.channelId)}&key=${encodeURIComponent(apiKey)}`
+    : `part=snippet,statistics&forHandle=${encodeURIComponent(parsed.handle ?? '')}&key=${encodeURIComponent(apiKey)}`
+  const json = await fetchJson<{
+    items?: Array<{ id?: string; snippet?: { title?: string }; statistics?: { subscriberCount?: string } }>
+  }>(`${base}?${query}`)
   const item = json.items?.[0]
   if (!item?.id || !item.snippet?.title) {
     throw new Error('channel-not-found')
   }
-  const value = { channelId: item.id, title: item.snippet.title }
+  const parsedSubscriberCount = Number(item.statistics?.subscriberCount ?? '')
+  const value = {
+    channelId: item.id,
+    title: item.snippet.title,
+    subscriberCount: Number.isFinite(parsedSubscriberCount) ? parsedSubscriberCount : undefined,
+  }
   writeCache(cacheKey, value)
   return value
 }

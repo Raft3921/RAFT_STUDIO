@@ -20,18 +20,26 @@ export const ChannelPage = () => {
   const initialUrl = localStorage.getItem(channelUrlStorageKey) ?? defaultChannelUrl
   const [channelUrl, setChannelUrl] = useState(initialUrl)
   const [channelName, setChannelName] = useState('')
+  const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
   const [videos, setVideos] = useState<YouTubeVideo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const requestIdRef = useRef(0)
+  const bottleMax = 500
 
   const isConfigured = useMemo(() => !!apiKey, [apiKey])
+  const bottleDots = useMemo(() => Array.from({ length: bottleMax }, (_, index) => index), [])
+  const filledDots = useMemo(() => {
+    if (!subscriberCount || subscriberCount < 0) return 0
+    return Math.min(bottleMax, subscriberCount)
+  }, [subscriberCount])
 
   useEffect(() => {
     if (!isConfigured || !apiKey) {
       setError('YouTube APIキー（VITE_YT_API_KEY）が未設定です。')
       setVideos([])
       setChannelName('')
+      setSubscriberCount(null)
       return
     }
 
@@ -39,6 +47,7 @@ export const ChannelPage = () => {
     if (!raw) {
       setVideos([])
       setChannelName('')
+      setSubscriberCount(null)
       setError('チャンネルURLを入力してください。')
       return
     }
@@ -56,12 +65,14 @@ export const ChannelPage = () => {
           })
           if (requestId !== requestIdRef.current) return
           setChannelName(channel.title)
+          setSubscriberCount(channel.subscriberCount ?? null)
           setVideos(latest)
           localStorage.setItem(channelUrlStorageKey, raw)
         } catch {
           if (requestId !== requestIdRef.current) return
           setVideos([])
           setChannelName('')
+          setSubscriberCount(null)
           setError('URLの形式かAPI設定を確認してください。例: /channel/xxxx または /@handle')
         } finally {
           if (requestId === requestIdRef.current) {
@@ -76,6 +87,28 @@ export const ChannelPage = () => {
 
   return (
     <div className="page-stack">
+      <section className="panel">
+        <h2>チャンネル登録者数</h2>
+        <p className="channel-subscriber-count">
+          {subscriberCount === null ? '-' : subscriberCount.toLocaleString('ja-JP')}人
+        </p>
+        <div className="channel-bottle-wrap" aria-label="500人MAXの登録者ボトル">
+          <div className="channel-bottle">
+            <div className="channel-bottle-dots">
+              {bottleDots.map((dotIndex) => (
+                <span
+                  key={`dot-${dotIndex}`}
+                  className={`channel-bottle-dot ${dotIndex < filledDots ? 'filled' : ''}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <p className="muted">
+          500人MAX表示（現在 {filledDots}/{bottleMax}）
+        </p>
+      </section>
+
       <section className="panel">
         <h2>チャンネル</h2>
         <p className="muted">YouTubeチャンネルURLから最新動画を取得</p>
