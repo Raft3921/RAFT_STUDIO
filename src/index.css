@@ -947,9 +947,9 @@ p {
   position: absolute;
   z-index: 1;
   top: 11%;
-  right: 10%;
+  right: 8.5%;
   bottom: 8%;
-  left: 10%;
+  left: 8.5%;
   overflow: hidden;
   border-radius: 8px 8px 12px 12px;
 }
