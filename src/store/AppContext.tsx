@@ -73,6 +73,7 @@ interface UpsertCalendarMarkInput {
 type StorageMode = 'local' | 'firebase'
 const STORAGE_MODE_KEY = 'youtube-planner-storage-mode'
 const DISPLAY_NAME_KEY = 'youtube-planner-display-name'
+const MEMBER_ID_KEY = 'youtube-planner-member-id'
 
 interface AppContextValue {
   currentUserId: string
@@ -128,6 +129,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return normalizeDisplayName(localStorage.getItem(DISPLAY_NAME_KEY) ?? fallbackDisplayName)
   })
   const [currentUserId, setCurrentUserId] = useState(() => {
+    const savedMemberId = localStorage.getItem(MEMBER_ID_KEY)
+    if (savedMemberId) return savedMemberId
     const initialData = loadData()
     const byName = initialData.members.find(
       (member) => normalizeDisplayName(member.displayName) === normalizeDisplayName(localStorage.getItem(DISPLAY_NAME_KEY) ?? fallbackDisplayName),
@@ -148,6 +151,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     localStorage.setItem(DISPLAY_NAME_KEY, preferredDisplayName)
   }, [preferredDisplayName])
+
+  useEffect(() => {
+    localStorage.setItem(MEMBER_ID_KEY, currentUserId)
+  }, [currentUserId])
 
   useEffect(() => {
     if (storageMode !== 'firebase' || !isFirebaseEnabled || !firebaseAuth || !firestoreDb) {
@@ -185,13 +192,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           ),
       )
 
+      const savedMemberId = localStorage.getItem(MEMBER_ID_KEY)
+      const existingBySavedId = savedMemberId
+        ? membersSnapshot.docs.find((item) => item.id === savedMemberId)
+        : null
       const existingByName = membersSnapshot.docs.find(
         (item) =>
           !isLegacyMemberName(String(item.data().displayName ?? '')) &&
           normalizeDisplayName(String(item.data().displayName ?? '')) ===
           normalizeDisplayName(preferredDisplayName),
       )
-      const userId = existingByName?.id ?? memberIdFromName(preferredDisplayName)
+      const userId = existingBySavedId?.id ?? existingByName?.id ?? savedMemberId ?? memberIdFromName(preferredDisplayName)
       setCurrentUserId(userId)
 
       const memberRef = doc(workspaceRef, 'members', userId)
@@ -244,7 +255,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     startSync().catch(() => {
       setStorageMode('local')
-      setCurrentUserId(memberIdFromName(preferredDisplayName))
+      setCurrentUserId(localStorage.getItem(MEMBER_ID_KEY) ?? memberIdFromName(preferredDisplayName))
       setReady(true)
     })
 
@@ -370,10 +381,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       ready,
       data,
       createPlan: async (input) => {
-        const resolvedCreatorId =
-          data.members.find((member) => member.id === currentUserId)?.id ??
-          data.members.find((member) => normalizeDisplayName(member.displayName) === normalizeDisplayName(preferredDisplayName))?.id ??
-          currentUserId
+        const resolvedCreatorId = currentUserId
 
         if (storageMode === 'firebase' && firestoreDb) {
           const db = firestoreDb
