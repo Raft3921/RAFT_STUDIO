@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { fetchLatestVideosByChannelUrl, type YouTubeVideo } from '../lib/youtube'
 import bottleImage from '../../assets/bottle.png'
 
@@ -23,6 +23,7 @@ export const ChannelPage = () => {
   const [channelName, setChannelName] = useState('')
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
   const [isSubscriberHidden, setIsSubscriberHidden] = useState(false)
+  const [animatedFillRatio, setAnimatedFillRatio] = useState(0)
   const [videos, setVideos] = useState<YouTubeVideo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -34,6 +35,14 @@ export const ChannelPage = () => {
     if (!subscriberCount || subscriberCount < 0) return 0
     return Math.min(1, subscriberCount / bottleMax)
   }, [subscriberCount])
+  const bottleStyle = useMemo(
+    () =>
+      ({
+        '--bottle-mask-image': `url('${bottleImage}')`,
+        '--bottle-fill-ratio': `${Math.max(0, Math.min(100, Math.round(animatedFillRatio * 100)))}%`,
+      }) as CSSProperties,
+    [animatedFillRatio],
+  )
   const filledDots = useMemo(() => {
     if (!subscriberCount || subscriberCount < 0) return 0
     return Math.min(bottleMax, subscriberCount)
@@ -94,6 +103,12 @@ export const ChannelPage = () => {
     return () => window.clearTimeout(timer)
   }, [apiKey, channelUrl, isConfigured])
 
+  useEffect(() => {
+    setAnimatedFillRatio(0)
+    const timer = window.setTimeout(() => setAnimatedFillRatio(fillRatio), 90)
+    return () => window.clearTimeout(timer)
+  }, [fillRatio, channelUrl])
+
   return (
     <div className="page-stack">
       <section className="panel">
@@ -102,9 +117,10 @@ export const ChannelPage = () => {
           {isSubscriberHidden ? '非公開' : subscriberCount === null ? '-' : `${subscriberCount.toLocaleString('ja-JP')}人`}
         </p>
         <div className="channel-bottle-wrap" aria-label="500人MAXの登録者ボトル">
-          <div className="channel-bottle-pixel">
-            <div className="channel-bottle-water-layer">
-              <div className="channel-bottle-water-fill" style={{ height: `${Math.round(fillRatio * 100)}%` }} />
+          <div className="channel-bottle-pixel" style={bottleStyle}>
+            <div className="channel-bottle-liquid-canvas" aria-hidden>
+              <div className="channel-bottle-liquid-max" />
+              <div className="channel-bottle-liquid-mask" />
             </div>
             <img src={bottleImage} className="channel-bottle-pixel-img" alt="" aria-hidden />
           </div>
