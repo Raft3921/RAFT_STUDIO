@@ -3,7 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { roleDefinitions } from '../data/templates'
 import { resolveRoleNames } from '../lib/plan'
 import { markSeenNow } from '../lib/notice'
-import { attendanceLabel, buildLineMessage, buildShareUrl, formatDateTime, responseCount } from '../lib/utils'
+import {
+  attendanceLabel,
+  buildLineMessage,
+  buildShareUrl,
+  formatDateTime,
+  openGoogleChatShare,
+  responseCount,
+} from '../lib/utils'
 import { useApp } from '../store/AppContext'
 import type { Attendance } from '../types'
 
@@ -45,8 +52,14 @@ export const EventDetailPage = () => {
   }
 
   const notifyLine = () => {
-    const text = buildLineMessage(event)
+    const text = buildLineMessage(event, buildShareUrl(`/events/${event.id}`))
     window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`, '_blank')
+  }
+
+  const notifyGoogleChat = async () => {
+    const text = buildLineMessage(event, buildShareUrl(`/events/${event.id}`))
+    await openGoogleChatShare(text)
+    window.alert('Google Chat用の共有文をコピーして、Google Chatを開きました。')
   }
 
   const removeEvent = async () => {
@@ -140,6 +153,9 @@ export const EventDetailPage = () => {
         </button>
         <button className="btn warn" onClick={notifyLine}>
           LINE通知文を開く
+        </button>
+        <button className="btn ghost" onClick={() => void notifyGoogleChat()}>
+          Google Chatで共有
         </button>
       </div>
     </div>

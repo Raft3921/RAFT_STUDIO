@@ -76,6 +76,7 @@ export const ChannelPage = () => {
         try {
           const { channel, videos: latest } = await fetchLatestVideosByChannelUrl(apiKey, raw, {
             maxResults: 12,
+            channelMaxAgeMs: 1000 * 60 * 15,
             videosMaxAgeMs: 1000 * 60 * 60 * 6,
           })
           if (requestId !== requestIdRef.current) return

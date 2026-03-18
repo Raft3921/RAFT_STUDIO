@@ -54,17 +54,23 @@ export const responseCount = (eventId: string, responses: EventResponse[]) => {
 }
 
 export const buildShareUrl = (path: string) => {
-  const url = new URL(window.location.href)
-  url.hash = `#${path}`
+  const url = new URL(`${window.location.pathname}${window.location.search}`, window.location.origin)
+  url.hash = path.startsWith('#') ? path : `#${path}`
   return url.toString()
 }
 
-export const buildLineMessage = (event: EventItem) => {
+export const buildLineMessage = (event: EventItem, shareUrl?: string) => {
   return [
     `【撮影リマインド】${event.title}`,
     `日時: ${formatDateTime(event.datetime)}`,
     `集合: ${event.meetingPoint}`,
     `場所: ${event.location}`,
     `持ち物確認をお願いします`,
+    ...(shareUrl ? [`共有URL: ${shareUrl}`] : []),
   ].join('\n')
+}
+
+export const openGoogleChatShare = async (message: string) => {
+  await navigator.clipboard.writeText(message)
+  window.open('https://chat.google.com/', '_blank', 'noopener,noreferrer')
 }

@@ -19,7 +19,7 @@ interface CacheEntry<T> {
 }
 
 const cachePrefix = 'yt-api-cache-v2'
-const defaultChannelCacheMs = 1000 * 60 * 60 * 24 * 30
+const defaultChannelCacheMs = 1000 * 60 * 15
 const defaultVideosCacheMs = 1000 * 60 * 60 * 6
 
 const normalizeUrl = (value: string) => {
