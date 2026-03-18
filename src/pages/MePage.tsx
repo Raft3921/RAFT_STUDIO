@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { getMemberIcon } from '../lib/memberIcon'
 import { formatDateTime } from '../lib/utils'
 import { useApp } from '../store/AppContext'
@@ -11,6 +11,11 @@ const tapKey = (targetWindow: Window, code: string, key: string) => {
   window.setTimeout(() => {
     targetWindow.dispatchEvent(new KeyboardEvent('keyup', payload))
   }, 40)
+}
+
+const stopEvent = (event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>) => {
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 export const MePage = () => {
@@ -126,10 +131,33 @@ export const MePage = () => {
   }
 
   const holdBinder = (code: string, key: string) => ({
-    onPointerDown: () => sendHeldKey(code, key, true),
-    onPointerUp: () => sendHeldKey(code, key, false),
-    onPointerCancel: () => sendHeldKey(code, key, false),
-    onPointerLeave: () => sendHeldKey(code, key, false),
+    onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      stopEvent(event)
+      sendHeldKey(code, key, true)
+    },
+    onPointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      stopEvent(event)
+      sendHeldKey(code, key, false)
+    },
+    onPointerCancel: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      stopEvent(event)
+      sendHeldKey(code, key, false)
+    },
+    onPointerLeave: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      stopEvent(event)
+      sendHeldKey(code, key, false)
+    },
+    onContextMenu: (event: ReactMouseEvent<HTMLButtonElement>) => stopEvent(event),
+    onClick: (event: ReactMouseEvent<HTMLButtonElement>) => stopEvent(event),
+  })
+
+  const tapBinder = (code: string, key: string) => ({
+    onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      stopEvent(event)
+      tapGameKey(code, key)
+    },
+    onContextMenu: (event: ReactMouseEvent<HTMLButtonElement>) => stopEvent(event),
+    onClick: (event: ReactMouseEvent<HTMLButtonElement>) => stopEvent(event),
   })
 
   return (
@@ -269,22 +297,22 @@ export const MePage = () => {
                 <button className="chip raft-world-action" type="button" {...holdBinder('ShiftLeft', 'Shift')}>
                   ダッシュ
                 </button>
-                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyQ', 'q')}>
+                <button className="chip raft-world-action" type="button" {...tapBinder('KeyQ', 'q')}>
                   採取
                 </button>
-                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyE', 'e')}>
+                <button className="chip raft-world-action" type="button" {...tapBinder('KeyE', 'e')}>
                   装備
                 </button>
-                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyM', 'm')}>
+                <button className="chip raft-world-action" type="button" {...tapBinder('KeyM', 'm')}>
                   マップ
                 </button>
-                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('Enter', 'Enter')}>
+                <button className="chip raft-world-action" type="button" {...tapBinder('Enter', 'Enter')}>
                   決定
                 </button>
-                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('Escape', 'Escape')}>
+                <button className="chip raft-world-action" type="button" {...tapBinder('Escape', 'Escape')}>
                   戻る
                 </button>
-                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyP', 'p')}>
+                <button className="chip raft-world-action" type="button" {...tapBinder('KeyP', 'p')}>
                   ポーズ
                 </button>
               </div>
