@@ -1024,6 +1024,78 @@ p {
   line-height: 1.35;
 }
 
+.raft-world-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.raft-world-frame {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #000;
+}
+
+.raft-world-mobile-controls {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.raft-world-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, 52px);
+  gap: 8px;
+}
+
+.raft-world-control.up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.raft-world-control.left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.raft-world-control.down {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.raft-world-control.right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.raft-world-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.raft-world-action,
+.raft-world-control {
+  min-height: 52px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (max-width: 720px) {
+  .raft-world-frame {
+    min-height: 240px;
+  }
+
+  .raft-world-mobile-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "sync:raft-world": "node scripts/sync-raft-world.mjs",
+    "predev": "npm run sync:raft-world",
     "dev": "vite",
+    "prebuild": "npm run sync:raft-world",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

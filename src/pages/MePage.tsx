@@ -1,7 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getMemberIcon } from '../lib/memberIcon'
 import { formatDateTime } from '../lib/utils'
 import { useApp } from '../store/AppContext'
+
+const gamePagePath = 'raft-world/index.html'
+
+const tapKey = (targetWindow: Window, code: string, key: string) => {
+  const payload = { key, code, bubbles: true, cancelable: true }
+  targetWindow.dispatchEvent(new KeyboardEvent('keydown', payload))
+  window.setTimeout(() => {
+    targetWindow.dispatchEvent(new KeyboardEvent('keyup', payload))
+  }, 40)
+}
 
 export const MePage = () => {
   const {
@@ -20,6 +30,9 @@ export const MePage = () => {
   const me = data.members.find((member) => member.id === currentUserId) ?? data.members[0]
   const [draftNames, setDraftNames] = useState<Record<string, string>>({})
   const [nameSaving, setNameSaving] = useState(false)
+  const [showRaftWorld, setShowRaftWorld] = useState(false)
+  const frameRef = useRef<HTMLIFrameElement | null>(null)
+  const heldKeysRef = useRef(new Set<string>())
 
   if (!ready) {
     return <section className="panel">同期を開始しています...</section>
@@ -67,6 +80,50 @@ export const MePage = () => {
       event: data.events.find((event) => event.id === response.eventId),
     }))
     .filter((item) => item.event)
+  const raftWorldUrl = useMemo(() => {
+    const base = new URL(window.location.href.split('#')[0])
+    return new URL(gamePagePath, base).toString()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      const frameWindow = frameRef.current?.contentWindow
+      if (!frameWindow) return
+      heldKeysRef.current.forEach((encoded) => {
+        const [code, key] = encoded.split('::')
+        frameWindow.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true, cancelable: true }))
+      })
+      heldKeysRef.current.clear()
+    }
+  }, [])
+
+  const sendHeldKey = (code: string, key: string, pressed: boolean) => {
+    const frameWindow = frameRef.current?.contentWindow
+    if (!frameWindow) return
+    const encoded = `${code}::${key}`
+    if (pressed) {
+      if (heldKeysRef.current.has(encoded)) return
+      heldKeysRef.current.add(encoded)
+      frameWindow.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true, cancelable: true }))
+      return
+    }
+    if (!heldKeysRef.current.has(encoded)) return
+    heldKeysRef.current.delete(encoded)
+    frameWindow.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true, cancelable: true }))
+  }
+
+  const tapGameKey = (code: string, key: string) => {
+    const frameWindow = frameRef.current?.contentWindow
+    if (!frameWindow) return
+    tapKey(frameWindow, code, key)
+  }
+
+  const holdBinder = (code: string, key: string) => ({
+    onPointerDown: () => sendHeldKey(code, key, true),
+    onPointerUp: () => sendHeldKey(code, key, false),
+    onPointerCancel: () => sendHeldKey(code, key, false),
+    onPointerLeave: () => sendHeldKey(code, key, false),
+  })
 
   return (
     <div className="page-stack">
@@ -156,6 +213,69 @@ export const MePage = () => {
             <p>回答: {item.response}</p>
           </div>
         ))}
+      </section>
+
+      <section className="panel">
+        <div className="section-head">
+          <h3>ラフトの世界</h3>
+          <button className="btn" type="button" onClick={() => setShowRaftWorld((prev) => !prev)}>
+            {showRaftWorld ? '閉じる' : 'プレイ'}
+          </button>
+        </div>
+        <p className="muted">自分タブ内でプレイできます。スマホは下の仮想ボタンで操作可能です。</p>
+        {showRaftWorld && (
+          <div className="raft-world-shell">
+            <iframe
+              ref={frameRef}
+              className="raft-world-frame"
+              src={raftWorldUrl}
+              title="ラフトの世界"
+              allow="fullscreen"
+            />
+            <div className="raft-world-mobile-controls">
+              <div className="raft-world-dpad">
+                <button className="chip raft-world-control up" type="button" {...holdBinder('ArrowUp', 'ArrowUp')}>
+                  ↑
+                </button>
+                <button className="chip raft-world-control left" type="button" {...holdBinder('ArrowLeft', 'ArrowLeft')}>
+                  ←
+                </button>
+                <button className="chip raft-world-control down" type="button" {...holdBinder('ArrowDown', 'ArrowDown')}>
+                  ↓
+                </button>
+                <button className="chip raft-world-control right" type="button" {...holdBinder('ArrowRight', 'ArrowRight')}>
+                  →
+                </button>
+              </div>
+              <div className="raft-world-action-grid">
+                <button className="chip raft-world-action" type="button" {...holdBinder('Space', ' ')}>
+                  ジャンプ
+                </button>
+                <button className="chip raft-world-action" type="button" {...holdBinder('ShiftLeft', 'Shift')}>
+                  ダッシュ
+                </button>
+                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyQ', 'q')}>
+                  採取
+                </button>
+                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyE', 'e')}>
+                  装備
+                </button>
+                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyM', 'm')}>
+                  マップ
+                </button>
+                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('Enter', 'Enter')}>
+                  決定
+                </button>
+                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('Escape', 'Escape')}>
+                  戻る
+                </button>
+                <button className="chip raft-world-action" type="button" onClick={() => tapGameKey('KeyP', 'p')}>
+                  ポーズ
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )
