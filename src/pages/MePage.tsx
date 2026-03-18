@@ -58,6 +58,15 @@ export const MePage = () => {
   }, [])
 
   useEffect(() => {
+    if (!showRaftWorld) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [showRaftWorld])
+
+  useEffect(() => {
     return () => {
       const frameWindow = frameRef.current?.contentWindow
       if (!frameWindow) return
@@ -221,8 +230,16 @@ export const MePage = () => {
           </button>
         </div>
         <p className="muted">自分タブ内でプレイできます。スマホは下の仮想ボタンで操作可能です。</p>
-        {showRaftWorld && (
+      </section>
+      {showRaftWorld && (
+        <div className="raft-world-overlay" role="dialog" aria-modal="true" aria-label="ラフトの世界">
           <div className="raft-world-shell">
+            <div className="raft-world-topbar">
+              <strong>ラフトの世界</strong>
+              <button className="btn ghost raft-world-close" type="button" onClick={() => setShowRaftWorld(false)}>
+                閉じる
+              </button>
+            </div>
             <iframe
               ref={frameRef}
               className="raft-world-frame"
@@ -273,8 +290,8 @@ export const MePage = () => {
               </div>
             </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   )
 }

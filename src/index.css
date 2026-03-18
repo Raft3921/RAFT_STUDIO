@@ -1024,17 +1024,46 @@ p {
   line-height: 1.35;
 }
 
-.raft-world-shell {
+.raft-world-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
   display: flex;
-  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(8, 10, 16, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.raft-world-shell {
+  width: min(100%, 1120px);
+  height: 100%;
+  min-height: calc(100dvh - 24px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px;
+}
+
+.raft-world-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #fff;
+}
+
+.raft-world-close {
+  flex-shrink: 0;
 }
 
 .raft-world-frame {
   width: 100%;
-  min-height: 360px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
   background: #000;
 }
 
@@ -1042,7 +1071,7 @@ p {
   display: grid;
   grid-template-columns: 1fr 1.3fr;
   gap: 12px;
-  align-items: start;
+  align-items: end;
 }
 
 .raft-world-dpad {
@@ -1087,12 +1116,21 @@ p {
 }
 
 @media (max-width: 720px) {
-  .raft-world-frame {
-    min-height: 240px;
+  .raft-world-overlay {
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   }
 
   .raft-world-mobile-controls {
     grid-template-columns: 1fr;
+  }
+
+  .raft-world-shell {
+    min-height: calc(100dvh - 16px);
+  }
+
+  .raft-world-topbar {
+    font-size: 0.95rem;
   }
 }
 
