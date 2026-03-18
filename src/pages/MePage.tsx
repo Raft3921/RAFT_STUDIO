@@ -33,16 +33,7 @@ export const MePage = () => {
   const [showRaftWorld, setShowRaftWorld] = useState(false)
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const heldKeysRef = useRef(new Set<string>())
-
-  if (!ready) {
-    return <section className="panel">同期を開始しています...</section>
-  }
-
-  if (!me) {
-    return <section className="panel">メンバー情報がありません。</section>
-  }
-  const displayName = draftNames[me.id] ?? me.displayName
-
+  const displayName = draftNames[me?.id ?? 'unknown'] ?? me?.displayName ?? ''
   const memberNameOptions = (() => {
     const seen = new Set<string>()
     return data.members
@@ -54,25 +45,6 @@ export const MePage = () => {
         return true
       })
   })()
-
-  const handleSaveDisplayName = async () => {
-    const nextName = displayName.trim()
-    if (!nextName) {
-      window.alert('表示名を選択してください。')
-      return
-    }
-    setNameSaving(true)
-    try {
-      await updateMyProfile(nextName)
-      setDraftNames({})
-      window.alert('表示名を更新しました。')
-    } catch {
-      window.alert('表示名の更新に失敗しました。通信状態を確認して再度お試しください。')
-    } finally {
-      setNameSaving(false)
-    }
-  }
-
   const myEvents = data.responses
     .filter((response) => response.userId === currentUserId)
     .map((response) => ({
@@ -96,6 +68,32 @@ export const MePage = () => {
       heldKeysRef.current.clear()
     }
   }, [])
+
+  if (!ready) {
+    return <section className="panel">同期を開始しています...</section>
+  }
+
+  if (!me) {
+    return <section className="panel">メンバー情報がありません。</section>
+  }
+
+  const handleSaveDisplayName = async () => {
+    const nextName = displayName.trim()
+    if (!nextName) {
+      window.alert('表示名を選択してください。')
+      return
+    }
+    setNameSaving(true)
+    try {
+      await updateMyProfile(nextName)
+      setDraftNames({})
+      window.alert('表示名を更新しました。')
+    } catch {
+      window.alert('表示名の更新に失敗しました。通信状態を確認して再度お試しください。')
+    } finally {
+      setNameSaving(false)
+    }
+  }
 
   const sendHeldKey = (code: string, key: string, pressed: boolean) => {
     const frameWindow = frameRef.current?.contentWindow
