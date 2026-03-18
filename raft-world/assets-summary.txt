@@ -1,0 +1,63 @@
+ラフトの世界　アセット整理 (主要画像の用途と配置)
+
+■ 服プレビュー画像 (64x64, assets直下)
+黒いスーツ: assets/black_suit.png
+黒いズボン: assets/black_pants.png
+紺色のスーツ: assets/black_suit.png を流用 (ID:120)
+紺色のズボン: assets/black_pants.png を流用 (ID:121)
+皮のジャケット: assets/leather_jacket.png
+漢布!/真・漢布: assets/kanpu.png
+騎士の鎧: assets/knight_armor.png
+騎士の鎧-正装-: assets/knight_armor_formal.png
+まいさんの服/真・まいさんの服: assets/mai_outfit.png
+黒い仮面: assets/black_mask.png
+真・ラフト正装 開眼: assets/raft_formal.png
+たぬつなのフード/真・たぬつなのフード: assets/tanutsuna_hood.png
+真・ラフトのマント: assets/raft_manteau.png
+真・ラフトのシャツ: assets/raft_shirt.png
+真・ラフトのズボン: assets/raft_bottom.png
+
+■ 服スキン画像 (プレイヤー装着用 64x64 透明ダミー含む、assets/skin/<folder>/)
+black_suit … スーツ系(黒/紺/皮/騎士等トップ)共通フレーム18種
+black_pants … 黒/紺ズボン共通フレーム18種
+raft_manteau … ラフトマント系/漢布系/真・装束トップ等
+raft_shirt … ラフトシャツ系/真・ラフトシャツ
+raft_bottom … ラフトズボン系/真・ラフトズボン
+tanutsuna_hood … たぬつな/真・たぬつなフード
+leather_jacket … 皮のジャケット用
+knight_armor … 騎士の鎧用
+knight_armor_formal … 騎士の鎧-正装-用
+mai_outfit … まいさん系用
+black_mask … 黒い仮面用
+raft_formal … 真・ラフト正装 開眼用
+各フォルダ内フレーム: idle1-3, run1-6, squat1-2, crime1-4, swim1-3 (合計18)
+
+■ メダル画像 (64x64, assets直下)
+medal_slime_attack.png / medal_slime_resist.png
+medal_snake_attack.png / medal_snake_resist.png
+medal_attack_boost.png / medal_attack_boost_plus.png
+medal_block_boost.png / medal_block_boost_plus.png
+medal_heart_boost.png / medal_heart_boost_plus.png
+medal_speed_boost.png / medal_speed_boost_plus.png
+medal_jump_boost.png / medal_jump_boost_plus.png
+medal_shooter.png / medal_marksman.png
+medal_king.png
+medal_enh.png (怨炎メダル)
+paralyzeShort.png (痺れ効果小・メダル用)
+
+■ BGM / 効果音 (assets直下)
+home.mp3 (通常BGM), home2.mp3 (別BGM)
+run.mp3, swim.mp3, jump.mp3, land.mp3, slam.mp3, damage.mp3, pickup.mp3, sand.mp3
+
+■ タイル/背景関連で不足していた画像 (すべて配置済み)
+leaf_block.png (ブロック)
+great_snake/head.png, great_snake/body.png, great_snake/tail.png (ボスパーツ)
+slime/feel/spawn_elite.png, slime/giant_slime_lv1/idle.png, slime/paralysis/idle1.png (モンスター)
+各種 tileSourcesExtended 参照の画像は assets 内に存在（grass/dirt/sand/stone 等）。
+
+■ 使いみちのメモ
+- 服プレビュー: インベントリ表示やアイテム定義の img に使用。
+- 服スキン: プレイヤー描画用（装着中のアニメフレーム差し替え）。
+- メダル: itemDefinitions のメダル装備アイコン。
+- モンスター/ボス: 参照欠け防止のダミー（32x32透明）。
+- タイル: tileSourcesExtended で参照されるブロック画像。

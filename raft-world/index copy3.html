@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ラフトの世界 - 当たり判定エディタ(copy3)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; background: #0b1020; color: #e7efff; font-family: "Segoe UI", sans-serif; overflow: hidden; }
+    .app { display: grid; grid-template-columns: 320px 1fr; width: 100%; height: 100dvh; }
+    .panel { padding: 12px; border-right: 1px solid rgba(255,255,255,0.08); overflow: auto; background: rgba(8, 13, 28, 0.96); }
+    .panel h1 { margin: 0 0 8px; font-size: 18px; }
+    .row { margin-bottom: 10px; }
+    .row label { display: block; font-size: 12px; margin-bottom: 4px; color: rgba(231,239,255,0.78); }
+    select, input, button { width: 100%; border: 1px solid rgba(120,170,255,0.35); border-radius: 8px; background: rgba(22,35,66,0.95); color: #e7efff; padding: 8px; font: inherit; }
+    button { cursor: pointer; font-weight: 700; }
+    .inline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .layers, .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+    .layers button, .tools button { width: auto; min-width: 72px; }
+    .layers button.active, .tools button.active { outline: 2px solid #9fcbff; }
+    .main { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
+    .toolbar { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(8, 13, 28, 0.8); }
+    .canvas-wrap { display: grid; place-items: center; background: #050a18; }
+    canvas { width: min(88vmin, 760px); height: min(88vmin, 760px); image-rendering: pixelated; border: 1px solid rgba(255,255,255,0.12); background: #111a2e; cursor: crosshair; }
+    .status { padding: 8px 14px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: rgba(231,239,255,0.84); background: rgba(8, 13, 28, 0.82); }
+    .hint { font-size: 12px; color: rgba(231,239,255,0.75); line-height: 1.5; }
+    .item-list {
+      max-height: 240px;
+      overflow: auto;
+      border: 1px solid rgba(120,170,255,0.25);
+      border-radius: 8px;
+      background: rgba(12, 21, 40, 0.7);
+      padding: 6px;
+    }
+    .item-row {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 4px 6px;
+      border-radius: 6px;
+      color: rgba(231,239,255,0.92);
+      font-size: 12px;
+    }
+    .item-row + .item-row { margin-top: 3px; }
+    .item-row:hover { background: rgba(42, 70, 120, 0.35); }
+    .item-thumb {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      border: 1px solid rgba(120,170,255,0.35);
+      border-radius: 4px;
+      background: rgba(8, 14, 28, 0.88);
+    }
+    .item-meta { line-height: 1.3; }
+    .item-meta .sub { color: rgba(190,214,246,0.85); font-size: 11px; }
+    .tile-preview {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid rgba(120,170,255,0.25);
+      border-radius: 8px;
+      background: rgba(12, 21, 40, 0.7);
+      padding: 6px;
+      min-height: 44px;
+    }
+    .tile-preview img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      border: 1px solid rgba(120,170,255,0.35);
+      border-radius: 4px;
+      background: rgba(8, 14, 28, 0.88);
+    }
+    .tile-preview-name {
+      font-size: 12px;
+      color: rgba(231,239,255,0.95);
+      line-height: 1.3;
+    }
+    .tile-picker {
+      max-height: 210px;
+      overflow: auto;
+      border: 1px solid rgba(120,170,255,0.25);
+      border-radius: 8px;
+      background: rgba(12, 21, 40, 0.7);
+      padding: 6px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .tile-pick-btn {
+      border: 1px solid rgba(120,170,255,0.35);
+      border-radius: 6px;
+      background: rgba(8, 14, 28, 0.9);
+      min-height: 58px;
+      padding: 4px;
+      display: grid;
+      place-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .tile-pick-btn.active {
+      outline: 2px solid #9fcbff;
+      border-color: rgba(165, 210, 255, 0.95);
+      background: rgba(24, 48, 82, 0.95);
+    }
+    .tile-pick-btn img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      border: 1px solid rgba(120,170,255,0.35);
+      border-radius: 4px;
+      background: rgba(8, 14, 28, 0.88);
+    }
+    .tile-pick-label {
+      font-size: 10px;
+      color: rgba(231,239,255,0.88);
+      line-height: 1;
+    }
+    @media (max-width: 980px) { .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .panel { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>当たり判定エディタ (copy3)</h1>
+      <div class="row">
+        <label>対象</label>
+        <div class="inline">
+          <button id="modeTileBtn" class="active">タイル</button>
+          <button id="modeEnemyBtn">敵</button>
+        </div>
+      </div>
+      <div class="row" id="tileRow">
+        <label>タイルID</label>
+        <select id="tileSelect" style="display:none;"></select>
+        <div class="tile-preview">
+          <img id="tilePreviewImg" alt="tile preview" />
+          <div id="tilePreviewName" class="tile-preview-name">ID -</div>
+        </div>
+        <input id="tileSearchInput" type="text" placeholder="タイル検索 (ID/名前)" style="margin-top:8px;" />
+        <div id="tilePickerList" class="tile-picker" style="margin-top:8px;"></div>
+        <div class="inline" style="margin-top:8px;">
+          <input id="tileIdInput" type="number" placeholder="ID追加" />
+          <button id="addTileBtn">追加</button>
+        </div>
+      </div>
+      <div class="row" id="enemyRow" style="display:none;">
+        <label>敵キー</label>
+        <select id="enemySelect"></select>
+        <div class="inline" style="margin-top:8px;">
+          <input id="enemyKeyInput" type="text" placeholder="enemy key追加" />
+          <button id="addEnemyBtn">追加</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>判定レイヤー</label>
+        <div class="layers">
+          <button data-layer="body" class="active">体</button>
+          <button data-layer="damage">ダメージ</button>
+          <button data-layer="block">ブロック</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>ツール</label>
+        <div class="tools">
+          <button data-tool="draw" class="active">描く</button>
+          <button data-tool="erase">消す</button>
+          <button id="fillBtn">全塗り</button>
+          <button id="clearBtn">全消し</button>
+          <button id="clearAllBtn">全判定消去</button>
+        </div>
+      </div>
+      <div class="row inline">
+        <button id="saveBtn">collision-data.js 保存</button>
+        <button id="resetBtn">読み直し</button>
+      </div>
+      <div class="row">
+        <label id="itemListLabel">アイテム一覧 (読み込み中...)</label>
+        <input id="itemSearchInput" type="text" placeholder="ID/名前/type で検索" />
+      </div>
+      <div class="row">
+        <div id="itemList" class="item-list"></div>
+      </div>
+      <div class="hint">16x16グリッド。左ドラッグで編集。<br>判定色: ダメージ=赤 / 体・ブロック=青。<br>タイル編集時は体とブロックを連動編集します。<br>Cmd+S (Windows: Ctrl+S) で保存できます。</div>
+    </aside>
+    <main class="main">
+      <div class="toolbar" id="viewInfo">読み込み中...</div>
+      <div class="canvas-wrap"><canvas id="gridCanvas" width="512" height="512"></canvas></div>
+      <div class="status" id="status">準備中...</div>
+    </main>
+  </div>
+
+  <script>
+  (function(){
+    const COLLISION_FILE = 'collision-data.js';
+    const HANDLE_DB_NAME = 'raft_editor_handles';
+    const HANDLE_DB_STORE = 'handles';
+    const COLLISION_HANDLE_KEY = 'collision_data_js_handle_v1';
+    const RES = 16;
+    const DEFAULT_ENEMIES = [
+      'feel_slime','paralysis_slime','poison_slime','giant_slime','sandbag_slime',
+      'snake','great_serpent','great_snake','net','ante','custom'
+    ];
+
+    const tileSelect = document.getElementById('tileSelect');
+    const enemySelect = document.getElementById('enemySelect');
+    const tilePreviewImg = document.getElementById('tilePreviewImg');
+    const tilePreviewName = document.getElementById('tilePreviewName');
+    const tileSearchInput = document.getElementById('tileSearchInput');
+    const tilePickerList = document.getElementById('tilePickerList');
+    const tileIdInput = document.getElementById('tileIdInput');
+    const enemyKeyInput = document.getElementById('enemyKeyInput');
+    const addTileBtn = document.getElementById('addTileBtn');
+    const addEnemyBtn = document.getElementById('addEnemyBtn');
+    const modeTileBtn = document.getElementById('modeTileBtn');
+    const modeEnemyBtn = document.getElementById('modeEnemyBtn');
+    const tileRow = document.getElementById('tileRow');
+    const enemyRow = document.getElementById('enemyRow');
+    const statusEl = document.getElementById('status');
+    const viewInfoEl = document.getElementById('viewInfo');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const fillBtn = document.getElementById('fillBtn');
+    const itemListLabelEl = document.getElementById('itemListLabel');
+    const itemSearchInput = document.getElementById('itemSearchInput');
+    const itemListEl = document.getElementById('itemList');
+    const layerBtns = Array.from(document.querySelectorAll('.layers button[data-layer]'));
+    const toolBtns = Array.from(document.querySelectorAll('.tools button[data-tool]'));
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const state = {
+      mode: 'tile',
+      layer: 'body',
+      tool: 'draw',
+      selectedTileId: 1,
+      selectedEnemy: 'feel_slime',
+      tileIds: [],
+      enemyKeys: DEFAULT_ENEMIES.slice(),
+      tileProfiles: {},
+      enemyProfiles: {},
+      legacyTileProfiles: {},
+      tileOverrideKeys: new Set(),
+      enemyOverrideKeys: new Set(),
+      mouseDown: false,
+      itemEntries: [],
+      itemImageCache: new Map(),
+      tileImageCache: new Map(),
+      tileMetaById: new Map()
+    };
+
+    function setStatus(text){ statusEl.textContent = String(text || ''); }
+    function emptyMaskRows(){ return new Array(RES).fill(0); }
+    function hasBits(rows){ return Array.isArray(rows) && rows.some((n) => (Number(n)|0) !== 0); }
+    function cloneRows(rows){ return Array.isArray(rows) ? rows.map((n) => Number(n)|0) : emptyMaskRows(); }
+    function ensureProfile(mapObj, key){
+      const safeKey = String(key);
+      if (!mapObj[safeKey]) mapObj[safeKey] = { body: emptyMaskRows(), damage: emptyMaskRows(), block: emptyMaskRows() };
+      const p = mapObj[safeKey];
+      p.body = cloneRows(p.body); p.damage = cloneRows(p.damage); p.block = cloneRows(p.block);
+      return p;
+    }
+    function cloneProfile(profile){
+      const src = profile && typeof profile === 'object' ? profile : {};
+      return {
+        body: cloneRows(src.body),
+        damage: cloneRows(src.damage),
+        block: cloneRows(src.block)
+      };
+    }
+    function setMaskBit(rows, x, y){
+      if (!Array.isArray(rows)) return;
+      if (x < 0 || x >= RES || y < 0 || y >= RES) return;
+      rows[y] |= (1 << (15 - x));
+    }
+    function buildLegacySlopeMask(slope){
+      const rows = emptyMaskRows();
+      for (let y = 0; y < RES; y++) {
+        for (let x = 0; x < RES; x++) {
+          const solid = slope === 'right' ? (y > x) : (y > (RES - 1 - x));
+          if (solid) setMaskBit(rows, x, y);
+        }
+      }
+      return rows;
+    }
+    function buildLegacySpikeDamageMask(tileId){
+      const rows = emptyMaskRows();
+      const isLimestoneSpike = tileId === 79 || tileId === 80;
+      if (!isLimestoneSpike) {
+        for (let y = 0; y < RES; y++) rows[y] = 0xffff;
+        return rows;
+      }
+      const centerX = 0.5;
+      const edgeMargin = 0.3;
+      const halfSpan = Math.max(0.001, centerX - edgeMargin);
+      const tipY = 0.12;
+      const sideY = 0.55;
+      for (let gy = 0; gy < RES; gy++) {
+        for (let gx = 0; gx < RES; gx++) {
+          const localX = (gx + 0.5) / RES;
+          const localY = (gy + 0.5) / RES;
+          const dist = Math.min(1, Math.abs(localX - centerX) / halfSpan);
+          const boundary = tipY + (sideY - tipY) * dist;
+          if (localY <= boundary) setMaskBit(rows, gx, gy);
+        }
+      }
+      return rows;
+    }
+    function buildLegacyProfileForTile(tileId){
+      const def = state.legacyTileProfiles[String(tileId)] || {};
+      const slope = (def.slope === 'left' || def.slope === 'right') ? def.slope : null;
+      const passPlayer = def.passPlayer === true;
+      const solidForPlayer = def.solidForPlayer === true;
+      const solid = solidForPlayer || (!passPlayer && def.solid === true);
+      const deadly = def.deadly === true;
+      const body = solid
+        ? (slope ? buildLegacySlopeMask(slope) : new Array(RES).fill(0xffff))
+        : emptyMaskRows();
+      const block = cloneRows(body);
+      const damage = deadly ? buildLegacySpikeDamageMask(Number(tileId)) : emptyMaskRows();
+      return { body, damage, block };
+    }
+    function activeProfile(){
+      if (state.mode === 'tile') return ensureProfile(state.tileProfiles, state.selectedTileId);
+      return ensureProfile(state.enemyProfiles, state.selectedEnemy);
+    }
+    function activeProfileKey(){
+      return state.mode === 'tile'
+        ? String(Number(state.selectedTileId))
+        : String(state.selectedEnemy || '').trim().toLowerCase();
+    }
+    function markActiveProfileDirty(){
+      const key = activeProfileKey();
+      if (!key) return;
+      if (state.mode === 'tile') state.tileOverrideKeys.add(key);
+      else state.enemyOverrideKeys.add(key);
+    }
+    function activeRows(){ return activeProfile()[state.layer]; }
+    function isLinkedTileCollisionLayer(layer){
+      if (state.mode !== 'tile') return false;
+      return layer === 'body' || layer === 'block';
+    }
+    function applyCellToActiveProfile(gx, gy, on){
+      const profile = activeProfile();
+      const targetLayers = isLinkedTileCollisionLayer(state.layer)
+        ? ['body', 'block']
+        : [state.layer];
+      targetLayers.forEach((layer) => setCell(profile[layer], gx, gy, on));
+    }
+    function fillActiveLayerRows(bits){
+      const profile = activeProfile();
+      const targetLayers = isLinkedTileCollisionLayer(state.layer)
+        ? ['body', 'block']
+        : [state.layer];
+      targetLayers.forEach((layer) => {
+        const rows = profile[layer];
+        for (let y = 0; y < RES; y++) rows[y] = bits;
+      });
+    }
+
+    function ensureTilePreviewImage(src){
+      const key = String(src || '').trim();
+      if (!key) return null;
+      if (state.tileImageCache.has(key)) return state.tileImageCache.get(key);
+      const img = new Image();
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.src = key;
+      state.tileImageCache.set(key, img);
+      return img;
+    }
+
+    function getSelectedTileImage(){
+      if (state.mode !== 'tile') return null;
+      const meta = state.tileMetaById.get(Number(state.selectedTileId));
+      if (!meta || !meta.src) return null;
+      return ensureTilePreviewImage(meta.src);
+    }
+
+    function updateSelectedTilePreview() {
+      const id = Number(state.selectedTileId);
+      const meta = state.tileMetaById.get(id);
+      const img = getSelectedTileImage();
+      tilePreviewImg.src = (img && img.src) ? img.src : '';
+      tilePreviewImg.style.visibility = tilePreviewImg.src ? 'visible' : 'hidden';
+      const label = meta?.name ? meta.name : '-';
+      tilePreviewName.textContent = `ID ${id} + ${label}`;
+    }
+
+    function rowsToStrings(rows){
+      return rows.map((n) => {
+        const bits = Math.max(0, Math.min(0xffff, Number(n)|0));
+        return bits.toString(2).padStart(16, '0');
+      });
+    }
+    function stringsToRows(strings){
+      const out = emptyMaskRows();
+      const src = Array.isArray(strings) ? strings : [];
+      for (let y = 0; y < RES; y++) {
+        const row = String(src[y] || '').replace(/[^01]/g, '').slice(0, 16).padEnd(16, '0');
+        let bits = 0;
+        for (let x = 0; x < RES; x++) if (row[x] === '1') bits |= (1 << (15 - x));
+        out[y] = bits;
+      }
+      return out;
+    }
+
+    function setCell(rows, gx, gy, on){
+      if (gx < 0 || gx >= RES || gy < 0 || gy >= RES) return;
+      const bit = 1 << (15 - gx);
+      if (on) rows[gy] |= bit;
+      else rows[gy] &= ~bit;
+    }
+    function getCell(rows, gx, gy){
+      if (gx < 0 || gx >= RES || gy < 0 || gy >= RES) return 0;
+      return ((Number(rows[gy])|0) & (1 << (15 - gx))) ? 1 : 0;
+    }
+
+    function repaint(){
+      const rows = activeRows();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cs = canvas.width / RES;
+      const selectedTileImage = getSelectedTileImage();
+
+      if (selectedTileImage) {
+        ctx.save();
+        if (selectedTileImage.complete && selectedTileImage.naturalWidth > 0) {
+          ctx.globalAlpha = 0.95;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(selectedTileImage, 0, 0, canvas.width, canvas.height);
+        } else {
+          selectedTileImage.onload = () => repaint();
+          selectedTileImage.onerror = () => repaint();
+        }
+        ctx.restore();
+      }
+
+      const profile = activeProfile();
+      const paintLayer = (name, fill) => {
+        const r = profile[name];
+        for (let y = 0; y < RES; y++) {
+          for (let x = 0; x < RES; x++) {
+            if (!getCell(r, x, y)) continue;
+            ctx.fillStyle = fill;
+            ctx.fillRect(x * cs, y * cs, cs, cs);
+          }
+        }
+      };
+      paintLayer('block', 'rgba(100, 180, 255, 0.28)');
+      paintLayer('damage', 'rgba(255, 96, 96, 0.24)');
+      paintLayer('body', 'rgba(100, 180, 255, 0.22)');
+
+      for (let i = 0; i <= RES; i++) {
+        const p = i * cs;
+        ctx.strokeStyle = (i % 4 === 0) ? 'rgba(170,200,255,0.45)' : 'rgba(170,200,255,0.2)';
+        ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(canvas.width, p); ctx.stroke();
+      }
+
+      const layerColor = state.layer === 'damage'
+        ? 'rgba(255,96,96,0.95)'
+        : 'rgba(100,180,255,0.95)';
+      ctx.strokeStyle = layerColor;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3);
+      ctx.lineWidth = 1;
+
+      const tileMeta = state.tileMetaById.get(Number(state.selectedTileId));
+      const key = state.mode === 'tile'
+        ? `tile:${state.selectedTileId}${tileMeta?.name ? `(${tileMeta.name})` : ''}`
+        : `enemy:${state.selectedEnemy}`;
+      viewInfoEl.textContent = `${key} / layer:${state.layer} / tool:${state.tool}`;
+    }
+
+    function cellFromEvent(evt){
+      const r = canvas.getBoundingClientRect();
+      const x = (evt.clientX - r.left) * (canvas.width / r.width);
+      const y = (evt.clientY - r.top) * (canvas.height / r.height);
+      const gx = Math.max(0, Math.min(RES - 1, Math.floor((x / canvas.width) * RES)));
+      const gy = Math.max(0, Math.min(RES - 1, Math.floor((y / canvas.height) * RES)));
+      return { gx, gy };
+    }
+
+    function paintAt(evt){
+      const { gx, gy } = cellFromEvent(evt);
+      const on = state.tool === 'draw';
+      applyCellToActiveProfile(gx, gy, on);
+      markActiveProfileDirty();
+      repaint();
+    }
+
+    function setMode(mode){
+      state.mode = (mode === 'enemy') ? 'enemy' : 'tile';
+      modeTileBtn.classList.toggle('active', state.mode === 'tile');
+      modeEnemyBtn.classList.toggle('active', state.mode === 'enemy');
+      tileRow.style.display = state.mode === 'tile' ? '' : 'none';
+      enemyRow.style.display = state.mode === 'enemy' ? '' : 'none';
+      repaint();
+    }
+
+    function rebuildTileSelect(){
+      tileSelect.innerHTML = '';
+      state.tileIds.sort((a,b) => a - b).forEach((id) => {
+        const opt = document.createElement('option');
+        opt.value = String(id);
+        const meta = state.tileMetaById.get(Number(id));
+        const label = meta?.name ? `${meta.name}` : `ID ${id}`;
+        opt.textContent = `ID ${id} / ${label}`;
+        tileSelect.appendChild(opt);
+      });
+      if (!state.tileIds.includes(state.selectedTileId) && state.tileIds.length) state.selectedTileId = state.tileIds[0];
+      tileSelect.value = String(state.selectedTileId);
+      updateSelectedTilePreview();
+      renderTilePickerList();
+    }
+
+    function renderTilePickerList(){
+      const query = String(tileSearchInput?.value || '').trim().toLowerCase();
+      tilePickerList.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      state.tileIds
+        .slice()
+        .sort((a,b) => a - b)
+        .forEach((id) => {
+          const meta = state.tileMetaById.get(Number(id));
+          const name = String(meta?.name || '');
+          if (query) {
+            const hit = String(id).includes(query) || name.toLowerCase().includes(query);
+            if (!hit) return;
+          }
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'tile-pick-btn' + (Number(id) === Number(state.selectedTileId) ? ' active' : '');
+          btn.title = `ID ${id}${name ? ` / ${name}` : ''}`;
+          const img = document.createElement('img');
+          const imageRef = ensureTilePreviewImage(meta?.src || '');
+          img.src = imageRef?.src || '';
+          img.alt = String(id);
+          img.onerror = () => { img.onerror = null; img.src = ''; };
+          const label = document.createElement('div');
+          label.className = 'tile-pick-label';
+          label.textContent = `ID ${id}`;
+          btn.appendChild(img);
+          btn.appendChild(label);
+          btn.addEventListener('click', () => {
+            state.selectedTileId = Number(id);
+            tileSelect.value = String(state.selectedTileId);
+            updateSelectedTilePreview();
+            renderTilePickerList();
+            repaint();
+          });
+          frag.appendChild(btn);
+        });
+      tilePickerList.appendChild(frag);
+    }
+
+    function rebuildEnemySelect(){
+      enemySelect.innerHTML = '';
+      state.enemyKeys = Array.from(new Set(state.enemyKeys.map((k) => String(k).trim().toLowerCase()).filter(Boolean))).sort();
+      state.enemyKeys.forEach((key) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = key;
+        enemySelect.appendChild(opt);
+      });
+      if (!state.enemyKeys.includes(state.selectedEnemy) && state.enemyKeys.length) state.selectedEnemy = state.enemyKeys[0];
+      enemySelect.value = state.selectedEnemy;
+    }
+
+    function ensureItemPreviewImage(src){
+      const key = String(src || '').trim();
+      if (!key) return '';
+      if (state.itemImageCache.has(key)) return key;
+      const img = new Image();
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      img.src = key;
+      state.itemImageCache.set(key, img);
+      return key;
+    }
+
+    function normalizeItemDefinitions(raw){
+      if (!raw || typeof raw !== 'object') return [];
+      const entries = [];
+      Object.entries(raw).forEach(([key, def]) => {
+        const id = Number(key);
+        if (!Number.isFinite(id) || !def || typeof def !== 'object') return;
+        const name = String(def.name || `ID ${id}`);
+        const type = String(def.type || '');
+        const img = ensureItemPreviewImage(def.img || '');
+        entries.push({ id, name, type, img });
+      });
+      entries.sort((a, b) => a.id - b.id);
+      return entries;
+    }
+
+    function renderItemList(){
+      const query = String(itemSearchInput.value || '').trim().toLowerCase();
+      itemListEl.innerHTML = '';
+      const list = query
+        ? state.itemEntries.filter((entry) => {
+          return String(entry.id).includes(query)
+            || entry.name.toLowerCase().includes(query)
+            || entry.type.toLowerCase().includes(query);
+        })
+        : state.itemEntries;
+      itemListLabelEl.textContent = `アイテム一覧 (${list.length}/${state.itemEntries.length})`;
+      const frag = document.createDocumentFragment();
+      list.forEach((entry) => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        const img = document.createElement('img');
+        img.className = 'item-thumb';
+        img.alt = `${entry.id}`;
+        img.src = entry.img || '';
+        img.onerror = () => { img.onerror = null; img.src = ''; };
+        const meta = document.createElement('div');
+        meta.className = 'item-meta';
+        const name = document.createElement('div');
+        name.textContent = `${entry.name}`;
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        sub.textContent = `ID ${entry.id} / ${entry.type || '-'}`;
+        meta.appendChild(name);
+        meta.appendChild(sub);
+        row.appendChild(img);
+        row.appendChild(meta);
+        frag.appendChild(row);
+      });
+      itemListEl.appendChild(frag);
+    }
+
+    function extractTileIdsFromTerrain(data){
+      const out = new Set();
+      const walk = (node) => {
+        if (Array.isArray(node)) {
+          for (const v of node) walk(v);
+          return;
+        }
+        if (node && typeof node === 'object') {
+          if (Array.isArray(node.entries)) {
+            for (const e of node.entries) {
+              const id = Number(e?.tileId ?? e?.id ?? e?.value);
+              if (Number.isFinite(id) && id > 0) out.add(id);
+            }
+          }
+          for (const v of Object.values(node)) walk(v);
+          return;
+        }
+        const n = Number(node);
+        if (Number.isFinite(n) && n > 0 && Math.floor(n) === n) out.add(n);
+      };
+      walk(data?.map || data?.level || data?.layers?.level || data);
+      return out;
+    }
+
+    function loadScript(src){
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(s);
+      });
+    }
+
+    function normalizeTileDefinitions(raw){
+      const out = new Map();
+      const list = Array.isArray(raw?.tiles) ? raw.tiles : [];
+      list.forEach((entry) => {
+        const id = Number(entry?.id);
+        if (!Number.isFinite(id) || id <= 0) return;
+        const name = String(entry?.name || '').trim();
+        const assetName = String(entry?.assetName || '').trim();
+        let src = '';
+        if (entry?.fallbackPath === '__DARKNESS_BLOCK_PIXEL__') {
+          src = String(raw?.darknessBlockPixel || '').trim();
+        } else if (entry?.fallbackPath) {
+          src = String(entry.fallbackPath).trim();
+        } else if (assetName) {
+          src = `assets/${assetName}`;
+        }
+        out.set(id, {
+          id,
+          name: name || '',
+          assetName,
+          src
+        });
+      });
+      return out;
+    }
+
+    function normalizeLoadedCollision(raw){
+      const tiles = {};
+      const enemies = {};
+      const tileKeys = new Set();
+      const enemyKeys = new Set();
+      const sourceTiles = raw && raw.tiles && typeof raw.tiles === 'object' ? raw.tiles : {};
+      const sourceEnemies = raw && raw.enemies && typeof raw.enemies === 'object' ? raw.enemies : {};
+      Object.entries(sourceTiles).forEach(([k, v]) => {
+        const id = Number(k);
+        if (!Number.isFinite(id)) return;
+        const p = {
+          body: stringsToRows(v?.body),
+          damage: stringsToRows(v?.damage),
+          block: stringsToRows(v?.block)
+        };
+        const key = String(id);
+        tiles[key] = p;
+        tileKeys.add(key);
+      });
+      Object.entries(sourceEnemies).forEach(([k, v]) => {
+        const key = String(k || '').trim().toLowerCase();
+        if (!key) return;
+        enemies[key] = {
+          body: stringsToRows(v?.body),
+          damage: stringsToRows(v?.damage),
+          block: stringsToRows(v?.block)
+        };
+        enemyKeys.add(key);
+      });
+      return { tiles, enemies, tileKeys, enemyKeys };
+    }
+
+    function composeInitialTileProfiles(tileIds, loadedTiles){
+      const out = {};
+      const loaded = loadedTiles && typeof loadedTiles === 'object' ? loadedTiles : {};
+      const seen = new Set();
+      (Array.isArray(tileIds) ? tileIds : []).forEach((id) => {
+        const tileId = Number(id);
+        if (!Number.isFinite(tileId) || tileId <= 0) return;
+        const key = String(tileId);
+        const loadedProfile = loaded[key];
+        out[key] = loadedProfile ? cloneProfile(loadedProfile) : buildLegacyProfileForTile(tileId);
+        seen.add(key);
+      });
+      Object.keys(loaded).forEach((key) => {
+        if (seen.has(key)) return;
+        const tileId = Number(key);
+        if (!Number.isFinite(tileId) || tileId <= 0) return;
+        out[String(tileId)] = cloneProfile(loaded[key]);
+      });
+      return out;
+    }
+
+    function toExportPayload(){
+      const tiles = {};
+      state.tileOverrideKeys.forEach((key) => {
+        const p = state.tileProfiles[key];
+        if (!p) return;
+        tiles[String(Number(key))] = {
+          body: rowsToStrings(p.body),
+          damage: rowsToStrings(p.damage),
+          block: rowsToStrings(p.block)
+        };
+      });
+      const enemies = {};
+      state.enemyOverrideKeys.forEach((key) => {
+        const p = state.enemyProfiles[key];
+        if (!p) return;
+        enemies[String(key)] = {
+          body: rowsToStrings(p.body),
+          damage: rowsToStrings(p.damage),
+          block: rowsToStrings(p.block)
+        };
+      });
+      return { version: 1, resolution: 16, tiles, enemies };
+    }
+
+    function buildExportJs(){
+      const payload = toExportPayload();
+      return `window.RAFT_COLLISION_DATA = ${JSON.stringify(payload, null, 2)};\n`;
+    }
+
+    function openHandleDb(){
+      if (!window.indexedDB) return Promise.reject(new Error('indexedDB unavailable'));
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(HANDLE_DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(HANDLE_DB_STORE)) db.createObjectStore(HANDLE_DB_STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('failed to open db'));
+      });
+    }
+
+    async function readHandleFromDb(key){
+      const db = await openHandleDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(HANDLE_DB_STORE, 'readonly');
+        const store = tx.objectStore(HANDLE_DB_STORE);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error || new Error('failed to read handle'));
+      });
+    }
+
+    async function writeHandleToDb(key, value){
+      const db = await openHandleDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(HANDLE_DB_STORE, 'readwrite');
+        const store = tx.objectStore(HANDLE_DB_STORE);
+        const req = store.put(value, key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error || new Error('failed to write handle'));
+      });
+    }
+
+    async function performSave(forcePicker){
+      const content = buildExportJs();
+      try {
+        let handle = null;
+        if (typeof window.showSaveFilePicker === 'function') {
+          if (!forcePicker) {
+            try { handle = await readHandleFromDb(COLLISION_HANDLE_KEY); } catch (_) {}
+          }
+          const needsPicker = !handle || typeof handle.createWritable !== 'function';
+          if (needsPicker) {
+            handle = await window.showSaveFilePicker({
+              suggestedName: COLLISION_FILE,
+              types: [{ description: 'JavaScript', accept: { 'application/javascript': ['.js'] } }]
+            });
+          }
+          const writable = await handle.createWritable();
+          await writable.write(new Blob([content], { type: 'application/javascript' }));
+          await writable.close();
+          if (!forcePicker) {
+            try { await writeHandleToDb(COLLISION_HANDLE_KEY, handle); } catch (_) {}
+          }
+          setStatus(`${COLLISION_FILE} を保存しました`);
+          return;
+        }
+        const blob = new Blob([content], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = COLLISION_FILE;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus(`${COLLISION_FILE} を出力しました`);
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          setStatus('保存をキャンセルしました');
+          return;
+        }
+        console.error(err);
+        setStatus('保存に失敗しました');
+      }
+    }
+
+    function bind(){
+      modeTileBtn.addEventListener('click', () => setMode('tile'));
+      modeEnemyBtn.addEventListener('click', () => setMode('enemy'));
+
+      tileSelect.addEventListener('change', () => {
+        state.selectedTileId = Number(tileSelect.value) || state.selectedTileId;
+        updateSelectedTilePreview();
+        renderTilePickerList();
+        repaint();
+      });
+      enemySelect.addEventListener('change', () => {
+        state.selectedEnemy = String(enemySelect.value || '').toLowerCase();
+        repaint();
+      });
+
+      addTileBtn.addEventListener('click', () => {
+        const id = Number(tileIdInput.value);
+        if (!Number.isFinite(id) || id <= 0) return;
+        if (!state.tileIds.includes(id)) state.tileIds.push(id);
+        state.selectedTileId = id;
+        rebuildTileSelect();
+        updateSelectedTilePreview();
+        renderTilePickerList();
+        repaint();
+        tileIdInput.value = '';
+      });
+      addEnemyBtn.addEventListener('click', () => {
+        const key = String(enemyKeyInput.value || '').trim().toLowerCase();
+        if (!key) return;
+        if (!state.enemyKeys.includes(key)) state.enemyKeys.push(key);
+        state.selectedEnemy = key;
+        rebuildEnemySelect();
+        repaint();
+        enemyKeyInput.value = '';
+      });
+
+      layerBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.layer = btn.dataset.layer;
+          layerBtns.forEach((b) => b.classList.toggle('active', b === btn));
+          repaint();
+        });
+      });
+      toolBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.tool = btn.dataset.tool;
+          toolBtns.forEach((b) => b.classList.toggle('active', b === btn));
+          repaint();
+        });
+      });
+
+      fillBtn.addEventListener('click', () => {
+        fillActiveLayerRows(0xffff);
+        markActiveProfileDirty();
+        repaint();
+      });
+      clearBtn.addEventListener('click', () => {
+        fillActiveLayerRows(0);
+        markActiveProfileDirty();
+        repaint();
+      });
+      clearAllBtn.addEventListener('click', () => {
+        const p = activeProfile();
+        for (let y = 0; y < RES; y++) {
+          p.body[y] = 0;
+          p.damage[y] = 0;
+          p.block[y] = 0;
+        }
+        markActiveProfileDirty();
+        repaint();
+      });
+
+      saveBtn.addEventListener('click', () => performSave(false));
+      resetBtn.addEventListener('click', () => location.reload());
+
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        state.mouseDown = true;
+        paintAt(e);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!state.mouseDown) return;
+        paintAt(e);
+      });
+      window.addEventListener('mouseup', () => { state.mouseDown = false; });
+      window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && String(e.key || '').toLowerCase() === 's') {
+          e.preventDefault();
+          performSave(false);
+        }
+      });
+      tileSearchInput.addEventListener('input', renderTilePickerList);
+      itemSearchInput.addEventListener('input', renderItemList);
+    }
+
+    async function bootstrap(){
+      let loadedCollisionFromJs = false;
+      try {
+        await loadScript('collision-data.js?v=' + Date.now());
+        loadedCollisionFromJs = true;
+      } catch (_) {}
+      const loaded = normalizeLoadedCollision(window.RAFT_COLLISION_DATA || {});
+      state.tileProfiles = loaded.tiles;
+      state.enemyProfiles = loaded.enemies;
+      state.tileOverrideKeys = loaded.tileKeys || new Set();
+      state.enemyOverrideKeys = loaded.enemyKeys || new Set();
+      Object.keys(state.enemyProfiles).forEach((k) => { if (!state.enemyKeys.includes(k)) state.enemyKeys.push(k); });
+
+      try {
+        await loadScript('legacy-collision-defaults.js?v=' + Date.now());
+      } catch (_) {}
+      state.legacyTileProfiles = (window.RAFT_LEGACY_COLLISION_DEFAULTS && window.RAFT_LEGACY_COLLISION_DEFAULTS.tiles && typeof window.RAFT_LEGACY_COLLISION_DEFAULTS.tiles === 'object')
+        ? window.RAFT_LEGACY_COLLISION_DEFAULTS.tiles
+        : {};
+
+      try {
+        await loadScript('tile-definitions.js?v=' + Date.now());
+      } catch (_) {}
+      state.tileMetaById = normalizeTileDefinitions(window.RAFT_TILE_DEFINITIONS || {});
+      state.tileMetaById.forEach((meta) => {
+        if (meta?.src) ensureTilePreviewImage(meta.src);
+      });
+
+      const tileSet = new Set(Object.keys(loaded.tiles).map((k) => Number(k)).filter((n) => Number.isFinite(n) && n > 0));
+      state.tileMetaById.forEach((_, id) => tileSet.add(id));
+      try {
+        await loadScript('terrain-data.js?v=' + Date.now());
+      } catch (_) {}
+      try {
+        const terrain = window.RAFT_TERRAIN_DATA || window.FALLBACK_TERRAIN_DATA || null;
+        extractTileIdsFromTerrain(terrain).forEach((id) => tileSet.add(id));
+      } catch (_) {}
+      if (tileSet.size === 0) [1,2,3,34,44,45,79,80].forEach((id) => tileSet.add(id));
+      state.tileIds = Array.from(tileSet).sort((a,b) => a-b);
+      state.tileProfiles = composeInitialTileProfiles(state.tileIds, loaded.tiles);
+      state.selectedTileId = state.tileIds[0] || 1;
+
+      try {
+        await loadScript('item-definitions.js?v=' + Date.now());
+      } catch (_) {}
+      state.itemEntries = normalizeItemDefinitions(window.itemDefinitions || {});
+      renderItemList();
+
+      rebuildTileSelect();
+      rebuildEnemySelect();
+      bind();
+      setMode('tile');
+      updateSelectedTilePreview();
+      repaint();
+      const loadedTileCount = Object.keys(state.tileProfiles).length;
+      const loadedEnemyCount = Object.keys(state.enemyProfiles).length;
+      const sourceLabel = loadedCollisionFromJs ? 'collision-data.js 読込済み' : 'collision-data.js 未検出(新規)';
+      const legacyCount = Object.keys(state.legacyTileProfiles || {}).length;
+      setStatus(`準備完了 / ${sourceLabel} / legacy:${legacyCount} / tile:${loadedTileCount} enemy:${loadedEnemyCount}`);
+    }
+
+    bootstrap().catch((err) => {
+      console.error(err);
+      setStatus('初期化に失敗しました');
+    });
+  })();
+  </script>
+</body>
+</html>

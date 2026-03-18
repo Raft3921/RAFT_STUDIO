@@ -1,0 +1,1820 @@
+Original prompt: 敵を倒すと、スポーンしないまたは、裏世界などに落ちることがあるので、リセットにより位置リセットでしか戻せない。リスポーンをアップグレードして
+
+- 2026-03-18: 外部サイト側から遊べるようにするため、`public/raft-world` へ同期配信する構成を追加予定。
+- 2026-03-18: 操作確認用に `自分` タブから `ラフトの世界` を iframe 起動し、スマホ向け仮想キーを接続予定。
+- 2026-03-18: `scripts/sync-raft-world.mjs` を追加し、`.git/.codex/node_modules/output` 等を除外して `public/raft-world` へ同期するように変更。
+- 2026-03-18: メインサイトの `自分` タブに `ラフトの世界` のプレイ導線を追加。iframe 埋め込みで起動し、スマホ向け仮想十字キーとアクションボタンを実装。
+- 2026-03-18: Playwright クライアントで `http://127.0.0.1:4173/raft-world/index.html` を確認。スクリーンショット `output/web-game-me-embed/shot-0.png` で描画OK。コンソールは既存404 1件のみ。
+
+- 2026-02-11: 調査で `updateMonsters` に大蛇の画面外 `continue` があり、画面外時に死亡進行/再スポーン予約が止まる経路を確認。
+- 2026-02-11: `updateMonsters` を改善。
+  - 画面外更新の対象を統一（大蛇も画面外で最小頻度更新を継続）。
+  - 敵座標が NaN/無限またはワールド外へ逸脱した場合の監視を追加。
+  - 逸脱時は自動で despawn + respawn 予約する回収処理を追加。
+  - 通常の `alive=false` 経路も共通の despawn 関数へ集約。
+- TODO: 実プレイで「倒した直後に敵が裏世界へ落下したケース」を再現し、5分程度放置しても自動復帰するか確認する。
+- 2026-02-11: Playwright検証を試行したが、`playwright` パッケージ未導入のため `ERR_MODULE_NOT_FOUND` で実行不可（`web_game_playwright_client.js` が `playwright` をimport）。
+- 2026-02-11: 「Readyで停止」対策として `beginGameFromSlot` をフェイルセーフ化。
+  - 開始処理を `safeFinalizeStart` で一元化し、例外時もオーバーレイを閉じるようにした。
+  - 例外時はリセット復旧してゲーム開始に戻すフォールバックを追加。
+  - Ready表示後 1.8秒で進まない場合のタイムアウト復帰を追加。
+- 2026-02-11: リスポーン判定を「東京時刻基準 + 近接スポーン」へ変更。
+  - spawnに `deathAtTokyo` / `respawnAtTokyo` を追加。
+  - `scheduleMonsterRespawnUnified` で死亡時刻(JST)と再出現許可時刻(JST)を記録。
+  - `isSpawnRespawnDue` を追加し、`respawnAtTokyo`→`respawnAtReal`→`respawnAt` の順で判定。
+  - `updateMonsters` の画面外分岐でタイマー再延長を廃止（時間は進め、近づいたら出現）。
+  - `ensureMonstersReady` / たぬつなオートの再生成判定も同ロジックに統一。
+- 2026-02-11: スポーン地点連動の背景差し替え機能を追加（森林系ゾーン限定・局所適用）。
+  - `SPAWN_BACKGROUND_IMAGE_OVERRIDES` に `row:col -> image` を書くと、そのセーブポイント周辺で背景画像を差し替え。
+  - セーブポイント到達時/ロード時に自動反映、初期化時は解除。
+- 2026-02-11: 背景を初期スポーンYで上下分岐。
+  - 森林系背景(`forest1`)は、表示中心Yが初期スポーンYより下なら `assets/background/forest/forest2.png` を使用。
+  - `forest1` 参照を `assets/background/forest/forest1.png` に更新。
+- 2026-02-11: 背景を全体切替ではなく上下分割の隣接表示へ修正。
+  - `drawBackgroundTextureLayer` で forest1レイヤー時に、初期スポーンYを境界に上forest1/下forest2を同時描画。
+  - 以前の `getBackgroundTextureForId` 側の全体切替ロジックは撤去。
+- 2026-02-11: 要望に合わせて背景分割を撤回し、forest1全面 + forest2透過オーバーレイへ変更。
+  - 同位相スクロールで重ね描画するため、上下移動時も2枚が一体で動く。
+- 2026-02-11: 背景システムを再設計。
+  - 画面マスク依存を廃止し、ワールド座標固定の背景バンド描画(`drawWorldBand`)へ変更。
+  - forest1(base) + forest2(中層) + forest3(深層)を初期スポーンY基準の世界Yで重ねる。
+  - 各層のパララックス係数を分離（遠景ほど動きにくい）。
+  - `BACKGROUND_REGION_OVERRIDES`（関数プロパティ）で局所的な背景差し替えを追加可能にした。
+- 2026-02-11: 背景を `forest.png(192x1000)` の横並びストリップ方式に統一（forest系は縦リピートせず横のみ繰り返し）。
+  - `getBackgroundTextureForDefinition` で定義側 `scale` を優先反映するよう修正（以前はキャッシュ側scaleのみで無効化されていた）。
+  - `forest` 背景のscaleを調整可能化（現状 `scale: 7`）。
+- 2026-02-11: バイオーム境界の中間画像対応（第一弾: 森→山岳）。
+  - 山岳バイオーム(2)の背景を `assets/background/mountains/mountains.png` に変更（forestと同じストリップ描画方式）。
+  - 遷移時に境界Xを保持し、`1->2` / `2->1` は境界帯だけ `assets/background/forest/forest2.png` を描画、左右を旧/新バイオームで分割描画するロジックを追加。
+- TODO: `assets/background/forest/forest2.png` が現ワークスペースに未配置のため、画像追加後に実機表示確認（境界帯の見た目・幅）。
+- 2026-02-11: バイオーム背景を「全面切替」から「列境界での分割描画」に変更。
+  - 背景ID判定をマーカー列ではなく「次列開始X（marker.x + TILE_SIZE*0.5）」から切替。
+  - `drawBackground` は可視範囲を背景境界で分割して描画し、境界ペア(1<->2)では中間帯(`forest2.png`)を常時挿入する方式へ。
+- 2026-02-11: ユーザー要望に合わせ、背景切替を帯描画から「列タイル描画」へ変更。
+  - 可視範囲の各列(TILE_SIZE幅)ごとに背景を選択して描画。
+  - 境界は `middleCol = markerCol + 1` で中間画像列を挿入し、その次列以降を新バイオームに切替。
+- 2026-02-11: 背景データ外部化を実装。
+  - `background-data.js` を追加し、`baseBiomeId / biomes / transitions / columnBiomes` を定義。
+  - `index.html` 起動時に `background-data.js` を読み込んで背景設定へ反映するよう変更。
+  - 背景境界再構築で `columnBiomes`（列ごとのバイオーム）を優先使用するよう拡張。
+- 2026-02-11: 背景編集専用エディタ `index copy2.html` を追加。
+  - 列タイル単位で背景バイオームをペイント可能。
+  - 遷移中間画像ルールとバイオーム定義(JSON)を編集可能。
+  - `background-data.js` として書き出し/読み込み対応。
+- 2026-02-11: `index copy.html` でも `background-data.js` を読み込み（同期参照）するよう変更。
+- 2026-02-11: `index copy2.html` に terrain-data.js プレビューを追加。
+  - `map` から列ごとの地形上端を抽出し、下段に地形シルエットを描画。
+  - `debug` レイヤーの背景切替マーカー(20000系)を縦ライン表示し、どの列で切替えるか目安が分かるようにした。
+- 2026-02-11: 要望に合わせて「中間を新バイオームとして保存」を追加。
+  - `background-data.js` に `saveMiddleAsNewBiome: true` を追加。
+  - `index.html` はこのフラグON時、中間画像を描かず新バイオーム列として扱う。
+  - `index copy2.html` の書き出しにも同フラグを含め、プレビュー中間列表示もOFF化。
+- 2026-02-11: `index copy2.html` を簡略化。
+  - 中間画像関連UIを削除し、操作を「バイオーム選択 + ドラッグ塗り + 範囲塗り」に集約。
+  - 範囲開始列/終了列 + 一括塗り/ベース戻しボタンを追加。
+  - 書き出しは常に `saveMiddleAsNewBiome: true` / `transitions: {}` でシンプル化。
+- 2026-02-11: `index copy2.html` UIを最小化。
+  - ボタンは `background-data.js 出力` のみ。
+  - それ以外はバイオームスロット選択(パレット) + キャンバス描画（左描画/右消去）に集約。
+  - 余分な設定入力/インポート/範囲塗りボタンを削除。
+- 2026-02-11: `index copy2.html` を地形カメラ編集向けに改修。
+  - `terrain-data.js` の地形を単色タイル表示（可視範囲を列/行単位で表示）。
+  - 背景指定は列単位のまま維持し、上バー・下バーの両方に現在の背景列色を表示。
+  - `WASD` でカメラ移動（左右だけでなく上下も対応）。
+  - 既存の横スライダーUIを廃止してカメラ情報表示に変更。
+- 2026-02-12: 透明バリアタイルを追加。
+  - `index.html` に tile `255` (プレイヤー専用バリア) と tile `256` (モンスター用バリア/プレイヤー通過可) を追加。
+  - tileProps に `passPlayer` / `solidForPlayer` / `solidForMonster` を追加。
+  - プレイヤー衝突判定（横/縦移動、壁判定、地面判定、しゃがみ時高さ変更判定）を `isSolidTileForPlayer` ベースへ切替。
+  - `index copy.html` のパレットに `255` / `256` を追加（編集画面では `white_block` 見た目で選択可能）。
+- 2026-02-12: 動作確認を試行。
+  - `web_game_playwright_client.js` 実行時に `playwright` 未導入で `ERR_MODULE_NOT_FOUND` のため自動テストは未実施。
+- 2026-02-12: `index copy2.html` の操作性を修正。
+  - WASD移動が止まる原因だった `Math.round` を削除し、カメラ座標は小数のまま保持・描画時に `Math.floor` 化。
+  - キー入力を `event.code` (`KeyW/A/S/D`) 優先で判定し、キーボード配列差異でも移動できるようにした。
+  - 画面収まり改善: `100dvh` ベース、`overflow:hidden`、狭幅時の1カラム化メディアクエリを追加。
+- 2026-02-12: `index copy2.html` 地形プレビュー色を改善。
+  - `tileId % palette` の仮色を廃止し、`TILE_NAME_BY_ID` + 名前キーワード推測で色分けする方式に変更。
+  - 例: water系=青、sand系=黄土、stone/rock系=灰、grass/leaf系=緑、poison系=紫。
+- 2026-02-12: `index copy2.html` のカメラ位置保持を追加。
+  - `camCol/camRow` を `localStorage` (`raft_bg_editor_copy2_camera_v1`) に保存。
+  - 起動時に復元し、再読み込み後も前回のカメラ位置から開始するようにした。
+- 2026-02-12: 起動時 `ReferenceError: Cannot access 'FALLBACK_TERRAIN_DATA' before initialization` を修正。
+  - `initGame` 冒頭に `getGlobalFallbackTerrainData()` を追加し、関数後半で初期化される `const FALLBACK_TERRAIN_DATA` の前方参照を除去。
+  - `buildLayoutsFromMapData` 内の `typeof FALLBACK_TERRAIN_DATA` / 直接参照をすべて安全な window参照経由に変更。
+- 2026-02-12: `index copy2.html` の地形読み込みをワールドスロット方式へ拡張。
+  - slot1=`terrain-data.js`(terrain-data), slot2=`terrain-data2.js`(terrain-data2), slot3=`test.js`(test) を追加。
+  - ローカル保存データ参照ではなく、スロット選択時に該当JSを読み込んで地形プレビューへ反映。
+  - 画面上部情報とステータスに現在ワールド名を表示。
+- 2026-02-12: `copy2` でカメラ小数座標時の列ペイント誤差を修正。
+  - `getColumnAtClientX` は `Math.floor(camCol)` 基準で列を算出するよう変更。
+- 2026-02-12: `index copy.html` をスロット参照方式へ変更。
+  - 起動時の地形読み込みを固定3スロットへ変更: slot1=`terrain-data.js`, slot2=`terrain-data2.js`, slot3=`test.js`。
+  - ローカルストレージ復元を無効化（`loadAutosaveFromStorage` は常に null）。
+  - ワールドデータに `sourceFile` / `sourceSlot` / `lastSavedData` を保持。
+- 2026-02-12: 保存時の3-wayマージを追加。
+  - `base(lastSavedData)` / `local(編集中)` / `remote(参照ファイル最新)` を比較。
+  - 同一座標の競合がなければ自動複合して保存、競合時は保存停止してトースト通知。
+  - 保存先は参照スロットの .js ファイル（または該当ワールドの sourceFile）。
+- 2026-02-12: `copy` のスロット読み込み修正。
+  - `RAFT_TERRAIN_WORLDS` から先頭ワールド固定で読んでいたため、空に近いワールドが表示されるケースがあった。
+  - `activeWorldId` 優先で対象ワールドを選択し、なければ data を持つ最初のワールドを使うよう変更。
+- 2026-02-12: `index copy.html` にメモ/伝言機能を追加。
+  - `memo.txt` 接続UI（接続/送信/ログ）を追加。初回は `showSaveFilePicker` で `memo.txt` 作成・保存先登録。
+  - 10秒ごとに `memo.txt` を再参照してチャットログを更新（再読み込み不要）。
+  - Enter送信 / 送るボタン送信に対応。
+  - 端末ごとにランダム deviceNo を割り当て、人物A/B/Cへ振り分け・色分け表示。
+  - メモタブはドラッグ移動・リサイズ可、位置/サイズは設定として保持。
+- 2026-02-12: `copy` の入力取りこぼしバグ修正。
+  - テキスト入力中に `WASD/Shift` を移動キー状態へ反映しないよう変更。
+  - `keydown` の重複キー反映ブロックを整理。
+  - `window.blur` / `visibilitychange` でキー状態を全クリアするフェイルセーフを追加し、Shift押しっぱなし残留でダッシュ継続・UI非表示継続になる不具合を抑止。
+- 2026-02-12: `copy` の Command/Ctrl 複合キー残留を追加修正。
+  - `event.code` ベースのキー状態更新を追加（KeyW/A/S/D, Shift, Control, Meta）。
+  - Meta/Ctrl が絡む `keydown` で移動意図キーを即クリア。
+  - Meta/Ctrl `keyup` 時も移動意図キーを再クリア。
+- 2026-02-12: メモ機能を改善。
+  - メッセージクリックで操作メニュー（編集/削除/やめる）を表示。
+  - メッセージに `id` を付与し、編集/削除対象を特定。
+  - Enter送信は即時UI反映（optimistic update）し、ファイル反映は非同期キューで遅延感を解消。
+- 2026-02-12: メモ更新をリアルタイム寄りに改善。
+  - `MEMO_POLL_INTERVAL_MS` を 10000ms -> 1000ms に短縮。
+- 2026-02-12: Enter送信の二重送信対策を追加。
+  - `sendMemoMessage(source)` に短時間重複ガード（同一本文+同一経路を350ms以内は無視）。
+  - IME変換中 (`event.isComposing`) はEnter送信しないようにした。
+- 2026-02-12: `item-definitions.js` の `resolveAssetWithFlip` 未定義クラッシュを修正。
+  - `__resolveAssetWithFlipSafe` を追加し、未定義時はフォールバックパスを返すようにした。
+- 2026-02-12: メモ権限エラー連打を抑止。
+  - `memoPermissionBlocked` を導入し、`NotAllowedError` 発生後は自動ポーリングで再試行しない。
+  - 接続ボタン経由のインタラクティブ時のみ権限再要求する挙動へ変更。
+- 2026-02-12: ローカル高速通信向けに `memo-local-server.js` を追加。
+  - Node標準HTTP + SSEで `/messages` `/stream` `/health` を提供。
+  - `memo.txt` を永続化しつつ、更新時に全クライアントへ即時配信。
+- 2026-02-12: `index copy.html` のメモを RT優先化。
+  - `http://127.0.0.1:18765` のローカルRTサーバーへ接続できる場合はそちらを優先。
+  - 未接続時は既存 `memo.txt` 方式へフォールバック。
+- 2026-02-12: エラーログ抑制と欠損アセット参照を修正。
+  - `assets-base64.js` は `DISABLE_EXTERNAL_ASSET_MAP` 有効時に読み込み要求自体を行わないよう変更（404抑制）。
+  - パレットの不正参照を修正: `sand-log2.png` -> `sand-leaf2.png`, `paralysis_slime` を `assets/slime/paralysis/idle1.png` へ。
+  - `dark-leaf1/2/3` は存在ファイル `leaf1/2/3` を参照するよう変更。
+  - RTサーバー自動接続を停止し、`127.0.0.1:18765/health` 失敗ログは接続ボタン時のみ発生するよう変更。
+- 2026-02-12: `index copy.html` のメモRT接続を改善。
+  - RTエンドポイントを `127.0.0.1` 固定から候補探索（`127.0.0.1` / `localhost`）へ変更。
+  - 接続時に利用可能エンドポイントをヘルスチェックで自動選択し、そのURLへ固定して `/messages` `/stream` `/messages POST` を実行。
+  - 接続ボタンの多重クリックガードを追加（接続中は一時disabled）し、失敗連打時のノイズを抑制。
+- 2026-02-12: `index copy.html` にRT接続先URLのクライアント設定UIを追加。
+  - メモパネルに `RT URL` 入力欄と `URL適用` ボタンを追加。
+  - 設定値を `localStorage` (`raft_editor_memo_rt_base_url_v1`) に保存し、起動時に復元。
+  - 接続時は入力URLを最優先し、不正な形式はトーストで通知。
+- 2026-02-12: RT接続のCORS/候補探索を追加修正。
+  - `memo-local-server.js` のCORSを `Origin` エコー方式へ変更（`file://` の `Origin: null` を許可）。
+  - `index copy.html` はURL欄が明示入力されている場合、そのURLのみ接続確認し、`127.0.0.1/localhost` への自動フォールバック試行を抑止。
+- 2026-02-12: `memo-local-server.js` をLAN前提に調整。
+  - デフォルト待受を `127.0.0.1` から `0.0.0.0` に変更（同一LANクライアント接続対応）。
+  - CORSは `Access-Control-Allow-Origin: *` を常時返す方式に統一し、`Origin: null`（file://）でも拒否されないようにした。
+- 2026-02-12: 接続時のRT候補探索を追加調整。
+  - 明示入力URLまたは保存済みURLがある場合は、そのURLのみを試行するように変更（localhost/127.0.0.1 への不要フォールバックを抑止）。
+- 2026-02-12: ポーズメニューの設定に言語切替（`日本語` / `English`）を追加。
+  - `RAFT_INDEX_SETTINGS_V1` に `language` を追加し、ロード/保存時に `ja/en` 正規化を実装。
+  - 言語変更時にポーズメニュー（タイトル/ボタン）と設定画面文言、ヘルプ文言を即時反映するローカライズ処理を追加。
+  - `develop-web-game` スキルの Playwright クライアント実行は `playwright` 未導入のため `ERR_MODULE_NOT_FOUND` で未実施。
+- 2026-02-12: 黒い煉瓦ブロック `dark_brick.png` を追加。
+  - `index.html` のタイル定義 `tileSourcesExtended` に tile `257` (`solid: true`) を追加。
+  - `index copy.html` のパレット項目に tile `257` (`dark_brick`) を追加し、編集画面から配置できるようにした。
+  - Playwrightクライアント確認は `playwright` 未導入のため `ERR_MODULE_NOT_FOUND`。
+- 2026-02-12: 設定読み込み時の `normalizeUiLanguage is not defined` 警告を修正。
+  - bootstrap側 (`loadIndexSettings` / `persistIndexSettings`) に `normalizeIndexLanguage` を追加し、スコープ外参照を解消。
+- 2026-02-12: `assets/leather_pants.png` 404 を解消。
+  - clothing item `136` の `img` と `skinFolder` を存在する `black_pants` 系へ差し替え。
+- 2026-02-12: 英語設定時のインベントリ/取得表示を追加対応。
+  - インベントリ描画に見出し (`Inventory / Equipment / Skills / Bag`) を言語連動で表示。
+  - メダル取得メッセージを言語連動化（EN: `Obtained: ...`）。
+  - チェストで既所持のみだった場合のトーストを言語連動化。
+  - 服説明フォールバックを英語化（英語設定時）。
+- 2026-02-12: まいの服参照を `mai_outfit` アセットへ統一。
+  - `index.html` の 125/131 系定義で `assets/black_suit.png` フォールバックを `assets/mai_outfit.png` に変更。
+  - 同定義の `skinFolder` を `black_suit` から `mai_outfit` に変更。
+  - `item-definitions.js` 側も同内容へ同期。
+- 2026-02-12: チェスト取得メッセージの誤表示を修正。
+  - `handleClothingPickup` が「インベントリに追加できたが非自動装備」のケースで `false` を返していたため、チェスト側で未取得扱いになっていた。
+  - 同ケースは `pushOwnedOnce` の結果（追加成功時 `true`）を返すように変更。
+- 2026-02-12: レッドカーペット4/5/6の当たり判定を有効化。
+  - `index.html` tile `247/248/249` を `solid: true` に変更。
+- 2026-02-12: ブラック煉瓦2（非当たり判定）を追加。
+  - `index.html` に tile `258` を追加（`solid: false`）。
+  - `index copy.html` のパレットに tile `258` (`dark_brick2`) を追加。
+  - `assets/dark_brick2.png` 未配置のため、現状は `assets/dark_brick.png` へフォールバック表示。
+- 2026-02-12: `dark_brick2` は別画像を使わず `dark_brick` を直接参照するよう修正。
+  - tile `258` は `dark_brick.png` 参照 + `solid: false` のまま維持。
+- 2026-02-12: 大蛇の尻尾が長胴体時に離れる問題を修正。
+  - `GreatSerpent.updateSegmentGeometry` で尻尾の最終座標に「末尾胴体セグメントからの最大距離クランプ」を追加。
+  - `maxTailGap = segmentSpacing * 0.98` を上限にし、胴体本数を増やしても尻尾が離れないようにした。
+- 2026-02-12: 大蛇の衝突判定をローカル読込化。
+  - `GreatSerpent` に周辺タイルのみを保持する `localCollisionCache` を追加し、壁/衝突判定はこのキャッシュ参照へ変更。
+  - キャッシュ範囲外は `solid` 扱いにして、画面外での逸走（変な場所への移動）を抑制。
+  - 毎更新でキャッシュをリフレッシュし、頭位置周辺だけ当たり判定を参照する構成にした。
+- 2026-02-12: スポーン基準を初期地点固定へ変更。
+  - `levelMetadata.initialSpawn` を追加し、座標表示は常に初期スポーン基準（0,0）になるよう修正。
+  - ランタイムのスポーン更新は `spawn` のみ変更し、`levelMetadata.spawn` は初期値として固定。
+- 2026-02-12: セーブ復元のスポーン移植対策。
+  - `restoreGameFromSlot` は `savePoint.key` のみ受理し、現在マップ上に有効なセーブポイントタイルがある場合のみ復元。
+  - `savePoint.x/y` の直接復元は廃止し、別データ由来の座標移植を抑止。
+- 2026-02-12: 有効化済みスポーン地点タイルの見た目変更。
+  - アクティブなセーブポイントタイル（key一致）を `grayscale(1)` で描画（彩度0）。
+- 2026-02-12: セーブポイント彩度ルールを反転。
+  - アクティブ地点は通常色、非アクティブ地点のみ `grayscale(1)` で描画。
+
+- 2026-02-12: アンテ降車時の埋まり対策を実装。
+  - 乗車中のジャンプ離脱で頭上を衝突判定し、上が塞がっている場合はアンテ下方向に安全な空間を探索して降車。
+  - 上に空間がある場合は従来どおり上方向ジャンプ離脱。
+- 2026-02-12: 動作検証を試行（develop-web-game Playwright client）。
+  - `ERR_MODULE_NOT_FOUND: playwright` のため自動実行は未完了。手元実機確認が必要。
+- 2026-02-12: スロープ当たり判定をプレイヤー移動へ接続。
+  - 270/271 に slope(left/right) を付与。
+  - 水平衝突でスロープを壁扱いしないよう調整。
+  - 落下時は斜面の高さへスナップして滑らかに登れるよう調整。
+- 2026-02-12: スロープ接地を中央1点から左右2点サンプルへ変更（1x1感の軽減）。
+- 2026-02-12: スロープ向き定義を調整（270/271 の left-right を入れ替え）。
+- 2026-02-12: 斜面追従を追加（横移動時の地面スナップ）。
+- 2026-02-12: 前景のプレイヤー透過マスクを常時有効へ戻し（しゃがみ時の除外を解除）。
+- 2026-02-12: 衣装メタを itemDefinitions から自動生成する仕組みに統一。
+  - CLOTHING_META を手書き固定から「自動生成 + 既存上書き」へ変更。
+  - upgradeStats / maxUpgradeLevel から強化項目を自動作成。
+  - 新規 top/bottom 追加時、選択/強化タブ側の個別追記を不要化。
+- 2026-02-12: 強化タブの服カードに「強化で増えるステータス」表示を追加。
+  - getClothingUpgradePreviewTextで表示文言を一元化。
+  - 追加スキルタイプは同関数のswitch追記で反映できるようコメントを付与。
+  - 倍率表記を x -> × に統一。
+- 2026-02-13: まいさんの服(125)のユニークスキルを `アクセルアタック` に更新。
+  - `CLOTHING_META_OVERRIDES[125]` に `type: mai_accel_attack` を追加。
+  - 効果: 「通常歩行より速い状態」または「ダッシュ後ジャンプからの空中ドロップ攻撃」時に、5%で5倍ダメージ。
+  - レベル効果: Lvごとにジャンプ力 +3。
+  - 最大レベル: 50。
+- 2026-02-13: まい服ダメージ処理をハードコード(`topId===125`)からスキル状態参照へ統一。
+  - `applyCardDamage` と `FeelSlime.takePlayerHit` の双方で `applyMaiAccelAttackDamageMultiplier` を適用。
+  - 条件判定ヘルパー `isMaiAccelAttackConditionMet` を追加。
+- 2026-02-13: 強化タブ向け表示テキストを `mai_accel_attack` 対応。
+  - `getClothingUpgradePreviewText` に表示: `ジャンプ力 +N / 5%で5倍` を追加。
+- 2026-02-13: 衣装プロフィールの説明文も新仕様へ更新。
+  - 125の説明と詳細テキストを新スキル内容に差し替え。
+  - プロフィール表示の最大Lv参照順を `meta.uniqueSkill.maxLevel` 優先へ修正。
+- 2026-02-13: Playwright 検証を試行したが `ERR_MODULE_NOT_FOUND: playwright` のため自動実行不可。
+- 2026-02-13: まいさんの服(125)を再調整。
+  - 強化表示から「5%で5倍」を削除。
+  - uniqueSkill `mai_accel_attack` は「移動速度+1/Lv」「ジャンプ+1/Lv」に変更。
+  - `computeUniqueSkillState` も同仕様へ変更（speed/jump の statAdds 加算）。
+  - 強化コストに `costMax` 対応を追加し、125は `costMax: 1000000` で上限設定。
+  - 5%発動系の内部処理（apply/is condition/状態値）を削除。
+- 2026-02-13: ユーザー補足に合わせて再調整。
+  - 強化タブ表示は `移動速度 +N / ジャンプ力 +N` のみ（5%表記なし）を維持。
+  - ただし実効果としては `mai_accel_attack` にダッシュ攻撃高火力を復活（`dashAttackMultiplier: 5`）。
+  - ダメージ計算は「ダッシュ中」または「ダッシュジャンプ猶予中の空中ドロップ」で倍率適用。
+  - 説明文（記録/プロフィール/スキル説明）を「ダッシュ攻撃で高火力」へ更新。
+- 2026-02-13: `index copy.html` に参照更新検知 + デモワールド反映フローを追加。
+  - 参照中の `terrain-data.js` 変更をポーリング検知し、変更時に `tarrain-data.jsが変更されました` を表示。
+  - 変更内容を仮ワールド `terrain-data-demo`（sourceFile=`terrain-data-demo.js`）として自動生成し、プレビュー表示。
+  - デモワールド中のみ右上に `完全置き換え` / `複合置き換え` / `キャンセル` を表示。
+- 2026-02-13: デモボタン動作を実装。
+  - `完全置き換え`: 確認 `既存のterrain-data.jsを完全に置き換えていいですか？` 後、`terrain-data.js` を再参照してベースワールドを全面置換。
+  - `複合置き換え`: 確認 `既存のterrain-data.jsに複合して置き換えていいですか？` 後、3-way merge で非競合部を自動反映。
+  - `キャンセル`: デモワールドを破棄して元ワールドへ戻る。
+- 2026-02-13: 複合置換の競合タイルを緑ハイライト + ロック編集に対応。
+  - 競合セルは通常配置を禁止（緑セルに通常ブロックを置けない）。
+  - 追加UI `編集`（ON/OFF）と `既存` / `新規` の塗り先選択を追加。
+  - 編集モードでのみ競合セルへ「既存側タイル」または「新規側タイル」を塗り分け可能。
+  - 既存の `command+z` / `command+shift+z` 履歴系はそのまま利用可能（競合解決塗りにも適用）。
+- 2026-02-13: 複合置換の重なり判定を拡張。
+  - これまで「値が衝突した競合セルのみ緑」だった仕様を、
+    「既存(local)と新規(remote)が同じ座標を変更したセル（値が同じでも）」を緑対象に変更。
+  - `buildOverlapRecords` を追加し、`runDemoMergeReplace` で緑ロック対象に採用。
+  - トーストに重なり件数 / 衝突件数を表示。
+- 2026-02-13: 競合解決UIを再変更（ユーザー要望）。
+  - ヘッダーの `編集` ボタン群を削除。
+  - ブロックスロットに新タブ `変数` を追加し、`既存` / `新規` を追加。
+  - 緑競合セルの解決は `変数` タブ選択のみで実行する方式に変更。
+  - 緑表示は塗りつぶしではなく、ブロック上のオーバーレイヤー（枠 + 斜線）表示へ変更。
+- 2026-02-13: 複合フローを「編集タブ + 完了ボタン」方式へ調整。
+  - 右上に `完了` ボタン（競合解決中のみ表示）を追加。
+  - ブロックスロットのタブ名を `変数` から `編集` に変更し、`既存` / `新規` タイルで競合解決する運用に統一。
+  - 緑競合マスを `既存` / `新規` で塗ると、そのセルを解決済みとして競合集合から除外する処理を追加。
+  - `完了` は未解決セルが残っていると拒否（件数表示）、0件で通常編集へ復帰。
+- 2026-02-13: `index copy.html` の terrain 参照監視抑制を仕上げ。
+  - `checkTerrainReferenceUpdates` で `mergeResolutionState.active` 中は自動プレビュー切替を停止。
+  - 参照先データに `__copyEditorMeta.skipAutoPreviewUntil` がある場合は検知のみ更新して自動切替しない。
+  - `runDemoFullReplace` / `runDemoMergeReplace` で `suppressWatchOnNextSave` フラグを立て、次回保存時だけ自動検知抑制メタを書き込む流れに統一。
+  - `performDownload` で `suppressWatchOnNextSave` 時のみ保存ファイルへ抑制メタを埋め込み、保存成功後フラグを自動解除。
+  - 保存後の指紋更新は実ファイル内容（メタ込み）基準に変更し、再検知ループを防止。
+- 2026-02-13: Playwright 検証を再試行したが `playwright` パッケージ未導入のため `ERR_MODULE_NOT_FOUND` で実行不可。
+- 2026-02-13: 複合編集の `既存/新規` 選択が逆転する不具合を修正。
+  - `buildOverlapRecords` の記録値を変更し、`existing=remoteVal(既存 terrain-data.js)` / `incoming=localVal(読み込んだ新規変更)` に統一。
+- 2026-02-13: 複合編集で「既存を置いてもタイルが変わらない」不具合を修正。
+  - `runDemoMergeReplace` の比較元を `previewWorld` ではなく `baseWorld`（元ワールド）へ変更。
+  - 競合レコードの選択先を `existing=localVal(元ワールド)` / `incoming=remoteVal(読み込んだ新規)` に統一。
+- 2026-02-13: `index.html` に新規トップ服 `302: おめでとう服` を追加。
+  - アイコン: `assets/happy_birthday.png`
+  - スキン: `assets/skin/happy_birthday/*`（`skinFolder: happy_birthday`）
+  - 効果: 装備中は `applyDamage` 冒頭で 0 を返し、被ダメージ無効化。
+- 2026-02-13: `index copy.html` のアイテム一覧読込順を修正。
+  - 旧: ローカルキャッシュ優先で、`item-definitions.js` の新規IDが反映されないことがあった。
+  - 新: `window.itemDefinitions`/ドキュメント解析を最優先し、キャッシュはフォールバック化。
+- 2026-02-13: `brother` タイル(id:281)を通常の3倍サイズで描画する処理を追加。
+  - `index.html`: 前景/背景/前面レイヤーの描画で id:281 のみ描画サイズを3倍化（中心基準）。
+  - `index copy.html`: エディタ描画（foreground/background/front/pending overlay）で id:281 のみ3倍化。
+  - 当たり判定や占有タイル数は変更せず、見た目のみ3倍。
+- 2026-02-14: 読み込みエラー抑制を実施。
+  - `index copy.html` から固定 `item-definitions.js` script タグを削除（外部ファイル欠落時の即時404を回避）。
+  - `index.html` の `fetchJson` は `file://` では即 reject し、`terrain.json` への CORS fetch を発生させないよう変更。
+  - 欠落していた画像名の互換エイリアスを追加: `assets/dark-leaf1.png`, `assets/dark-leaf2.png`, `assets/dark-leaf3.png`, `assets/sand-log2.png`。
+- 2026-02-14: 大蛇(great_serpent)の壁貫通対策を実施。
+  - `collidesSolidAt` で自己衝突除外に headCollider を含めていた不具合を修正（頭の次位置判定が常時すり抜ける経路を解消）。
+  - `advanceAlongSurface` に最後の安全座標ロールバックを追加し、万一のめり込み時も直前安全位置へ戻すフェイルセーフを追加。
+- 2026-02-14: セーブポイント描画仕様を変更。
+  - アンロック済みセーブポイントを `unlockedSavePointKeys` で管理（接触時に追加）。
+  - セーブデータ `savePoint.unlockedKeys` へ保存・復元（旧データは `key` から最低限復元）。
+  - 描画時、"アンロック済み かつ 現在のリスポーン先ではない" セーブポイントのみ、画像の左半分をグレースケール表示。
+  - 現在アクティブなセーブポイントは従来どおり通常彩度のまま。
+- 2026-02-14: セーブポイント半灰表示の後方互換を追加。
+  - 旧セーブデータ（`savePoint.unlockedKeys` 未保存）では `unlockedSavePointKeys.size===0` のため判定が空振りしていた。
+  - 互換フォールバックとして、旧データ時は「非アクティブなセーブポイントを半灰表示」するよう条件を拡張。
+- 2026-02-14: アイテムUI再編（バックパック/ポーチ）を `index.html` に実装。
+  - `clothingUI` に `backpack`/`pouch` 状態を追加し、`E`で開く既定タブを `backpack` へ変更。
+  - アイテム分類を `ITEM_CATEGORY_DEFS` / `getItemCategoryFromType` で統一し、所持中アイテム（inventory/equipment/skill）を `listBackpackItemEntries` で集約。
+  - 服UIタブに `バックパック` と `ポーチ` を追加。
+  - `バックパック` パネル: カテゴリ別所持数の要約と、`ポーチ/トップ/ボトム/メダルスロット/強化` への遷移ボタンを追加。
+  - `ポーチ` パネル: 種類別フィルタ（すべて/トップ/ボトム/メダル/武器/消費物/素材/その他）とアイテム一覧表示を追加。
+  - ポーチ内クリックで、服は該当装備タブ、メダルはスロットタブへ遷移できる導線を追加。
+- 2026-02-14: develop-web-game スキル手順で Playwright 実行を試行したが、`playwright` 未導入で `ERR_MODULE_NOT_FOUND` のため自動検証未実施。
+- 2026-02-14: `E` キー起点のインベントリ選択を2段階化（`index.html`）。
+  - `inventoryChoiceMenu`（半円ワールドメニュー）を追加。ラフト頭上のワールド座標に描画され、カメラ倍率に追従。
+  - 操作: `E` で半円メニュー表示 → `←/→` で `Inventory1/2` 切替 → `E` で決定。
+  - 決定内容: `Inventory1` は `ポーチ`（`openClothingUI('pouch')`）、`Inventory2` は旧インベントリ（`inventoryVisible = true`）。
+  - `E`/`Esc` で旧インベントリを閉じられるように調整。
+  - 半円メニュー中はゲーム内操作入力（移動キー/マウスロープ）を抑制。
+  - 画像差し替え用フック: `assets/inventory_choice_wheel.png` / `assets/inventory_choice_pointer.png`（未配置時は図形描画フォールバック）。
+- 2026-02-14: 採集の二重取得対策を実装（`index.html`）。
+  - `harvestState.lockedCoords` を本接続し、同一座標の採集中（再成長待ち）は探索対象から除外。
+  - 採集成功時に座標をロック、再成長タスク完了時にアンロック。
+  - `resetGameToDefaults` / `restoreGameFromSlot` でロックをクリア。
+  - セーブ復元時は `harvest.regrowQueue` からロック集合を再構築。
+- 2026-02-14: `develop-web-game` スキル手順の Playwright 実行を試行したが、環境に `playwright` が未導入で `ERR_MODULE_NOT_FOUND` のため自動実機テストは未実施。
+- 2026-02-14: 木の棒武器システム（index.html中心）を追加。
+  - アイテム定義に `342: 木の棒`（type=`weapon`）を追加（`index.html` と `item-definitions.js`）。
+  - 木タイル（`20/21/59`）近くで高速落下着地すると木揺れカウントを進め、`10` 回で地面ドロップを生成。
+  - 木揺れエフェクト（円リング）と地面ドロップ描画を追加。
+  - `Q` 入力は「武器ドロップ拾得」を優先し、次に従来の果実採集を実行。
+  - ポーチ武器メニューを追加（装備する/やめる/捨てる）。装備先は手持ちスロット `equipmentSlots[2]`。
+  - 手持ちスロットの互換判定を `usable` に加えて `weapon` も許可。
+  - 武器装備中カーソルを木の棒画像へ切替。攻撃可能距離外は `assets/cursor/wood_stick/3.png` を使用。
+  - 左クリックでスウィングし、プレイヤー半径5タイル以内の最寄り敵へ固定3ダメージ。
+  - 武器ドロップ/木揺れ進捗をセーブデータ（`slot.weapon`）へ保存・復元。
+- 2026-02-14: 検証。
+  - `develop-web-game` の Playwright クライアント実行を試行したが、環境に `playwright` が未導入で `ERR_MODULE_NOT_FOUND`。このため自動E2Eは未実施。
+- 2026-02-14: 消耗品/使用物の新フローを追加。
+  - ポーチの「食べる/使う」で即時発動せず、対象アイテムを“手持ち使用状態”にするよう変更。
+  - その場でポーチを閉じてプレイ画面に戻る。
+  - 手持ち使用状態中はカーソルを該当アイテム画像に変更。
+  - プレイ画面でプレイヤー本体をクリックすると効果を適用し、アイテムを1個消費。
+  - プレイヤー以外をクリックした場合はヒント表示（プレイヤーをクリックで使用）。
+  - 消耗品カテゴリのメニュー文言をアイテム型に応じて「食べる/使う」に切替。
+  - リセット/ロード時に手持ち使用状態をクリア。
+- 2026-02-14: UIモーションを追加（操作への支障が出ない軽量アニメ）。
+  - 服UI（ポーチ/スロット/強化/上乗せ）の開閉時にフェード+わずかなY移動アニメを追加。
+  - 服UIタブ切替でインジケータがスライドするアニメを追加。
+  - 服UIコンテンツ表示時に短いフェードインを追加（クリック判定座標は維持）。
+  - ポーチカテゴリ切替で下線インジケータのスライド+内容フェードを追加。
+  - インベントリ選択ホイール（Inventory1/2）の出現ポップ+切替スライドを追加。
+  - DOMオーバーレイ（タイトル/ポーズ/記録/設定/リプレイ/敵プロフィール）にtransformベースの出現アニメを追加。
+- 2026-02-14: 服UIに `武器` タブを追加。
+  - `武器` タブ内で所持武器を一覧表示し、各武器を「装備 / 外す」で直接管理できるようにした。
+  - クリック操作はカード全体/ボタンどちらでも反応。
+  - 既存の手持ちスロット `equipmentSlots[2]` と連動し、保存処理（persist）にも反映。
+  - タブ巡回（左右）にも `weapon` を組み込み。
+- 2026-02-14: ドロップ（高速落下着地）時の画面揺れを追加。
+  - 着地判定 `triggeredFastFallLanding` 時に `triggerDropScreenShake` を発火。
+  - ワールド描画のカメラ平行移動へシェイクオフセットを合成。
+  - リセット/ロード時はシェイク状態をクリア。
+- 2026-02-14: 使用待機中の消耗品（フルーツ等）をカーソル付近に固定64x64でHUD描画するよう変更。元画像サイズ(16x16等)に依存せず大きく表示されるようにした。`getPendingUseCursorStyle` はデフォルトカーソル維持。 
+- 2026-02-14: 消耗品の使用待機中に `Esc` でもキャンセルできるようにし、HUDに小さいヘルプ文言「Esc / 右クリックでキャンセル」を追加。
+- 2026-02-14: 消耗品使用時に満腹判定を追加。`health >= maxHealth` のときは消費せず「お腹いっぱいでもう食べられない」を表示。
+- 2026-02-14: 捨てる操作を即時削除から「待機→クリック投擲」に変更。カーソル追従アイコン/ヘルプ表示を追加し、捨てたアイテムは物理挙動で落下・5分で自動消滅するよう実装。
+- 2026-02-14: 捨てたワールドドロップの保存形式を拡張（x/y, 速度, 物理状態, 残り寿命ttlMs）し、ロード時に復元するよう修正。これでセーブ後も捨てたアイテムが残る。
+- 2026-02-14: `grantItemToPlayer` を調整し、服以外は重複所持できるよう変更。ドロップ拾得時に「まだ持てるのにこれ以上持てません」と出る誤判定を解消。
+- 2026-02-14: 新メダル `自動照準メダル` (ID 223 / medalKey `auto_aim_attack`) を追加。装備中は周囲の敵を自動で照準し、武器攻撃を自動発動する `handleAutoAimMedal` をゲームループへ接続。
+- 2026-02-14: 武器の「外す」で消失する不具合を修正。手持ちスロットから外す際はインベントリに未所持なら戻すようにした。
+- 2026-02-14: 旧インベントリ(スロット/強化系)のタブ列から「武器」タブを削除し、左右タブ切替順からも除外。
+- 2026-02-14: 岩タイル(rock1/2/3/2_fh: tile 48-51)へ上からドロップ着地した回数を座標ごとに記録し、10回ごとに `石` (item 343) をワールドドロップする処理を追加。`rockHitCounts` はセーブ/ロード対応。
+
+- 2026-02-14: 捨てる操作を長押しドラッグ投擲へ変更。
+  - pending discard中は左クリック押下で投擲チャージ開始、離した方向へ投擲。
+  - HUDに引っ張りラインと投擲パワー表示を追加。
+  - 投擲アイテムに敵命中時ダメージ(10)を追加。命中後は投擲物を消去。
+  - Esc/右クリックキャンセル時に投擲チャージ状態も確実に解除。
+
+- 2026-02-14: 暗闇ブロック(282)を追加。
+  - index.html: 1x1黒画像の暗闇ブロックタイルを追加（solid）。
+  - ランタン光源ターゲットにsource=lanternを付与し、前前景マスク時のみ半径を拡張。
+  - index copy.html: パレットへdarkness_block(282)を追加。
+- 2026-02-14: フルーツ再実りタイマーを実時間基準へ統一。
+  - restoreAt を performance.now() ではなく Date.now() で記録。
+  - processHarvestRegrow も Date.now() 基準で判定し、画面外/非表示中でもカウント進行。
+- 2026-02-14: ポーチ内の服/ズボンメニューに「外す」を追加。
+  - 着用中アイテムをクリックした場合、先頭アクションを「着用する」から「外す」に切替。
+  - unequip_top / unequip_bottom アクションを追加し、対応スロットをnull装備化。
+- 2026-02-14: index copy 側で darkness_block(282) が見えづらい問題を修正。
+  - タイル描画時、282 だけ薄い枠線を重ねて視認性を確保。
+  - パレット画像にも明るい背景を敷いて黒タイルを見えるよう調整。
+- 2026-02-14: darkness_block(282) がプレイ画面で暗く見えない問題を修正。
+  - 前前景/前景描画で 282 は常に不透明黒で描画する例外処理を追加。
+  - レイヤー全体アルファの影響で薄くなる問題を回避。
+- 2026-02-14: ランタン前のソフトマスク不発と暗闇境界の硬さを修正。
+  - 前前景の darkness(282) を drawTiles 通常描画から除外し、drawFrontTiles(マスク対象)に一本化。
+  - darkness 境界で隣接非darkness側にソフトフェードを入れるエッジマスク描画を追加。
+  - ぼかしビットマップは __darknessEdgeCache で再利用。
+- 2026-02-14: 暗闇指定をデバッグサブレイヤー方式へ拡張。
+  - index copy: デバッグタイル 9012(暗闇サブレイヤー)を追加。
+  - index copy: 保存時に layers.debug_sub_darkness へ分離出力、読込時は同レイヤーを debug タイルへ復元。
+  - index: layers.debug_sub_darkness を読み込み、debugDarknessLayout として保持。
+  - index: debugDarknessLayout をソフト境界つき暗闇描画として適用し、既存ランタン/プレイヤー reveal マスクで抜けるように対応。
+  - index: terrain保存/サンドバッグ列増減/テンプレ複製にも debugDarkness を追従。
+- 2026-02-14: `index copy.html` のデバッグ暗闇サブレイヤーをブロックスロットのレイヤータブとして表示可能化。
+  - `fixedLayers` に `debug_sub_darkness` を追加（表示名: `デバッグサブ(暗闇)`）。
+  - `activeLayer` 分岐（選択移動/描画/塗り/クリア/スパース再構築/オーバーレイ）で `debug_sub_darkness` を `debug` 同等に処理。
+  - `debug_sub_darkness` タブ選択時はヘルプパレットへ切替し、選択タイルを `DEBUG_TILE_IDS.DARKNESS_SUB` に自動設定。
+  - データ保存形式は既存の `layers.debug_sub_darkness` を維持（内部は `debugMap` 上の 9012 を継続利用）。
+- 2026-02-14: Playwright 検証を再試行したが、環境に `playwright` パッケージがなく `ERR_MODULE_NOT_FOUND` のため自動E2E未実施。
+- 2026-02-14: ユーザー要望「デバッグサブレイヤーをデバッグとは別レイヤー」に対応。
+  - `index copy.html` で `debugSubDarknessMap` を新設し、`debugMap` と分離。
+  - ブロックスロットの `debug_sub_darkness` は専用マップ/専用スパースインデックスへ保存・描画。
+  - 取込/保存/Undo/選択移動/範囲クリア/全体移動/マージ競合レイヤー判定を `debug_sub_darkness` 独立キーに対応。
+  - 旧データ互換として `debug` 側に残っていた `DARKNESS_SUB(9012)` はロード時にサブレイヤーへ自動移管。
+- 2026-02-14: 構文チェックを実施（`index copy.html` 内のインライン script 4本すべて `new Function` パース成功）。
+
+## 2026-02-14
+- ポーチの『その他』を『マップ』化し、セーブポイント一覧表示・ワープ選択肢を実装中。
+- 検証: Playwrightクライアント実行を試したが、この環境で playwright パッケージ未導入のため実行不可。
+- 構文チェック: index.html のインライン script を new Function で全件パースし、エラーなし。
+- 2026-02-14: 捨てたアイテム(worldDrops)の消滅判定を実時間(Date.now)でも管理するよう変更。画面外でもTTLが進み、5分経過で消えるよう修正。
+- 2026-02-14: スロープ当たり判定の土台を修正。
+  - `tileProps` 構築時に `slope` を保存しておらず、`getPlayerSlopeType` / `isSolidAtWorld` / モンスター衝突側の `p.slope` 判定が実質無効だった問題を修正。
+  - `normalizeSlopeType` を追加し、`def.slope` が文字列または `{ type }` 形式でも取り込めるようにした。
+  - `getPlayerSlopeType` を `passPlayer` / `solidForPlayer` を考慮する判定へ更新。
+  - `getMonsterSlopeType` を新設し、通常モンスターと大蛇の `collidesSolidAt` のスロープ判定をモンスター向けソリッド条件に統一。
+- 2026-02-14: Playwright検証を再試行。
+  - `web_game_playwright_client.js` 実行時に `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'playwright'` で停止。
+  - 自動スクリーンショット検証は未実施（依存解決後に再実行が必要）。
+- 2026-02-14: スロープ向き定義を反転。
+  - tile `270` (`grass_slope_fh_white`) の `slope` を `left -> right` に変更。
+  - tile `271` (`grass_slope_white`) の `slope` を `right -> left` に変更。
+- 2026-02-14: 斜面を下段から登れない問題を修正。
+  - `resolveHorizontal` 内 `trySnapToSlopeAtX` の探索行を1行固定から複数候補行（足元直上/直下/半タイル下）へ拡張。
+  - これにより、下段地形から斜面タイルへ横移動した際にも斜面面に吸着して登坂できるよう調整。
+  - スナップ許容差は `±TILE_SIZE` に拡張。
+- 2026-02-14: 斜面登坂時の当たり判定詰まりを追加修正。
+  - `trySnapToSlopeAtX` の早期return条件を緩和し、`onGround` が一瞬切れても `vy` がほぼ0なら斜面吸着を継続するようにした。
+  - `resolveVertical` に `vy===0` 時の足元サポート判定を追加。平地/斜面の支持面を再取得して `onGround` を維持する。
+  - これにより、登坂中の接地フラグ喪失による“摩擦のような引っ掛かり”を抑制。
+- 2026-02-14: 斜面の下り不能を修正。
+  - 斜面吸着(`trySnapToSlopeAtX`)が最小Y(最も高い面)を優先していたため、下り時に上段へ張り付く挙動が発生。
+  - 吸着先を「足元との差分が最小の支持面」に変更し、許容差を `maxStepUp=0.45tile / maxStepDown=0.75tile` で制限。
+  - `resolveVertical` の `vy===0` 支持面維持も同様に「最近傍支持面」を選ぶよう更新。
+- 2026-02-14: スロープ時の物理（摩擦/慣性）を調整。
+  - プレイヤー状態に `onSlope` / `slopeGraceUntil` を追加し、斜面接地を明示管理。
+  - `trySnapToSlopeAtX` および `resolveVertical` の接地確定時に、支持面が斜面なら `onSlope=true` と短い猶予を付与。
+  - スロープ接地中は加速と最高速をわずかに上げ、地上摩擦を `0.42x` に低減して過剰な減速感を緩和。
+  - 斜面を離れた直後（短時間）は空中横減衰を弱め、慣性切れを抑制。
+- 2026-02-14: プレイヤー当たり判定を疑似カプセル化（横移動系）。
+  - `HITBOX_CAPSULE_Y_INSET` と `getCapsuleTop/Bottom` を追加。
+  - `resolveHorizontal` の壁判定行レンジを、矩形全高から「上下を削ったカプセル相当レンジ」へ変更。
+  - `canOccupyAt` も同じカプセルレンジで占有判定するよう更新。
+  - 角での接触判定が減るため、キー押下ごとの1px詰まりを緩和する狙い。
+- 2026-02-14: プレイヤーのデフォルト滑走感を強化。
+  - `RELEASE_FRICTION` を `2 -> 0.55` に変更し、入力を離した時の減速を大幅に緩和。
+  - 慣性減衰を緩和: `MOMENTUM_DECAY_GROUND` `0.09 -> 0.035`, `MOMENTUM_DECAY_AIR` `0.045 -> 0.02`。
+  - 空中横減衰を緩和: `airDrag` を `0.97/0.94` に変更。
+  - 速度ゼロへ吸着する閾値を `0.06/0.08 -> 0.02/0.03` に下げ、低速域でも滑るよう調整。
+- 2026-02-14: 登坂時に壁判定が先に発火して止まる問題を順序修正。
+  - `resolveHorizontal` の左右壁衝突ループで、`isSolidTileForPlayer` で停止する前に `trySnapToSlopeAtX(nextX)` を試行するよう変更。
+  - これにより「めり込み防止の壁判定」が斜面吸着より先に働いて登れないケースを回避。
+- 2026-02-14: 斜面登坂の追加改善（未解消ケース向け）。
+  - `resolveHorizontal` に `trySlopeStepUpAtX` を追加。
+  - 壁衝突直前に、少しずつ上へ持ち上げた候補位置で `canOccupyAt` -> `trySnapToSlopeAtX`/`hasGroundAt` を試行。
+  - これにより、境界段差で斜面吸着に入る前に壁停止していたケースを救済。
+- 2026-02-14: 傾斜全体での引っ掛かり対策を追加。
+  - `trySnapToSlopeAtX` の適用条件を緩和し、上方向へ強いジャンプ中(`vy < -2.5`)以外は斜面吸着を許可。
+  - `trySlopeStepUpAtX` で `hasGroundAt` のみ成立した場合でも、`onGround`/`vy`/猶予フラグを明示セットして次フレームの吸着失敗を防止。
+- 2026-02-14: 右入力ごとの1px上昇補助を追加。
+  - `rightPressNudgeLatched` を導入し、右キー押下エッジごとに `player.y -= 1` を実行。
+  - `checkCollision` で重なりを検査し、衝突時は即座に元のYへ戻す。
+  - 成功時は `onGround=false` として次フレームの地形追従へ渡す。
+- 2026-02-14: 入力補助を「右限定」から「全スロープ上り方向対応」へ変更。
+  - `attemptInputSlopeNudge(dir)` を追加し、左右入力ごとに上り傾斜(`dir>0 && slope=left` / `dir<0 && slope=right`)だけ 1px 上昇補助を適用。
+  - 右キー専用だった `rightPressNudgeLatched` に加えて `leftPressNudgeLatched` を追加。
+  - これにより、全ての傾斜で“上方向の斜め移動”を入力エッジで補助。
+- 2026-02-14: 前方タイル停止処理から slope タイルを除外。
+  - `hasWallInDirection` で `getPlayerSlopeType(tileId)` の場合は壁カウント対象外に変更。
+  - `resolveMovementWithSubsteps` 後の前方再チェック（`player.vx=0` にする処理）でも slope を除外。
+  - これにより、タイルが slope のときは「前方ソリッド停止」処理に該当しないよう統一。
+- 2026-02-14: 入力エッジの `1px` 上昇補助（左右）を撤去。
+- 2026-02-14: スロープ登り終端の `1px` 段差対策を衝突処理側へ移行。
+  - `trySlopeStepUpAtX` の刻みを `1px` に変更して微小段差を拾えるようにした。
+  - `resolveMovementWithSubsteps` 後の前方再チェックで、停止前に `1px` ステップアップ可否を確認し、可能なら `y-1` で通過させるようにした。
+  - 同再チェックの行レンジもカプセル判定 (`getCapsuleTop/Bottom`) に合わせた。
+- 2026-02-14: `grass_slope_fh.png` / `grass_slope.png` を index と copy に追加。
+  - `index.html`
+    - `DEFAULT_INLINE_ASSETS` に両画像を追加。
+    - 新規タイルID `283`(`grass_slope_fh`), `284`(`grass_slope`) を追加し、slopeパラメータを設定。
+  - `index copy.html`
+    - `INLINE_ASSET_NAMES` に両画像を追加。
+    - パレットへ `id:283/284` のタイル項目を追加。
+- 2026-02-14: `sand_slope_fh.png` / `sand_slope.png` を index と copy に追加。
+  - `index.html`: `DEFAULT_INLINE_ASSETS` に追加、タイルID `285/286` を追加（slope付き）。
+  - `index copy.html`: `INLINE_ASSET_NAMES` とパレット項目へ `id:285/286` を追加。
+- 2026-02-14: セーブポイント名の編集・保存連携を追加（copy -> index）。
+  - `index copy.html`
+    - セーブポイント(tile 254)を選択した状態で既存セーブポイントをクリックすると、宝箱同様に名前編集モーダルを開く機能を追加。
+    - `savePointNames`（`"row:col" -> name`）をワールドデータへ保存/読込するよう拡張。
+    - 地形の全体移動・選択移動・範囲削除・タイル置換（セーブポイント削除時）に追従して名前データを移動/削除する処理を追加。
+  - `index.html`
+    - `mapData.savePointNames` を読み込んで `levelMetadata.savePointNames` に保持。
+    - ポーチのマップタブでセーブポイント表示名を `savePointNames` 優先へ変更（未設定時は従来の `地点 n`）。
+    - ワープトーストも設定名を優先表示に変更。
+- 2026-02-14: `index copy2.html` の書き出しを「同ファイル上書き保存」フローへ変更。
+  - `background-data.js 出力` ボタンを `background-data.js 保存` に変更。
+  - File System Access API + IndexedDBハンドル保持を追加し、初回のみ保存先選択・2回目以降はワンクリックで同ファイル上書き。
+  - API非対応環境では従来どおりダウンロード出力にフォールバック。
+- 2026-02-14: develop-web-game スキル手順で Playwright 実行を試行。
+  - `~/.codex/skills/develop-web-game/scripts/web_game_playwright_client.js` は存在するが、`playwright` パッケージ未導入で `ERR_MODULE_NOT_FOUND`。
+  - そのため自動操作テストは未実施。今回の確認は差分確認とスクリプト構文レベルの静的チェックまで。
+- 2026-02-14: メダルスロットの自動復帰を追加（`index.html`）。
+  - スロット容量減少時（スロット無し服へ変更など）に外れたメダルを `medalAutoRestoreQueue` へ退避。
+  - スロット容量増加時にキュー先頭から空きスロットへ自動装着（在庫にあるメダルのみ復帰）。
+  - セーブ/ロードへ `medalAutoRestoreQueue` を保存・復元。
+  - `equipClothingSlot` と `restoreGameFromSlot` で `syncSkillSlotCapacity` 後に `recalcPlayerStats` を実行する順へ調整し、復帰メダル効果を即時反映。
+- 2026-02-14: 服ごとの「スキル使用/不使用」切替を追加（`index.html`）。
+  - `clothingProgress.skillEnabled`（`itemId -> false` で無効）を追加し、セーブ/ロードに保存。
+  - `computeUniqueSkillState` で、無効化された服の uniqueSkill を計算対象から除外。
+  - ポーチの服メニュー（トップ/ボトム）に `スキルを使用する` / `スキルを使用しない` を追加。
+  - 切替時は `recalcPlayerStats` と `persistActiveSlotSilently` を実行して即時反映。
+- 2026-02-14: 食事時に邪魔になりやすい中央トースト表示を上側へ移動（`index.html`）。
+  - `.clothing-toast` の表示位置を `top: 50%` から `top: 28%` へ変更。
+- 2026-02-14: ポーチ内の服/ズボンメニューから `スロットタブ` を削除（`index.html`）。
+  - `clothing_top` と `clothing_bottom` の選択肢は、着用/スキル使用切替/強化タブ/やめる の構成に変更。
+- 2026-02-14: 背景タイル由来の暗闇セルを自動付与（`index.html`）。
+  - `buildLayoutsFromMapData` に背景暗闇タイル判定を追加。
+  - 対象タイルID: `11(dirt3_fh)`, `30(dirt_back)`, `31(stone-dirt_back)`, `32(stone-dirt_fh_back)`, `33(stone1_back)`。
+  - 背景本体グリッドと `backgroundLayers` の両方を走査し、該当セルを `debugDarkness` に合成するように変更。
+- 2026-02-14: `iris_fruits` と白葉採集を追加。
+  - 新規アイテム `344: iris_fruits`（consumable）を追加。
+  - `white_leaf2/3/4` タイル（ID `287/288/289`）を追加し、採集対象へ設定。
+  - `applyHeldItemEffect` を拡張し、`iris_fruits` はHP回復せずに前景マスク拡張値を加算する効果へ変更。
+  - マスク拡張値は `playerStatus.irisMaskRadiusBonus` で管理し、視界マスク計算へ合成。
+  - セーブ/ロード/初期化で `irisMaskRadiusBonus` を保存・復元・リセット。
+  - `index copy.html` にも `white_leaf2/3/4` を追加してエディタ配置可能化。
+- 2026-02-14: `iris_fruits` 周りを修正。
+  - `index.html` のアイテム名を `iris_fruits` から `虹彩の実` に変更。
+  - `white_leaf2/3/4.png` 参照が実ファイル名(`white-leaf2/3/4.png`)と不一致だったため、`index.html` / `index copy.html` のタイル参照とインラインアセット名をハイフン表記へ統一。
+- 2026-02-14: 虹彩/白リーフ収穫ロジックを調整。
+  - `HARVESTABLE_TILE_MAP` の白リーフ(287/288/289)を高優先度化し、同座標にサンド葉があっても白リーフ(虹彩)を優先して対象選択するよう変更。
+  - 白リーフ収穫後の置換タイルを `0` から `sand-leaf2/3/4` 相当(61/62/63)へ変更。
+  - 同座標の一括収穫対象を「選択ターゲットと同じ tileId/itemId の候補」に限定し、白リーフ収穫時に下層サンド葉の収穫が混ざらないよう修正。
+- 2026-02-14: 検証
+  - `index.html` のインラインスクリプト構文チェックは OK。
+  - Playwright クライアントは `playwright` 依存未導入で `ERR_MODULE_NOT_FOUND` のため実行不可。
+- 2026-02-14: 虹彩の実の挙動を再調整。
+  - 白リーフ(287/288/289)採集後の置換先を `sand-leaf1` 相当タイル(60)に統一。
+  - 虹彩バフを「20秒ごとに1スタック消費」方式へ変更。重ね食い時は効果量を増やさず、持続キューのみ追加。
+  - `playerStatus` に `irisBuffStacks` / `irisBuffEndsAt` を追加し、毎フレーム `normalizeIrisBuffState` で期限処理。
+  - セーブ/ロードに `irisBuffStacks` / `irisBuffRemainingMs` を追加（旧セーブの `irisMaskRadiusBonus` も1スタックへ移行）。
+  - HUDに虹彩バフ表示を追加: XP表示の下に虹彩アイコン + 右側に `MM:SS`、スタック時はアイコン左に `xN` 表示。
+- 2026-02-14: 検証
+  - `index.html` のインラインスクリプト構文チェックは OK。
+- 2026-02-14: 虹彩バフ仕様の再調整。
+  - 効果量を「固定」から「スタック数比例」へ戻した（`irisMaskRadiusBonus = min(max, stacks * perUse)`）。
+  - 20秒ごとに1スタック消費は維持し、消費に応じて効果量が段階的に下がる挙動に修正。
+  - 旧セーブ互換で `irisMaskRadiusBonus` からスタック数を逆算するよう変更。
+- 2026-02-14: 敵撃破XPを「scoreドロップ回収式」に変更。
+  - 直接XP付与を廃止し、撃破時に `score.png` アイテム(タイプ`score`)をXP量に応じて生成するよう実装。
+  - `score` は1個あたり基本10XP (`scoreValue`)。撃破XPを10単位で分割してドロップ。
+  - `score` ドロップは `autoPickup` を持ち、プレイヤーが近づくと自動回収してその時点でXP加算。
+  - Qで拾う近接対象から `score` ドロップは除外（武器/素材拾いと競合しない）。
+  - ドロップ保存復元に `scoreValue` / `autoPickup` / `pickupRange` を追加。
+  - `grantItemToPlayer` に `type:'score'` 分岐を追加し、インベントリには入れずXPへ即変換。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: scoreドロップの即時回収を防止。
+  - `SCORE_DROP_PICKUP_DELAY_MS = 500` を追加し、出現後0.5秒は回収不可に変更。
+  - score生成時に `pickupUnlockAt` を付与し、物理落下中も0.5秒経過までは近接回収しない。
+  - セーブ/ロードに `pickupUnlockMs` を追加し、待機時間を保持するよう拡張。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: score回収判定を再調整。
+  - 0.5秒経過後、プレイヤーとscoreドロップが同一/隣接タイル付近かつ十分近距離のときに回収するよう変更。
+  - 「同じ座標ぐらいまで近づいたら取れる」挙動に寄せた。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: 要望に合わせて score の0.5秒待機を撤回。
+  - 出現後の `pickupUnlockAt` チェックを削除し、近づけば即取得できる挙動に戻した。
+  - 生成時の遅延定数と遅延セットも削除。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: score回収方式を「時間待ち」から「着地待ち」に変更。
+  - scoreドロップに `pickupReady` を追加し、初期値は `false`。
+  - 飛散中(`physicsActive=true`)は回収不可、着地して停止(`physicsActive=false`)した時点で `pickupReady=true` になり回収可能。
+  - セーブ/ロードに `pickupReady` を保存復元。
+  - 旧 `pickupUnlockAt/pickupUnlockMs` ベースの時間待ちロジックは撤去。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: score回収体験を改善。
+  - 着地済み(`pickupReady=true`)のscoreドロップに吸い寄せ処理を追加。
+  - プレイヤーが近づくとscoreがプレイヤー方向へ移動し、十分近づいたら自動回収される。
+  - 飛散中(`physicsActive=true`)は引き続き回収不可。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: score吸い寄せが効かない不具合を修正。
+  - `updateWeaponWorldDropsPhysics` 内で `physicsActive=false` の時に早期 `continue` していたため、着地後の吸い寄せ/回収判定が実行されていなかった。
+  - 物理更新を `if (drop.physicsActive) { ... }` に限定し、回収判定自体は全dropで毎フレーム評価するよう修正。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: `move_enemy` の上面接触を足場化。
+  - `handlePlayerCollision` の `move_enemy` 分岐で、上からの接触判定 (`hitFromAbove`) を追加。
+  - 上面接触時はダメージを与えず、`player.y` を敵の上に補正、`player.vy=0`、`onGround=true` として乗れるように変更。
+  - `move_enemy` の横/下接触時の致死ダメージ挙動は維持。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: `move_enemy` が毒タイル上を移動できるよう修正。
+  - `FeelSlime.hasSolidBelowAt` で、`move_enemy` 分岐時は `deadly` タイルも足場扱いに変更。
+  - `FeelSlime.collidesSolidAt` で、`move_enemy` 分岐時は `deadly` タイルも衝突対象に変更。
+  - これにより `move_enemy` は毒タイル(例: tile 34)の上に乗って移動可能。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-14: 毒タイル接触時のプレイヤー被ダメージを即死化。
+  - `isPoisonTile` / `isPoisonRect` を追加し、毒(tile 34)への接触を別判定化。
+  - プレイヤー更新中の deadly判定を分岐し、毒接触時は残HPぶんのダメージを与えて即死するよう変更。
+  - 天井方向の deadly接触処理でも毒(tile 34)のみ即死分岐を追加。
+- 2026-02-14: 毒タイルアニメーションを追加。
+  - `drawTiles` で tile 34 に `poisonImages[poisonAnim.index]` を適用。
+  - `gameLoop` で `poisonAnim` のフレーム更新を有効化。
+  - 暗転キャッシュ固定を避けるため、tile 34 は `getDarkTileBitmap` 経路から除外。
+- 2026-02-14: 検証
+  - `index.html` インラインスクリプト構文チェックは OK。
+- 2026-02-15: 新毒タイル（`poison4~6`）を追加。
+  - `index.html` に tile `290` を追加（`deadly: true`）、`poison4/5/6` を別アニメ系として読み込み・描画。
+  - 既存毒(`34`: `poison1~3`)と独立してアニメ進行する `poisonAltAnim` / `poisonAltImages` を追加。
+  - 前景暗化キャッシュの除外対象に tile `290` を追加し、アニメが暗化キャッシュで固定化しないよう修正。
+  - `index copy.html` のパレットに tile `290`（`poison2`）を追加し、`poison4~6` をインラインアセット名/プレビュー描画/オーバーレイ描画/エディタループ更新へ追加。
+- 2026-02-15: `develop-web-game` スキル手順で Playwright クライアント実行を試行。
+  - `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'playwright'` で実行不可（自動UIテスト未実施）。
+- 2026-02-15: `move_enemy` が横方向で poison2(tile 290) 壁を通過できるように修正。
+  - `collidesSolidAt` にオプション `ignoreMoveEnemyPoison2SideCollision` を追加。
+  - `moveHorizontally` からの横移動衝突判定のみ同オプションを有効化し、`tile 290` の deadly 判定を横方向だけ無視するようにした。
+  - 縦移動判定は変更していないため、従来どおり上に乗る/落下時の挙動は維持。
+- 2026-02-15: 追加調整。`move_enemy` が poison2(tile 290) で上方向に押し出される問題を修正。
+  - `collidesSolidAt` の `move_enemy` 分岐で tile `290` を常時非衝突化。
+  - `hasSolidBelowAt` でも tile `290` を非地面扱いに揃えて、判定不一致による引っかかりを抑止。
+- 2026-02-15: プレイヤー即死毒判定を拡張。
+  - `isPoisonTile` を `34` に加えて `290` も true に変更し、poison2 触碰時も即死するよう修正。
+- 2026-02-15: `move_enemy` の誤判定を追加修正。
+  - `collidesSolidAt` の非スロープ判定を `isSolidTile` から `isSolidTileForMonster` に変更（非当たり判定タイルを壁扱いしにくくする）。
+  - `move_enemy` の deadly壁化は限定化し、`tile 34` のみ壁扱い、`tile 290` は非衝突のままに変更。
+  - `collidesSolidAt` と `moveHorizontally` の縦サンプル範囲に `verticalInset` を導入し、進行方向の1つ上タイルを誤って拾うケースを抑止。
+  - 横押し戻し分岐のタイル判定も `isSolidTileForMonster` に統一。
+- 2026-02-15: `move_enemy` 搭乗中のプレイヤー貫通問題を修正。
+  - `handlePlayerCollision` の `move_enemy` 上面ヒット時に運搬量(`carryDx`)を算出し、`canPlayerOccupyAt(targetX, player.y)` が true の場合のみ横運搬するよう変更。
+  - 移動先が固体ブロックで塞がれている場合は運搬せず `player.onGround=false` にして、`move_enemy` だけ先行しプレイヤーが落ちる挙動へ変更。
+  - 共有ヘルパー `canPlayerOccupyAt(x, y)` を追加。
+- 2026-02-15: 新敵 `net` を追加（設置対応含む）。
+  - `index.html` の `MONSTER_BRANCHES` に `net` 分岐を追加（`assets/net` の idle/run/squat をアニメに使用）。
+  - `tileSourcesExtended` に tile `401` を追加し、`entity.monster = 'net'` でスポーン可能化。
+  - モンスター定義 (`EXTRA_MONSTER_DEFINITIONS`) と敵図鑑説明 (`ENEMY_PROFILE_EXTRAS`) に `net` を追加。
+  - `index copy.html` のパレットに tile `401` (`net/idle1.png`) を追加し、編集画面で設置できるようにした。
+- 2026-02-15: `net` をボス仕様へ更新（総合レポート準拠）。
+  - ステータスを `HP 6000 / ATK 125 / DEF 50 / XP 5500` に変更、`skills: ['boss']` を付与。
+  - `net` を一回限り（再戦不可）扱いに変更。
+    - `isOneShotMonsterKey('net')` を追加し、`respawnMs=null` で生成。
+    - 永続キー `net:row:col` を `defeatedNetSpawnKeys` で管理し、`permaDefeated` な spawn は生成/更新/再スポーン対象から除外。
+    - セーブデータに `netQuest`（`anteOwnershipUnlocked`, `defeatedNetSpawns`）を保存/復元。
+  - `net` 撃破時 (`handleMonsterDefeat`) に `markNetSpawnDefeated` + `unlockAnteOwnershipFromNet()` を実行。
+  - アンテ解放フラグ `anteOwnershipUnlocked` を追加し、復元時は未保存の `anteCompanion` がなくてもアンテを再召喚。
+- 2026-02-15: レール/ロープウェイ機能を追加（index + index copy）。
+  - `index copy.html`:
+    - 新タイル `402` (`rail.png`) をパレット追加。
+    - レールタイルを再クリックで「レール接続ラベル」モーダルを開く実装を追加。
+    - `railPointLinks` メタデータ（`row:col -> label`）を追加し、保存/読込/出力に統合。
+    - ワールド移動・選択範囲移動・範囲削除・全消去時に `railPointLinks` も追従/削除されるように更新。
+  - `index.html`:
+    - 新タイル `402` (`rail.png`) を `tileSourcesExtended` に追加。
+    - `levelMetadata` に `railPointLinks` / `railPairs` を追加し、マップ読み込み時に復元。
+    - ラベルの末尾 `'` を同一グループ扱いしてペア化（例: `A` と `A'`）する `rebuildRailPairsFromMetadata()` を追加。
+    - レール線を各ペア中心間に描画する `drawRailLines()` を追加し、タイル描画前（下レイヤー）で描画するように変更。
+    - 近接時プロンプト `Qで乗る` を追加。
+    - `Q` 入力でレール乗車開始（既存の拾う/採集より優先）を実装。
+    - 乗車中は高速で直線移動し、到着後は逆方向へ乗れる状態に戻る実装を追加。
+    - 乗車中プレイヤー描画を `swim1` の90度回転表示に変更。
+- 2026-02-15: Playwright クライアント実行を試行したが、`playwright` 未導入で `ERR_MODULE_NOT_FOUND` のため自動検証は未実施。
+- TODO: `playwright` 導入後に、`copy` で A/A' 設定 -> 出力 -> `index` で読込 -> 近接Q乗車（往復）までの導線を実機確認する。
+- 2026-02-15: 装飾用レール支柱タイル `rail2.png` を追加。
+  - `index.html`: tile `403` (`rail2.png`) を `tileSourcesExtended` へ追加（`solid:false`, `deadly:false`）。
+  - `index copy.html`: パレットに tile `403` (`rail2`) を追加。
+- 2026-02-15: レール接続を連番対応に拡張。
+  - これまでの `A↔A'` に加えて `A'↔A''`（さらに `A''↔A'''` ...）も自動生成。
+  - 実装は `rebuildRailPairsFromMetadata()` で、同ベース名を `'` の数（tier）で分類し、`tier` と `tier+1` を接続する方式へ変更。
+- 2026-02-15: レール乗車中に服オーバーレイが消える不具合を修正。
+  - `drawPlayer` のレール分岐で早期return前にトップ/ボトムのオーバーレイ描画を追加。
+  - 乗車中フレーム（`swim1`）基準で `getPerFrameOverlay` を解決するようにした。
+- 2026-02-15: レールラベルの段数解析を強化。
+  - `index.html`: `parseRailLabel()` を追加し、末尾の `'(ASCII)`, `’`, `′`, `＇` を段数としてカウントするよう変更。
+  - これにより `A''''`, `A''''''` など長い連番でも段数制限なく接続生成可能。
+  - `index copy.html`: レールラベル入力上限を `maxlength=64` に拡張。
+- 2026-02-15: レール分岐入力を追加（Q/R）。
+  - 近接レール判定を `primary`/`secondary` の2系統に変更。
+  - 上下2方向へ繋がる場合: `Q`=通常（下方向優先）、`R`=上方向。
+  - HUD: 既存の `Qで乗る` に加え、上方向がある時だけプレイヤー上部に `Rで上へ` を表示。
+- 2026-02-15: レール操作を拡張。
+  - ロープ線分の途中（中間点近傍）からも乗車できるよう `resolveNearbyRailTargets()` を拡張。
+  - 乗車中に `Space` で途中降車（接線速度 + ジャンプ）を追加。
+  - 乗車中の進行反転を追加（線分が横向きなら左右、縦向きなら上下入力で反転）。
+  - 中間乗車後に終点到達した場合、次回反転先が中点ではなくレール両端になるよう補正。
+- 2026-02-15: 要望に合わせ、レール乗車中の方向転換機能を無効化。
+  - 途中乗車/途中降車は維持し、進行方向反転入力のみ削除。
+- 2026-02-15: レール本体タイル上では途中乗車判定を無効化。
+  - `resolveNearbyRailTargets()` でプレイヤー中心のタイルが `RAIL_TILE_ID` の場合、中間線分からの乗車候補を生成しないようにした。
+- 2026-02-15: `net` を人型挙動へ差し替え。
+  - `EnemyRegistry['net']` を `NetHumanoid` クラスへ上書き登録（既存FeelSlime汎用挙動から分離）。
+  - サイズをプレイヤー準拠（`PLAYER_SIZE`）へ変更。
+  - 慣性付き走行・ダッシュ（加速/減速）・障害物ジャンプ・上空からのドロップ攻撃を実装。
+  - アニメーションを `net` の `idle/run/dash` で制御。
+  - ダッシュ中の煙エフェクトを専用パーティクル描画で追加。
+- 2026-02-15: net のサイズ/AIパラメータを調整。
+  - 見た目サイズを縮小（`visualScale = 1`）。
+  - ダッシュ間隔制を廃止し、追跡中はプレイヤーAI相当で常時ダッシュ扱いに変更。
+  - ジャンプ条件をプレイヤーAIと同閾値へ統一（650msクールダウン、`withinJumpRange || gap || step`）。
+  - ドロップ条件をプレイヤーAI相当へ変更（空中下降中 + 近距離 + 高さ条件）。
+- 2026-02-15: net の方向転換レスポンスを改善。
+  - `NetHumanoid.update()` で、移動入力の向きが現在速度と逆になった瞬間に `vx=0` へリセットするスナップターンを追加。
+  - これにより慣性で引っ張られず、即座に逆方向へ切り返せるようにした。
+- 2026-02-15: net をさらに高速・小型化し、騎乗演出を追加。
+  - 描画サイズをプレイヤーサイズ固定（`drawImage(... this.width, this.height)`）に変更。
+  - runアニメ更新間隔を短縮（55ms）して足回転に見合う速度感へ調整。
+  - net 専用の「アンテ騎乗フェーズ」を追加。
+    - 開幕は乗れないアンテ（描画専用）に騎乗して高速移動。
+    - プレイヤー攻撃近接を検知すると回避挙動。
+    - 一定条件でアンテからジャンプ降車し、しゃがみ（change）アニメ付きドロップ攻撃へ移行。
+- 2026-02-15: `net` を FeelSlime 継承なしの独立実装として維持しつつ、プレイヤー発見時にアンテ召喚→ジャンプ騎乗→高速追跡へ移る段階状態を追加。
+  - `anteSummoned / mountJumpInProgress / mountTargetX,Y` を追加し、召喚後にネット本体がアンテへ飛び乗ってから騎乗フェーズへ入るよう修正。
+  - 騎乗解除時はアンテ離脱アニメに遷移し、その後状態をクリアするよう整理。
+  - `install(api)` の初期ガードから `w.FeelSlime` 依存を外し、`net` モジュール初期化を独立化。
+- 2026-02-15: 構文確認
+  - `index.html` の `<script>` 各ブロックを `new Function` で検証し、`scripts_ok 10` を確認。
+- 2026-02-15: Playwright 検証
+  - `web_game_playwright_client.js` 実行を試行したが `ERR_MODULE_NOT_FOUND: playwright` で未実行（ローカル環境に playwright パッケージなし）。
+- 2026-02-15: 「netが変わらない」対策として生成経路を固定。
+  - `createMonsterInstance` で `t==='net'` の場合は `window.NetHumanoid` を最優先する強制分岐を追加（EnemyRegistry上書きの影響を遮断）。
+  - `net` モジュール初期化時に既存 `net` インスタンスを走査し、旧クラス個体を `NetHumanoid` へ即時置換。
+- 2026-02-15: netの召喚体感とサイズ反映を追加修正。
+  - `reuseMonsterInstanceFromSpawn` で、`net` は `NetHumanoid` 以外のキャッシュ個体を再利用しないよう変更（旧挙動の残留を防止）。
+  - `NetHumanoid` のプレイヤー発見距離を拡張し、アンテ召喚後の待機時間を `420ms` に延長。
+  - 召喚時にアンテを上空から出現させて降下させる演出とトースト表示を追加。
+- 2026-02-15: net要望対応
+  - `net` の `idle` アニメを `idle1.png`〜`idle6.png` へ拡張。
+  - `NetHumanoid.handlePlayerCollision` を変更し、通常接触ダメージを廃止。
+  - 攻撃成立条件を「ドロップ中 + 下降中 + 上からの重なり」に限定（ジャンプしゃがみ急落下ヒットのみ）。
+- 2026-02-15: ユーザー要望に合わせ `net` から feel_slime ベース参照を削減。
+  - `MONSTER_BRANCHES.net.baseType` を `net_humanoid` へ変更し、`scale` を 1 に変更。
+  - `NetHumanoid.resolveBranchConfig` の `getBranchFallbackForBase('feel_slime')` を撤去。
+  - `NetHumanoid` の移動定数を `maxSpeed/acceleration/dashSpeed/jumpForce/fastFallSpeed`（プレイヤー実値）優先に変更。
+- 2026-02-15: net再調整（ユーザー指摘対応）
+  - `net` の idle を `idle1~3` に戻し、`change` アニメ定義を削除。
+  - `NetHumanoid` のアニメ状態を `idle/run/jump/dash/down` に統一（`change` 不使用）。
+  - ドロップ攻撃を再設計：`netDropArmed && netDropActive` の空中急降下時のみダメージ。接触常時ダメージを排除。
+  - 召喚見えづらさ対策として `netSummonDelayMs` を 900ms に延長（アンテ召喚後の待機を明確化）。
+- 2026-02-15: `index.html` の net を全面作り直し（旧ロジックを実質廃止）。
+  - `NetHumanoid` ブロックを全置換し、独立実装 `NetEnemy` を追加（互換のため `window.NetHumanoid = NetEnemy` も設定）。
+  - 挙動を状態機械化: `召喚 -> 騎乗ジャンプ -> 騎乗追跡 -> 近距離で降車 -> ジャンプ -> しゃがみ -> ドロップ`。
+  - ダメージ判定はドロップ時のみ（常時接触ダメージなし）。
+  - 慣性を廃し、横移動は即応速度に統一。
+  - 既存 net 個体は `monsterSpawns` を走査して新クラスで再生成。
+  - ログは `[net] rebuilt enemy module installed` を出すよう変更。
+- 2026-02-15: net行動をユーザー要件に合わせて再構成。
+  - カメラ内侵入で専用アンテ召喚 (`aiState='summon'`)。
+  - プレイヤー接近で net が真上ジャンプ (`aiState='mount_jump'`)、アンテが真下へ寄って搭乗。
+  - 搭乗後はプレイヤー上方2ブロック基準で弧移動 (`aiState='mounted_orbit'`)、天井ありなら低め軌道へ回避。
+  - プレイヤー攻撃検知で分離回避 (`aiState='evade'`)：アンテを別方向へ高速移動、netは真上へ移動しつつしゃがみ。
+  - その後 `drop` フェーズで急降下攻撃、着地後は再び頭上弧移動へ復帰。
+- 2026-02-15: `F3` で全キャラクターの当たり判定表示を追加。
+  - 新規 state: `characterHitboxDebugState.visible`。
+  - `F3` 単体: キャラ当たり判定表示 ON/OFF。
+  - `Shift+F3`（sandbagモード時）は既存のゲートリンク表示切替を維持。
+  - `Ctrl+F3` / `Alt+F3`: 既存のパフォーマンスオーバーレイ切替。
+  - 描画: プレイヤー（カプセル用上下Inset反映）+ `monsterSpawns` 全体（ante companion含む）をワールド上に枠表示。
+  - `net` は `getNetHitbox()` がある場合に実判定枠を表示（横幅縮小判定を可視化）。
+- 2026-02-15: 検証。
+  - `index.html` の script 構文チェック: `scripts_ok 10`。
+  - Playwright クライアント実行は `playwright` 未導入で失敗（`ERR_MODULE_NOT_FOUND`）。
+- 2026-02-15: net の runアニメ不安定を修正。
+  - `NetEnemy.updateAnimation` の run判定を `|vx| > 12` から `|vx| > 0.18` へ変更。
+  - 空中判定を `!onGround` のみから `!onGround && |vy| > 0.1` に変更し、接地際の微小ブレで `jump` に戻るのを抑制。
+  - これにより `run1~6` が連続で再生されやすくなる。
+- 2026-02-15: net のしばきタイム逃走で壁詰まり対策を追加。
+  - `shibakiDir` を保持し、壁/ワールド端を前方プローブで検知したら即反転。
+  - 実移動量が小さい状態が約320ms続いた場合もスタック判定で反転。
+  - しばきタイム開始/終了時に方向・スタック状態を初期化。
+- 2026-02-15: net を画面外で実質非存在化。
+  - `NetEnemy.update` 冒頭で `!inCameraView` のとき即 return し、位置を初期地点へ戻して AI/攻撃/騎乗/しばき状態を停止。
+  - 画面外中は `anteSummoned=false` とし、画面外でのドロップ進行や副作用を発生させない。
+  - ドロップ着地の画面振動は `inCameraView` 時のみ発火するよう制限。
+- 2026-02-15: 描画負荷の軽量化（暗闇処理中心）。
+  - `debug_sub_darkness` の深度計算を毎フレーム実行からキャッシュ方式へ変更（レイアウト参照/サイズ/maxDepthが同一なら再利用）。
+  - `drawDebugDarknessTiles` のタイルごとの `save/restore` を削減し、globalAlpha直接更新で描画。
+  - `LOW_SPEC_MODE` 時の暗闇描画を簡易版（黒タイル塗り）に切替。
+  - ランタン由来の reveal ターゲット探索を可視範囲キーでキャッシュ化し、同フレーム内の重複走査を削減。
+- 2026-02-15: メダル獲得を敵ドロップ方式へ変更（scoreと同様の回収導線）。
+  - 敵loot判定 `awardMonsterLootFromBranch` で、取得対象が `type==='medal'` の場合は即時付与せず `weaponState.worldDrops` へドロップ生成。
+  - ドロップは `autoPickup/pickupReady` を使う既存 score 回収ロジックを流用し、近づくと回収される。
+  - 追加関数: `spawnMonsterLootItemDrop(itemId, worldX, worldY, options)`。
+  - `handleMonsterDefeat` から loot付与時に `centerX/centerY` を渡し、敵死亡位置でメダルが飛び散るようにした。
+- 2026-02-15: プレイヤー死亡後のアンテ再出現を追加。
+  - `respawnPlayerFromDeath` で `clearAnteCompanion()` 後、`anteOwnershipUnlocked` が true なら `ensureAnteCompanionSpawned()` を呼び、リスポーン地点のプレイヤー位置でアンテを再生成するようにした。
+- 2026-02-15: 仲間アンテをモンスター判定から除外。
+  - 追加: `isHostileMonsterSpawn(spawn, monster)`。
+  - たぬつなのフード系/自動照準/前方攻撃/射撃カードの敵探索で `isAnteCompanion` を除外。
+  - 武器ヒット探索 `findMonsterAtWorldPoint` でも除外し、味方アンテへ攻撃が当たらないようにした。
+  - リプレイ対象探索 `findNearestMonsterInView` からも除外。
+- 2026-02-15: 仲間アンテのバリア通過。
+  - `Ante.prototype.collidesSolidAt` を上書きし、バリアタイル (`255`,`256`) は衝突判定しないよう変更。
+- 2026-02-15: 背景ID 3 を白昼の草原へ変更。
+  - `index.html` の `DEBUG_BACKGROUND_DEFINITIONS[3]` を `label: 白昼の草原` / `image: assets/background/white_forest/white_forest1.png` / `scale: 7` に更新。
+  - `background-data.js` の `biomes[3]` も同内容に揃えて更新。
+- 2026-02-15: 背景描画のストリップ判定を一般化。
+  - `drawBackgroundTextureLayer` の `isStripLayer` を個別ファイル列挙（forest/mountainsのみ）から、`assets/background/...` 配下の画像全体を対象に変更。
+  - これにより `white_forest` を含む背景画像が `forest` / `mountain` と同じ横ストリップ描画ロジックで表示されるようにした。
+- 2026-02-15: 背景描画方式を全背景へ統一。
+  - `drawBackgroundTextureLayer` の条件分岐を撤去し、全ての背景画像で `forest/mountain` と同じ横ストリップ描画（repeatXOnly）を使うよう変更。
+- 2026-02-15: レール紐の消失対策を追加。
+  - `rebuildRailPairsFromMetadata` にフォールバックを実装。
+  - `railPointLinks` が空でも、`rail(402)` タイルをマップ順で2点ずつ自動ペア化して `railPairs` を生成するよう変更。
+  - これによりリンク情報欠落時でも紐（線）が表示され、最低限の乗車動作が可能。
+- 2026-02-15: レール自動ペア生成の初期化クラッシュ修正。
+  - `rebuildRailPairsFromMetadata` のフォールバックで未定義変数 `level` を参照していたため、`levelLayout` 参照へ修正。
+  - `ReferenceError: level is not defined` を解消し、`railPairs` 再構築と `Qで乗る` 判定が動作する状態に戻した。
+- 2026-02-15: レールラベル解析を強化。
+  - `parseRailLabel` で `NFKC` 正規化を追加。
+  - 末尾の段階記号として `'` 系に加えて `` ` `` / `´` / `ʼ` も許可。
+  - `A`, `A'`, `A''''''` などの派生ラベルが入力揺れでも同一グループとして扱われやすくなった。
+- 2026-02-15: レールの段階接続を強化。
+  - `rebuildRailPairsFromMetadata` で、同一ベースの `tier -> tier+1`（例: `A -> A' -> A'' -> A'''`）を明示的に連結。
+  - 連結先はインデックス固定ではなく、座標が近い点を優先して1:1でマッチする方式に変更。
+- 2026-02-15: レール接続を分岐対応に変更。
+  - 同一ベースの `tier -> tier+1` 接続を 1:1 から多対多へ変更。
+  - 1つの点から2本以上の接続（分岐）を持てるようにした。
+- 2026-02-15: レール紐の見た目を「たるみ」表現へ変更。
+  - `drawRailLines` を直線(`lineTo`)から二次ベジェ(`quadraticCurveTo`)へ変更。
+  - 端点間距離に応じて中央制御点を少し下げ、中心に向かって垂れる見た目に調整。
+- 2026-02-15: 落下タイル復帰先を変更。
+  - 落下タイルによる死亡演出後の復帰で `respawnPlayerFromDeath(..., { useSafePosition: true })` を使い、スポーン地点ではなく `lastSafePosition` へ戻るように変更。
+  - 位置リセット共通化: `resetPlayerToPosition` を追加し、`resetPlayerToSpawn` / `resetPlayerToSafePosition` を整理。
+  - `lastSafePosition` 更新条件に「足元が落下タイルではない」を追加し、落下直前の安全地点を保持するようにした。
+- 2026-02-15: 落下復帰と copy 保存の安定化。
+  - `index.html`: `lastSafePosition` 更新条件に `!fallDeathState` を追加。落下演出中に地面へ触れても安全地点が上書きされないよう修正。
+  - `index copy.html`: 保存処理(`performDownload`)のローカル元データを `activeWorld.data` 優先から `exportMapData()` 固定に変更し、最新のセーブポイント名/レールリンク設定を確実に保存するよう修正。
+  - `index copy.html`: 空マップ書き出し分岐でも `chestLoots/chestLootEntries/savePointNames/railPointLinks` を出力するよう追加。
+- 2026-02-15: `leaf_block1/2` をスロープ化。
+  - `index.html` tile `73` (`leaf_block1.png`) を `solid:true, slope:'right'` に変更。
+  - `index.html` tile `74` (`leaf_block2.png`) を `solid:true, slope:'left'` に変更。
+- 2026-02-15: ポーチのマップタブを地形表示へ改修。
+  - `misc` タブをカードUIから地形ミニマップUIへ変更（`level/background/front` を簡易色分け表示）。
+  - セーブポイント位置に丸印と名称を表示し、印クリックで従来どおりメニュー（ワープ/やめる）を開けるようにした。
+  - マップ内ドラッグで自由パンを追加（枠内クランプなし）。
+- 2026-02-15: マップ既視領域（Fog of War）を追加。
+  - `exploredMapCells` を導入し、毎フレームで「カメラに映った範囲 + プレイヤー周辺」を既視として記録。
+  - マップ未探索領域は黒く表示。
+  - 既視セルはセーブデータ `mapExploration.exploredCells` に保存/復元。
+- 2026-02-15: ポーチ地図の可視範囲と画質を改善。
+  - 既視化のカメラ反映範囲に余白を追加（`MAP_FOG_CAMERA_MARGIN_TILES=10`）。
+  - プレイヤー周辺の既視化半径を拡大（`MAP_FOG_PLAYER_REVEAL_RADIUS_TILES=14`）。
+  - 地図描画ステップを `MAP_FOG_TILE_STEP=1` に変更し解像度を向上。
+  - ミニマップ色をヒューリスティックから実タイル画像ベースへ変更（4x4サンプリング平均をキャッシュ）。
+- 2026-02-15: ポーチ地図の背景を透過化。
+  - `misc` 地図で背景ベタ塗りを削除し、タイルがあるセルのみ描画する方式に変更。
+  - 未探索セルの黒塗りも削除し、未探索は非表示（透過）に変更。
+  - タイル色は既存の画像サンプリング色（実タイル画像由来）を継続使用。
+- 2026-02-15: ポーチ地図に2本指上スワイプ拡大を追加。
+  - `touchstart/touchmove/touchend/touchcancel` を `canvas` に追加し、`pouch/misc` 地図領域でのみ有効化。
+  - 2本指の平均Yが上へ動いた量に応じて `mapZoom` を増加。
+  - 通常上限(`0.2`)より上の拡大をジェスチャ専用で許可（拡張上限 `0.38`）。
+- 2026-02-15: マップ移動/倍率の制約を追加。
+  - ポーチ地図のカメラを探索済み領域境界でクランプし、未探索エリアへパンできないように変更。
+  - ズーム下限をデフォルト倍率(`POUCH_MAP_DEFAULT_ZOOM=0.06`)に固定し、縮小はそこまでに制限。
+  - ドラッグ・ホイール・描画時の全経路で同じクランプを適用。
+- 2026-02-15: `index copy.html` のセーブポイント名/レールラベルの保存互換を修正。
+  - `savePointNames` / `railPointLinks` を読み込み時に座標キー正規化（`row:col`）し、`origin` 付きデータの相対座標も絶対座標へ補正。
+  - 有効タイル（save_point / rail）に紐づくキーのみ復元するようにして、欠損キーやズレを除外。
+  - 書き出し時も同じ正規化を通してメタデータを書き出すように変更。
+- 2026-02-15: Playwright スモーク実行を試行したが、`playwright` 未導入で `ERR_MODULE_NOT_FOUND` のため自動検証は未実施。
+- 2026-02-15: 入力変更（index.html）。
+  - `M` キーでポーチのマップタブ（`misc`）を直接開く `openPouchMapDirect()` を追加。
+  - `M` 再押下時（すでにマップタブを開いている時）は閉じる挙動に。
+  - `E` 長押しによるインベントリ選択メニュー遷移を無効化。
+  - ゲームループ中の `eHeld` 長押し監視（`openInventoryChoiceMenu` 発火）を削除。
+- 2026-02-15: `slot` タブにタッチスクロール対応を追加。
+  - 1本指ドラッグで `slot` ビューポートは `slotUI.slotScroll`、メダル一覧は `slotUI.medalScroll` を更新。
+  - `touchstart/move/end/cancel` を `pouch` 既存処理と分岐し、`slot` 用スクロール状態を追加・リセット。
+- 2026-02-15: パフォーマンス最適化（低スペック端末向け）を追加。
+  - 端末性能を `hardwareConcurrency/deviceMemory/pixelLoad` から推定し、初期FPS上限と品質上限を自動設定（low/mid/high）。
+  - 実行中の `renderMsEma/fps` 監視で品質を自動で上下させる適応制御を追加。
+  - 暗闇描画を `SIMPLE_DARKNESS_MODE` で簡略化し、`debug_sub_darkness` は連続タイルを行ランで一括塗り（描画コール削減）。
+  - 前景の暗闇ブロックも簡略モードで1タイル塗りつぶし描画へ変更。
+  - マップ探索更新を毎フレームから間引き（low:140ms / 通常:70ms）。
+- 2026-02-15: 最適化後の不具合修正。
+  - 画面のパチパチ対策として、実行中の自動品質チューニングを停止（初期デバイス判定のみ維持）。
+  - 暗闇マスクが外れる問題を修正し、低品質時でも暗闇レイヤーは常にマスク経由で描画するよう変更。
+- 2026-02-15: アンテ追従/バリア挙動を調整。
+  - `Ante.prototype.collidesSolidAt` のバリア通過特例を `spawn.isAnteCompanion` 限定に変更（ネット付属側アンテはバリアを通常衝突）。
+  - `Ante.prototype.returnToPlayerThroughTerrain` を高速化し、画面外ではプレイヤー画面へ復帰するまで補間率と速度上限を強化。
+- 2026-02-15: 味方アンテが画面外で復帰しない問題を修正。
+  - `updateMonsters` の画面外間引き (`_culledNextUpdateAt`) から `spawn.isAnteCompanion` を除外し、画面外でも毎フレーム更新に変更。
+  - 味方アンテが out_of_bounds に出た場合は despawn せず、プレイヤー近傍へ即時補正して復帰するフォールバックを追加。
+- 2026-02-15: 画面外アンテ復帰を「障害物回避 + 画面外縁合流」へ変更。
+  - `getCompanionOffscreenEntryTarget` を追加し、画面内へ直接出現せず外縁（マージン付き）を先に目標化。
+  - `moveTowardsWithAvoidance` を追加し、進行方向/軸移動/横ずれ候補から衝突しない移動を選ぶ簡易回避を導入。
+  - `returnToPlayerThroughTerrain` は上記を使い、画面外時は外縁へ高速、合流後はプレイヤー近傍目標へ遷移する方式に変更。
+- 2026-02-15: 「超遠距離移動でもアンテが消えない」対策を追加。
+  - `updateMonsters` で `activeInstance.update` が `false` を返しても、`isAnteCompanion` は despawn せずプレイヤー近傍へ復帰する分岐を追加。
+  - `shiftAndTrimSpawns` で `isAnteCompanion` を除外し、列トリム時に味方アンテspawnが削除されないよう修正。
+  - `Ante.prototype.update` の脱出失敗時自己削除を、味方アンテのみ「プレイヤー近傍へ補正して継続」に変更。
+- 2026-02-15: 画面外味方アンテの復帰を「プレイヤー近傍の画面外縁へ即ワープ」に変更。
+  - `getCompanionOffscreenEntryTarget` をプレイヤー位置基準で最短の画面縁（左/右/上/下）を選ぶ計算へ変更。
+  - `returnToPlayerThroughTerrain` は画面外判定中、上記ターゲットへ即座に座標補正（ワープ）するよう変更。
+- 2026-02-15: スロットタブのメダル側タッチスクロールを強化。
+  - `beginSlotTouchScroll` の開始条件を緩和し、メダル領域判定に余白を追加（上下スワイプ取りこぼしを減少）。
+  - `touchmove` 側にフォールバックを追加し、`touchstart` で開始できなかった場合でも移動中にスクロール開始できるよう修正。
+- 2026-02-15: 味方アンテのフルーツ採集代行を追加。
+  - 採集ターゲット探索を `findHarvestableTargetNearEntity(entity, range)` として汎用化（プレイヤーはラッパー維持）。
+  - 採集実行を `tryHarvestNearbyTileFromEntity(entity, options)` として汎用化し、`window.tryHarvestNearbyTileFromEntity` を公開。
+  - 味方アンテ更新内で一定間隔ごとに採集実行（range=約2.1タイル、クールダウンあり）。
+- 2026-02-15: 味方アンテの採集時に頭上ミニUIを追加。
+  - `tryHarvestNearbyTileFromEntity` に `options.onPicked` コールバックを追加。
+  - アンテ更新で採集成功時に `harvestUiBubbles` を積み、`Ante.draw` で「◯◯ 獲得」吹き出しを短時間表示。
+- 2026-02-15: 味方アンテの画面外→画面内復帰フローを2段階化。
+  - 画面外中に復帰処理が走った場合 `returningFromOffscreen=true` を立てる。
+  - 画面内復帰直後は `followPlayer` が一時的にプレイヤー近傍へ寄るモードで移動。
+  - 近距離まで寄ったら `returningFromOffscreen=false` に戻し、通常追従ロジックへ復帰。
+- 2026-02-15: 味方アンテの移動優先度を調整。
+  - プレイヤーがジャンプ中でない場合、`findHarvestableTargetNearEntity` で近傍フルーツを探索し、見つかったら通常追従より優先してフルーツ地点へ移動。
+  - 採集探索関数を `window.findHarvestableTargetNearEntity` として公開し、アンテAIから利用可能にした。
+- 2026-02-15: 画面端で味方アンテがガクつく問題を修正。
+  - `isOutsideCompanionView` にヒステリシス（leave/reenter margin）を追加し、画面端で in/out 判定が揺れないよう調整。
+  - 画面外ワープ先の辺選択を「プレイヤー距離最短」優先から「現在アンテが居る側優先」に変更し、左右/上下の切替振動を抑制。
+  - `returnToPlayerThroughTerrain` 内の二重 `isOutsideCompanionView()` 判定を除去し、更新中の状態揺れを削減。
+- 2026-02-15: 味方アンテのジャンプ追従を追加。
+  - `Ante.followPlayer` でプレイヤーがジャンプ中 (`!onGround || |vy|>閾値`) のとき、アンテがプレイヤー真下（足元より少し下）へ優先移動する分岐を追加。
+  - この分岐はフルーツ優先より先に評価されるため、ジャンプ中は必ず真下移動を優先。
+- 2026-02-15: 画面外味方アンテの復帰を「移動」から「即テレポート」に変更。
+  - `Ante.returnToPlayerThroughTerrain` を改修し、画面外時はプレイヤー近傍候補座標へ即座に配置。
+  - 衝突回避のため近傍候補を複数試し、見つからない場合のみ基準座標へ配置。
+- 2026-02-15: 2段ジャンプ回復を着地即時からクールダウン方式へ変更。
+  - `player.airJumpRechargeReadyAt` を追加。
+  - 空中2段目使用時に6秒クールダウンを開始。
+  - 毎フレーム更新でクールダウン到達時に `airJumpCharges` を回復（着地で即回復しない）。
+  - リスポーン時は `airJumpCharges` を最大に戻し、クールダウンをリセット。
+- 2026-02-15: レール乗車中に味方アンテが寄ってこないよう調整。
+  - `railRideState` を `window.railRideState` として公開。
+  - `Ante.update` に `railRideState.active` 分岐を追加し、味方アンテの追従/画面外復帰（テレポート）を停止。
+- 2026-02-15: 低画質時の暗闇を強化。
+  - `drawDebugDarknessTiles` の `SIMPLE_DARKNESS_MODE` で暗闇不透明度を `0.985` (low spec) / `0.96` に引き上げ。
+  - 通常暗闇タイルの深度アルファを `0.72 + t*0.28` に変更し、背景・ブロックがほぼ見えない濃さへ調整。
+  - プレイヤー/虹彩の可視半径マスク処理は既存ロジックを維持。
+- 2026-02-15: 滞空時アンテ回り込み条件を調整。
+  - `Ante.followPlayer` で、プレイヤーが滞空中かつ「アンテがいる側と逆方向へ水平移動中」の場合は、真下への回り込み分岐をスキップするよう変更。
+  - 判定は `anteSideFromPlayer` と `player.vx` から算出（速度しきい値あり）。
+- 2026-02-15: 設定メニューに `軽量化モード` を追加。
+  - 設定保存/読込に `lightweightMode` を追加（`DEFAULT_INDEX_SETTINGS`・`loadIndexSettings`）。
+  - 設定UIにON/OFFトグルを追加し、切替時に即時反映 + `resizeCanvas()`。
+  - 軽量化ON時の描画最適化:
+    - Canvas DPR上限を強制低下（`resizeCanvas`）
+    - 低負荷描画分岐を優先（`lowSpecRender = LOW_SPEC_MODE || LIGHTWEIGHT_MODE`）
+    - 塵エフェクト停止、death_dom描画停止
+    - マップ探索更新間隔を延長
+    - 前景マスクを簡略化（暗闇マスクは維持）
+  - `applyDevicePerformanceProfile` も軽量化ON時に FPS cap/品質上限を低めに調整するよう変更。
+- 2026-02-15: 軽量化モードをさらに強化（ユーザー要望: もっと軽く）。
+  - 軽量化ON時のFPS上限を 75 -> 60 に変更。
+  - 軽量化ON時の品質上限を 3 -> 2 に変更（device profile適用時）。
+  - 軽量化ON時のDPR上限を 0.72 -> 0.58 へ低下。
+  - ゲームループで `ultraLiteRender` 分岐を追加し、軽量化ON時に以下を追加で間引き:
+    - `deathDomEmitter` 更新/描画停止
+    - `updateWeaponTreeShakeEffects` 停止
+    - `drawRailLines` / `drawWeaponTreeShakeEffects` / `drawSandbagDebugLinks` / `drawBusinessCards` 停止
+    - `drawCharacterHitboxes` 停止
+    - マップ探索更新間隔を 260ms に延長
+    - 背景フェード更新を間引き
+- 2026-02-15: 起動時ローディング完了判定を厳格化。
+  - `assetLoader` の安全タイマーを 4s -> 12s に延長（低速環境での早期完了誤判定を抑制）。
+  - `assetLoader.whenIdleStable({settleMs, checks})` を追加し、`idle` が連続安定したことを確認してから完了扱いに変更。
+  - タイトル前プリロードとセーブ開始時の待機を `whenIdle` から `whenIdleStable` に変更。
+  - 初期プリロードの `freezeTrackingAfter` を `false` に変更し、途中で追跡が止まって未読込のまま開始される経路を抑止。
+- 2026-02-15: ローディング画面に「現在何を読込/準備中か」の表示を追加。
+  - `assetLoader` に `phaseMessage` / `lastRequestedSrc` / `lastCompletedSrc` を持たせ、進捗通知に詳細 (`detail.text`) を含めるよう拡張。
+  - `assetLoader.setPhase(message)` と `assetLoader.getLoadingDetailText()` を追加。
+  - ローディングUIに `loading-detail` 行を追加し、工程名 + 件数 + アセット名（可能ならファイル名）を表示。
+  - 起動初期ロード・セーブ開始ロードで工程名を切替（例: 起動準備 / 画像アセット読込 / セーブデータ復元 / 開始準備）。
+- 2026-02-15: ローディング詳細で Data URI(base64) が長文表示される問題を修正。
+  - `toAssetLabel()` で `data:image/...;base64,...` を検出し、`PNG(Base64)` などの短いラベルに置換表示するよう変更。
+- 2026-02-16: パフォーマンスとcopyメタデータ保存不整合を修正。
+  - `index.html` の `persistActiveSlotSilently` をデバウンス化（180ms）し、UIカード更新を間引き（900ms）して、攻撃/ジャンプ時の同期保存スパイクを軽減。
+  - `window.blur` 時にサイレント保存キューを即flushするよう追加。
+  - `index copy.html` で宝箱メタデータを正規化: `chestLootEntries` を `origin` 考慮で補正し、対応する `chestLoots` を再構成する処理を `importMapData` に追加。
+  - `index copy.html` のエクスポート時に、現マップ上の実在チェストのみ `chestLootEntries/chestLoots` を出力する整合フィルタを追加（セーブポイント名・レール名と同様の整合性確保）。
+  - Playwright 実行は `playwright` 未導入（`ERR_MODULE_NOT_FOUND`）で不可。
+- TODO: 実機で `copy` の「保存→再読込→再保存」を繰り返し、`savePointNames` / `railPointLinks` / `chestLootEntries` が維持されるか確認。
+- TODO: `persistActiveSlotSilently` の更なる負荷削減として、`persistSaveSlots` を `requestIdleCallback` 併用にするか検討。
+- 2026-02-16: `index copy.html` の低スペック向け周期フリーズ対策。
+  - 低スペック判定（`hardwareConcurrency` / `deviceMemory`）を追加し、`MEMO_POLL_INTERVAL_MS` を 3s、`TERRAIN_WATCH_INTERVAL_MS` を 12s に自動緩和。
+  - `checkTerrainReferenceUpdates` は画面非表示・フォーカス外・操作直後をスキップするように変更（入力中のカクつきを回避）。
+  - 参照ファイル監視に `size:lastModified` スタンプ比較を追加し、未更新時は再パースをスキップ。
+  - 監視用フィンガープリントを `JSON.stringify` 全量から軽量ハッシュ方式へ変更。
+  - memoポーリングは操作直後（silent時）はスキップして入力優先にした。
+- 2026-02-16: ポーチ表示調整。`top` / `bottom` カテゴリではカード下段の `x個数` 表示を出さないように変更（カテゴリ名のみ表示）。
+- 2026-02-16: 敵の画面外管理を共通化。
+  - 画面外遠距離で敵を `offscreen_cull` デスポーンし、HP/座標/状態などを `spawn.offscreenState` に保持。
+  - プレイヤーが近距離まで来たら、保持状態を適用して再スポーン（死亡リスポーンとは別経路）。
+  - 死亡リスポーン時は `offscreenState` を破棄するよう統一。
+  - セーブ時にも `offscreenState` を alive状態として保存できるようにして、復帰後のHPや状態保持を改善。
+- 2026-02-16: 宝箱アイテム設定の0混入バグ修正。
+  - `normalizeChestLootItemId` を追加し、宝箱アイテムIDは `1以上の整数` のみ許可。
+  - ダブルクリック追加・追加ボタン・手入力パース・保存時正規化・再読込時正規化の全経路で `0` / 空値を除外。
+  - これにより選択時に `0` が複数追加される問題と、再読込時の不正値混入による消失を抑止。
+- 2026-02-16: 砂ブロック上でのドロップ素材追加を実装。
+  - 新素材アイテム `346: 砕けた砂岩` を追加（`assets/item.break_sand_stone.png`）。
+  - ドロップ着地フックに `maybeTriggerBreakSandStoneDrop` を追加。
+  - 砂系タイル（35-43, 285, 286）上でのドロップ着地を座標ごとにカウントし、10回で `砕けた砂岩` をその場にドロップ。
+  - `weaponState.sandHitCounts` を追加し、セーブ/ロード/リセット時の保持・初期化処理も追加。
+- 2026-02-16: Playwright検証を試行したが、`playwright` パッケージ未導入のため `ERR_MODULE_NOT_FOUND` で実行不可。
+- 2026-02-16: `index copy.html` の宝箱メタ読込を修正。
+  - `normalizeChestLootPayload` を追加し、以下の形式を全て読めるようにした。
+    - 現行: `chestLootEntries + chestLoots[lootId]`
+    - 旧式: `chestLootEntries[].items` 直書き
+    - 旧式: `chestLoots["row:col"]` / `chestLoots["row,col"]`
+  - `parseCoordKey` を `:` と `,` の両方に対応。
+  - `importMapData` は新正規化関数を使って `chestLootEntries/chestLoots` を復元するよう変更。
+- 2026-02-16: サンドクラムボンのドロップ素材化を追加。
+  - 新素材 `347: サンドクラムボン液` を追加（`assets/item_sand_clambon_liquid.png`）。
+  - 上からドロップ着地時、足元のサンドクラムボンタイル(61/62/63)を検出すると素材ドロップ。
+  - 該当タイルは `replaceTile`（通常60）へ置換し、既存の再生キューに登録。
+- 2026-02-16: サンドクラムボン液の生成条件を修正。
+  - タイル(61/62/63)由来を撤回し、`捨てたサンドクラムボン(itemId=341)` への上からドロップ着地時のみ素材化。
+  - `worldDrops` のサンドクラムボンを着地時に1つ消費し、同位置へ `サンドクラムボン液(itemId=347)` を生成。
+- 2026-02-16: 砕けた砂岩の素材変換を追加。
+  - 捨てた `砕けた砂岩(itemId=346)` を上からドロップ着地すると `砂(itemId=348)` に変換。
+  - 変換対象は `vx/vy` を持つ投擲由来ドロップのみ（タイル由来の通常生成は誤変換しない）。
+  - 砂素材アイテム追加: `assets/item/sand.png`。
+- 2026-02-16: 大蛇の死亡後ドロップ噴水バグを抑制。
+  - 画面外復帰時、`dead/isDead/health<=0` のオフスクリーン状態は通常復帰させず、リスポーン予約へ送るよう修正（再ドロップ連打防止）。
+  - ただしグリッチ技として、`大蛇 + overkill + fastFall + dash + airJump残量0` の死亡時のみ `__allowDeathFountain` を立て、旧挙動を許可。
+  - offscreen state に `__deadHandled/__xpAwarded/__allowDeathFountain` を保存復元するよう拡張。
+- 2026-02-16: 「サンドクラムボン液 + 砂 => 麻痺の粉塵」クラフトと粉塵ゾーンを `index.html` に実装。
+  - 新アイテム `349: 麻痺の粉塵`（consumable）を追加。
+  - ワールドドロップ更新時に、`347` と `348` が近接したら自動合成して `349` を生成する処理を追加。
+  - 麻痺の粉塵を「使う」と、クリック地点に半径約デカスライム相当のゾーンを20秒生成。
+  - ゾーン内モンスターへ 1ダメージ/秒 + 麻痺付与（継続tick）を追加。
+  - 使用UI文言をアイテム別に分岐（通常はプレイヤークリック、麻痺の粉塵は使用地点クリック）。
+  - ワールド描画に粉塵ゾーンのエフェクト描画を追加。
+- 2026-02-16: `playwright` 未導入のため、`develop-web-game` スキル推奨の Playwright 実行は今回も未実施（`playwright_missing`）。
+- 2026-02-16: 麻痺の粉塵ゾーン描画を `assets/paralyze_dust/1..5.png` のアニメーション表示に変更。
+  - `paralyzeDustFrames/paralyzeDustImages` を追加し、assetLoader登録。
+  - `drawParalyzePowderZones` をフレーム循環描画へ更新（未読込時は従来の円描画でフォールバック）。
+- 2026-02-16: 「捨てる」を一括化。1回の捨て操作で対象アイテムの全所持数をまとめてドロップするよう変更。
+  - 通常クリック捨て、ドラッグ投げ捨ての両方を対象。
+  - ドロップは少し散らして生成し、トーストに捨てた個数を表示。
+- 2026-02-16: 捨てる挙動を再調整。
+  - 一括投棄を撤回し、クリック/投げ1回ごとに1個ずつ捨てる仕様へ。
+  - 捨てモードは残数がある限り継続し、残り0で自動終了。
+- 2026-02-16: 経験値ドロップを軽量化。
+  - `350: ビッグスコア` (`assets/big_score.png`) を追加。
+  - 敵撃破時の経験値ドロップ生成を再設計し、発生数を `SCORE_DROP_MAX_PER_DEFEAT=24` で上限化。
+  - XPを分割して、1ドロップのXPが50以上なら `ビッグスコア`、未満は通常 `スコア` を生成する方式に変更。
+- 2026-02-16: `index copy.html` のメタデータ消失対策を実施。
+  - 宝箱/セーブポイント/レールの設定保存時バリデーションを、前景map限定から「前景+背景+前景レイヤー群」の全主要レイヤー判定に変更。
+  - 読み込み時正規化 (`importMapData`) と書き出し時 (`collect*ForExport`) を同一基準へ統一。
+  - これにより、設定UIを開かず別編集して保存した際に、レイヤー差異で設定が落ちるケースを抑制。
+- 2026-02-16: 味方アンテのジャンプ追従を調整。
+  - プレイヤーがジャンプ中でも、アンテとの距離が `1.5タイル未満` の場合は追従で寄らないよう変更。
+  - ジャンプ追従時の速度/加速度を通常より引き上げ、寄る時はより速く追従するよう変更。
+
+- 2026-02-16: net HPリセット対策。`rebuildNetSpawnsFromMap` が遅延再実行で `spawn.instance = new NetEnemy(...)` を毎回上書きしていたため、既存 `NetEnemy` は再生成しないよう変更。旧実装から差し替え時は x/y/vx/vy/health/maxHealth/facing を引き継ぐように修正。
+
+- 2026-02-16: スケボー機能を追加。F6でON/OFF。ON中は壁捕まり/クライミング無効、`assets/skateboard.png` をプレイヤー下に描画（16x16基準で下から2px位置に足合わせ）。移動入力中は一定間隔または方向転換時に蹴り発生し、速度ブースト加算→徐々に減衰。蹴り中はプレイヤーを6px上げ、`run1~3`ループ。通常時は`idle3`固定。
+
+- 2026-02-16: スケボー調整。蹴り加速を弱化（boost/max/decay調整）、移動キー押下時（押した瞬間）と方向転換時のみ蹴るよう変更。蹴り中Yオフセットを上方向-6pxから下方向+2pxへ修正し、服オーバーレイにも同Y補正を適用してズレ解消。
+
+- 2026-02-16: スケボー無入力時を慣性滑走に変更。平地のみ極小ドラッグ(0.0035)、傾斜上はドラッグを入れず、入力なしでもスーッと進む挙動に調整。
+
+- 2026-02-16: スケボー蹴りアニメ調整。蹴り時の描画Yオフセットを+8px（さらに下）へ変更。蹴りアニメのフレーム更新間隔を0.2秒(200ms)に変更。視認性確保のため蹴り継続時間を620msに延長。
+
+- 2026-02-16: スケボー蹴り加速を強化。蹴りごとに `player.vx` へ直接インパルス加算（SKATE_KICK_IMPULSE）し、累積ブーストの加算量/上限を拡大、減衰を緩和して「蹴るたびに加速」を明確化。
+
+- 2026-02-16: スケボー蹴りアニメ順を run3→run2→run1 に変更（SKATE_KICK_FRAME_ORDER=[2,1,0]）。
+
+- 2026-02-16: スケボー強化。蹴り加速（boost/impulse/max）を増やして連続蹴りでより高速化。drawDashWind をスケボー速度にも連動させ、高速時に風エフェクトを表示。スケボー中はアンテ騎乗不可（tryMountPlayerで拒否、既存騎乗中にF6で即解除、騎乗処理側でも防御）。スケボー基礎速度を maxSpeed 基準へ引き上げ、服の速度上昇を反映。
+
+- 2026-02-16: 高速時のスロープ貫通対策。`resolveMovementWithSubsteps` を速度依存で細分化し、ダッシュ/スケボー/高速落下時は maxStep を TILE_SIZE*0.12 へ縮小。通常高速時も0.2へ縮小。ステップ数上限64を設定して安全化。
+
+- 2026-02-16: スケボー蹴りアニメのY補正をフレーム別に調整。run3時のみ+8px、run2/run1時は0px(通常位置)へ戻す。
+
+- 2026-02-16: スケボー蹴りアニメから run2 を除外。フレーム順を run3→run1 の2コマ循環へ変更。
+
+- 2026-02-16: スケボー蹴りアニメを非ループ化。run3→run1を1回再生したら`skateKickUntil`を即終了させ、再循環しないよう修正。
+
+- 2026-02-16: スケボーモード時のカメラ追従率を向上。updatePlayer内で camera.smoothing を動的化し、skateboardMode時は最大0.2まで追従係数を引き上げ。
+
+- 2026-02-16: copyのレール/セーブポイント名が飛ぶ対策。normalizeCoordLabelMapに preserveInvalid オプションを追加。export/importの savePointNames / railPointLinks 正規化で preserveInvalid:true を指定し、有効タイル判定に失敗してもラベルを保持するよう修正。
+- 2026-02-16: 設定に「低電力対応モード」を追加。
+  - `RAFT_INDEX_SETTINGS_V1` に `lowPowerCompatMode` を追加し、保存/復元対応。
+  - ON時は自動品質チューニングを停止し、FPS上限を75へ調整、品質上限を4へ抑えて負荷を安定化。
+  - 設定画面トグルを追加し、即時適用（`applyLowPowerCompatMode` + `applyDevicePerformanceProfile` + `resizeCanvas`）。
+- 2026-02-16: 設定画面の縦スクロールを安定化。
+  - `.settings-panel` / `.settings-scroll` に `min-height:0` とスクロール領域の伸縮指定を追加。
+- 2026-02-16: タイトル画面のはみ出し対策を追加。
+  - `.title-screen` を縦スクロール対応（`overflow-y:auto`）にし、収まらない場合は下にスクロール可能化。
+  - `.title-wrapper` は `margin:auto` + `max-width` で通常時の中央配置を維持。
+- 2026-02-18: クラムボン液化を追加。
+  - `340: クラムボン` も上からのドロップ着地で液化対象に拡張。
+  - 新素材 `351: クラムボン液` (`assets/item/clambon_liquid.png`) を追加。
+  - 既存の `サンドクラムボン(341) -> サンドクラムボン液(347)` は維持し、着地判定を共通化して分岐生成するように変更。
+- 2026-02-18: 検証状況。
+  - Playwrightクライアント実行前提の依存確認で `playwright` が未導入（`ERR_MODULE_NOT_FOUND`）。
+  - そのため自動プレイ検証は未実施。コード変更は静的確認のみ実施。
+- 2026-02-18: Playwright をローカル導入。
+  - `package.json`（name: `raft-world`）を作成。
+  - `npm install -D playwright` 実施。
+  - `npx playwright install chromium` 実施（chromium/headless shell/ffmpeg を取得）。
+- 2026-02-18: Playwright手動シナリオ検証（クラムボン液化フロー）を実施。
+  - ローカルHTTP配信で実行し、`terrain-data.js` のHTTP読込が `200` であることを確認。
+  - 自動操作で以下を再現:
+    - スタート
+    - Qでクラムボン採集（トースト確認）
+    - Eでポーチ→消費物→クラムボン選択→捨てる（トースト確認）
+    - 捨て後にジャンプ+空中しゃがみ（複数回）
+  - ただし `クラムボン液が落ちました` トーストは自動操作では未検出（ドロップ位置/着地位置の一致が不安定）。
+  - 生成アーティファクト: `output/playwright-clambon/*.png`, `output/playwright-clambon/result.json`。
+- 2026-02-18: 石+木の棒のドロップ合成でツール作成を追加。
+  - 新アイテム追加: `352 木材(material)`, `353 スコップ(weapon)`, `354 斧(weapon)`, `355 ツルハシ(weapon)`。
+  - ドロップ近接クラフトを追加（`TOOL_DROP_COMBINE_RADIUS`）。
+    - 石1+木の棒2 -> スコップ
+    - 石2+木の棒2 -> 斧
+    - 石3+木の棒2 -> ツルハシ
+  - `updateWeaponWorldDropsPhysics` でクラフト判定を毎フレーム合成ループへ統合。
+- 2026-02-18: ツール装備時クリック挙動を追加。
+  - スコップ: クリックした砂タイルで `砕けた砂岩(346)` を1クリック1個ドロップ。
+  - 斧: クリックした木タイルをカウントし、5回で木の棒、10回で木材をドロップ（タイルごとに進捗管理）。
+  - ツルハシ: クリックした岩タイルで石を1クリック1個ドロップ。
+- 2026-02-18: 武器カーソルを道具別に拡張。
+  - 木の棒と同様の3フレーム(通常/戻り/攻撃)をスコップ・斧・ツルハシにも適用。
+  - 未配置アセット時は木の棒カーソルへフォールバック。
+- 2026-02-18: セーブ/ロードに `weapon.axeHitCounts` を追加（斧の木ヒット進捗保存）。
+- 2026-02-18: Playwright スモーク確認。
+  - `web_game_playwright_client.js` で起動確認を実施（実行自体は成功）。
+  - 既知の 404 (`assets-base64.js` 等) 以外の新規クラッシュは未検出。
+- 2026-02-18: 画像読み込み安定化（ツールカーソル）を実施。
+  - スコップ画像の参照を `cursor/schop` 優先 + `cursor/shovel` 互換に変更（item定義とカーソルフレーム解決）。
+  - スコップ2/3フレームのフォールバックを木の棒から `assets/cursor/schop/2.png` / `3.png` に修正。
+  - `preloadCursorFrames` を追加し、木の棒/スコップ/斧/ツルハシのカーソル3フレームを起動時に明示プリロードするよう変更。
+- 2026-02-18: Playwright スモーク確認実施。
+  - 実行: `web_game_playwright_client.js` + `output/web-game-image-load`。
+  - 結果: 実行成功、スクリーンショット生成。console にはURL未特定の404が1件のみ（既存系の可能性）。
+- 2026-02-18: `inventory1.png` / `inventory2.png` の参照を停止。
+  - `window.inventoryChoiceOptionImage1/2` の `img.src` を `TRANSPARENT_PIXEL` 固定に変更し、当該画像へのHTTPリクエストを発生させないようにした。
+- 2026-02-18: ツール見た目が木の棒になる不具合を修正。
+  - 斧/ツルハシカーソルのフォールバック先が `assets/cursor/wood_stick/*.png` になっていたため、各ツール自身の `assets/cursor/axe/*.png` / `assets/cursor/pickaxe/*.png` へ修正。
+- 2026-02-19: BGM/音声調整を実施。
+  - ループ音の `pause + currentTime=0` を多発させないように変更（無音時は即停止せず、しばらく無音が続いた場合のみ停止）。
+  - BGMクロスフェード時の旧トラック `currentTime=0` リセットを撤去し、ループ境界のブチ音を抑制。
+  - `configureMusicElement` の既定 `preload` を見直し、非ループ音は `metadata` で軽量化。
+  - `forceResumeAllAudio` / `resumeAllAudioOnce` が全ループ音を一斉再生しないように絞り込み。
+  - 走行音判定の `|`（ビットOR）を `||`（論理OR）へ修正し、状態揺れによる音のガタつき要因を軽減。
+- 2026-02-19: Playwright スモーク再実行（`output/web-game-audio-tune`）。
+  - 実行成功、JSクラッシュなし。コンソール404が1件（既存の未配置アセット系）。
+- 2026-02-19: 音声速度固定 + 音量設定UIを追加。
+  - 追加: `bgmVolume` / `sfxVolume`（0-100）を index settings に保存・復元。
+  - 設定画面に `BGM音量` / `効果音音量` スライダーを追加（入力中は即時反映、変更確定で保存）。
+  - `normalizeAudioPlaybackRate` を導入し、BGM/SFX 再生経路で `playbackRate/defaultPlaybackRate=1` を強制して曲速変化を防止。
+  - `applyMusicVolume` にマスターBGM音量スケールを統合。
+  - SFXはベース音量×SFX設定音量で適用（run/swim/jump等）。
+- 2026-02-19: Playwright スモーク再実行（`output/web-game-audio-settings`）成功。既存404 1件のみ。
+- 2026-02-19: BGMのブチ音/速度揺れ追加対策。
+  - `applyMusicVolume` で、音量>0時に毎フレーム `play()` しないよう修正（`audio.paused` のときのみ再生）。
+  - `forceResumeAllAudio` で全BGMプレイヤー一斉再生を廃止し、現在/遷移先BGM + home2 のみに限定。
+  - `setBackgroundMusicTarget(..., {instant:true})` で非アクティブ曲の `currentTime=0` リセットを削除。
+- 2026-02-19: Playwright スモーク（`output/web-game-audio-fix2`）成功。既存404 1件のみ。
+- 2026-02-20: BGMの不安定化（速度変化/ブツ切れ）対策を実施。
+  - 原因: `setBackgroundTarget` が毎回 `setBackgroundMusicTargetForId(..., { instant: true })` を先に実行しており、同一ゾーンでもBGM即時再制御が走る経路があった（デバッグ背景マーカー上などで顕在化）。
+  - 修正: `setBackgroundTarget` を「背景ID変更時のみBGM切替」に変更。`instant` 指定時のみ即時切替を実行。
+  - 追加保護: `setBackgroundMusicTarget` の `instant` 分岐に「既に同一ターゲットで安定中なら何もしない」早期returnを追加。
+- 2026-02-20: Playwright検証（`web_game_playwright_client.js`）を実行。
+  - 実行: `http://127.0.0.1:4173/index.html` に対して click + 2 iterations。
+  - 生成物: `output/web-game-audio-fix/shot-0.png`, `output/web-game-audio-fix/errors-0.json`
+  - 結果: 新規JS例外なし。consoleには既存と思われる 404 が1件のみ。
+- 2026-02-20: プレイ中BGMの乱れ対策を追加。
+  - ループ音声に `__raftLoopingMusic` フラグを付与し、BGM系を明示管理。
+  - `requestLoopingMusicPlay` を追加し、`play()` 再試行を 800ms 間隔で間引き（多重呼び出し抑制）。
+  - `applyMusicVolume` を変更し、ループBGMは音量0でも pause しない keep-alive 運用へ。
+  - `forceResumeAllAudio` / `resumeAllAudioOnce` / 初期BGM起動 / `home2` 起動で同ヘルパーを利用。
+- 2026-02-20: Playwright再検証（`output/web-game-audio-fix-2`）。
+  - 新規JS例外なし。console 404 は継続（既存）。
+- 2026-02-20: 追加調整（プレイ中ガラつき対策）。
+  - 問題: `instant` 切替で全BGMプレイヤーに `applyMusicVolume(0)` が走り、0音量トラックまで keep-alive 再生される経路があった。
+  - 修正: keep-alive を `options.keepAliveWhenSilent === true` の明示指定時のみに限定。
+  - 修正: `setBackgroundMusicTarget(..., {instant:true})` で非アクティブBGMは即 `pause()`、アクティブのみ keep-alive。
+  - 修正: `home2` は backゾーンでのみ keep-alive。
+- 2026-02-20: Playwright再検証（`output/web-game-audio-fix-3`）完了。新規JS例外なし（既存404のみ）。
+- 2026-02-20: 要望対応。`home2` 再生条件を `_back` タイル判定から `debug_sub_darkness`（暗闇レイヤー）判定へ変更。
+  - `isPlayerInDarknessLayer()` を追加し、プレイヤー中心座標の暗闇タイル有無で判定。
+  - 安定化のため `BGM_SINGLE_TRACK_MODE` では「暗闇中は home2 のみ再生、通常時は通常BGMのみ再生」に変更。
+- 2026-02-20: Playwright検証（`output/web-game-dark-home2`）実行。新規JS例外なし（既存404のみ）。
+- 2026-02-20: 要望「フェードしてください」対応。
+  - `updateMusic()` の単一トラック分岐で行っていた即時切替を撤去。
+  - 暗闇レイヤー出入り時は `backZoneMusicBlend` を使って base BGM と `home2` をフェード遷移する形に統一。
+- 2026-02-20: Playwright再確認（`output/web-game-dark-fade`）実施。新規JS例外なし（既存404のみ）。
+- 2026-02-21: 「やんさんのメガフォン」を武器として追加（itemId: 356）。
+  - 装備時でもカーソルは通常カーソルのままに固定。
+  - 左クリックで `swim1` 見た目 + 上向き約20度のポーズを短時間適用。
+  - 効果音キー `yansan_voice` を追加（現状は `SILENT_MP3_DATA` を割り当て）。
+- 2026-02-21: F8デバッグドロップUIを追加。
+  - `全アイテム一覧` / `全装備一覧` の2タブを追加。
+  - アイテム選択後にメニューから `ドロップ` を押すとプレイヤー前方へワールドドロップ生成。
+  - 矢印キー/マウスホイールで一覧スクロール、Escで閉じる。
+- 2026-02-21: Playwright検証（develop-web-game client）を実行。
+  - 実行コマンド: `node ~/.codex/skills/develop-web-game/scripts/web_game_playwright_client.js --url http://127.0.0.1:4173/index.html --actions-file ~/.codex/skills/develop-web-game/references/action_payloads.json --iterations 2 --pause-ms 250 --screenshot-dir output/web-game-f8`
+  - 出力: `output/web-game-f8/shot-0.png`, `output/web-game-f8/errors-0.json`
+  - コンソールエラー: 404が1件（既存の欠損リソース読み込み）。今回追加機能のJSエラーは発生せず。
+- 2026-02-21: 追加のPlaywright手動スクリプトでF8 UI表示を確認。
+  - `output/web-game-f8/shot-f8-ingame-open.png` で `全アイテム一覧/全装備一覧` タブ表示を確認。
+  - `output/web-game-f8/shot-f8-ingame-menu.png` で `選択 -> ドロップ/やめる` メニュー表示を確認。
+- 2026-02-21: メガフォンポーズ角度を修正。左向き時に逆回転で見えるよう、回転角を方向分岐なしの固定 `-20deg` に変更。
+- 2026-02-21: `yansan_megaphone.png` 追加に合わせ、メガフォン画像参照を更新。
+  - item 356 の画像解決を `yansan_megaphone.png` 優先（未配置時は従来パスへフォールバック）に変更。
+  - メガフォン使用ポーズ中（左クリック発動中）は、プレイヤー頭付近にメガフォン画像を描画する処理を追加。
+- 2026-02-21: メガフォン位置をさらに下げる調整（Yオフセット -0.48 -> -0.40）。
+- 2026-02-21: メガフォン使用音を `assets/yansan_voice/1.mp3` 優先再生へ変更（旧 `yansan_voice.mp3` はフォールバック）。
+- 2026-02-21: メガフォン表示をさらに下げる調整（Yオフセット -0.40 -> -0.30）。
+- 2026-02-21: メガフォン使用時の `swim1` 固定を音声終了まで維持するよう変更。
+  - `yansan_voice` 再生時に ended イベントへ連動してポーズ解除。
+  - 再生失敗時のみ短いフォールバック時間（約0.9秒）で解除。
+- 2026-02-21: `run.mp3` が鳴らない件を修正。
+  - `updateMovementSounds` で `run/swim` の `play()` 失敗時にも再生中フラグが立ってしまい再試行不能になる不具合を修正。
+  - `play()` 成功時のみ `runSoundPlaying` / `swimSoundPlaying` を true にするよう変更。
+- 2026-02-21: やんさんボイスを複数再生対応。
+  - `assets/yansan_voice/2.mp3` `3.mp3` `4.mp3` をSFX登録。
+  - メガフォン発動時は `yansan_voice*` 系からランダム選択して再生（直前と同じキーは避ける）。
+  - ended連動で `swim1` 固定を解除する既存仕様を、選択された音声インスタンスに対して維持。
+- 2026-02-21: メガフォンのボイス別テキスト演出を追加。
+  - 1.mp3: 「シャラッキー！デカイヨォ！」をメガフォン先端から進行方向へ1文字ずつ発射。
+  - 2.mp3: 「これまずﾀﾋんどきましょう」をオレンジ文字で表示。
+  - 3.mp3: 「変な歩き方ですねー」をオレンジ文字で表示。
+  - 4.mp3: 「いけないなぁ」をオレンジ文字で表示し、「なぁ」相当のタイミングで水色小文字「ミスったぞ今」を追加表示。
+  - 追加した文字演出は専用のキュー/パーティクル更新・描画ループで管理。
+- 2026-02-21: ボイス演出テキストを全パターン1文字ずつ表示へ統一。
+  - 1/2/3/4 と 4番サブ文字（ミスったぞ今）も1文字ずつに変更。
+  - 文字間隔を拡大（主に95ms間隔）して、以前より間を空けた表示に調整。
+- 2026-02-21: やんさんボイス文字へ攻撃判定を追加。
+  - 文字パーティクルに触れた敵へ即死級ダメージ（固定大ダメージ）を適用。
+  - ヒットした文字は消える仕様。
+- 2026-02-21: やんさん文字演出を「消えるフェード」から「物理落下+跳ね」へ変更。
+  - 既存フェード開始相当タイミングで physics フェーズへ切替。
+  - 物理フェーズでは重力で落下し、地形に当たるとバウンドしつつ前進を維持。
+  - 時間経過による自動消滅は撤廃（ワールド外へ大きく逸脱した場合のみ安全回収）。
+- 2026-02-21: やんさん文字の遅延発生位置を修正。
+  - 1文字ずつ遅延表示される文字は、発射時点でのプレイヤー位置（メガフォン先端）から出るよう変更。
+  - 移動しながら使用しても、各文字がその時点の位置から順に発射される。
+- 2026-02-21: やんさん文字の挙動を再調整。
+  - 文字の寿命を5秒に制限（5秒経過で消滅）。
+  - 落下開始タイミングを前倒し（float比率 0.72 -> 0.45）。
+  - バウンド反発を強化（bounceX 0.62 -> 0.84, bounceY 0.58 -> 0.82）。
+- 2026-02-21: ウィークスーツ時のカメラ倍率優先ロジックを修正。
+  - `cameraZoomBoundaries` が存在するだけで週スーツ倍率が無効化される早期returnを撤去。
+  - 基本は服由来ズームを使用し、エリア側ズームがそれよりアウト（数値が小さい）な場合のみエリアを優先。
+- 2026-02-21: `R`キーでアンテ召喚/解除トグルを実装。
+  - `KeyR`押下時、アンテ同伴が居る場合は `clearAnteCompanion()` を呼び出して解除。
+  - 同伴が居ない場合は `summonAnteCompanion()` を呼び出して召喚。
+  - 既存の副レール操作は `Shift+R` に退避。
+  - 解除時にトースト `アンテを解除` を表示。
+- 2026-02-21: 検証ログ。
+  - 構文チェック: `node --check`（script抽出経由）成功。
+  - Playwrightクライアント実行: `output/web-game-r-toggle/shot-0.png` を目視確認（描画OK）。
+  - `output/web-game-r-toggle/errors-0.json` には既存404が1件。
+  - 追加のPlaywrightキー送信検証で `KeyR` 2回押下時のアンテ数が `0 -> 1 -> 0` を確認。
+- 2026-02-21: `R`キーの優先順位を再調整。
+  - `R`押下時はまず `tryStartRailRide('secondary')` を試行（レール近傍ならレール操作を優先）。
+  - レール開始できなかった場合のみ、アンテ召喚/解除トグルを実行。
+  - 要件「レール近く以外ではアンテキー化」に合わせて `Shift+R` 分岐を撤去。
+- 2026-02-21: 再検証。
+  - 構文チェック成功（`node --check`）。
+  - レール外シナリオのPlaywrightキー送信で `KeyR` 2回押下時のアンテ数 `0 -> 1 -> 0` を確認。
+- 2026-02-21: やんさんメガフォン文字の負荷対策を実装。
+  - 文字エフェクトに上限を追加（同時表示 `180`、待機キュー `320`、合計 `420`）。
+  - 上限超過時は古い要素から自動破棄して、最新発射を優先。
+  - 発射時も上限を見てキュー投入を打ち切るように変更（無限蓄積防止）。
+  - 敵当たり判定はフレームごとに hostile 敵を先に抽出して再利用し、重複走査を削減。
+  - 描画はカメラ可視範囲外の文字をスキップするように変更。
+  - 構文チェック: `node --check`（script抽出経由）成功。
+- 2026-02-21: 全画面トーストを左下表示へ変更。
+  - `showTransientMessage` 用オーバーレイに `transient-toast` クラスを追加。
+  - 新クラスで左下固定（`left:16px; bottom:16px;`）・小型パネル表示に上書き。
+  - 既存の `.message-overlay` を使う他用途（全画面演出）は維持。
+  - 構文チェック成功（`node --check`）。
+- 2026-02-21: F3デバッグ表示を拡張。
+  - `drawCharacterHitboxes` を拡張し、以下を追加表示:
+    - 画面内の当たり判定ブロック（`levelLayout` の solid tile）
+    - 前レイヤー（`frontLayout`）の可視タイル枠
+    - アイテムドロップ（`weaponState.worldDrops`）の当たり判定円
+    - やんさん文字（`yansanVoiceTextParticles`）の当たり判定円
+    - プレイヤー/モンスターの向き矢印（P/Mラベル）
+  - 軽量描画モードでも、F3 ON中は hitbox 描画を有効化（`ultraLiteRender`時も表示）。
+- 2026-02-21: F3時のHUD表示を拡張。
+  - 座標表示をF3 ONで強制表示（設定OFFでも即時表示）。
+  - 右上にデバッグ情報パネルを追加:
+    - 現在FPS
+    - プレイヤー現在アニメーション（`animator.getMode()`）
+    - HP（現在/最大）
+    - ATK（`getPlayerStat('attack')`）
+- 2026-02-21: 検証。
+  - 構文チェック成功（`node --check`）。
+  - Playwrightで`F3`押下スクリーンショット確認: `output/web-game-f3-debug-expand/shot-f3.png`
+  - コンソールは既存404のみ（`output/web-game-f3-debug-expand/errors.json`）。
+- 2026-02-21: F3右上の攻撃表示を「基礎ATKのみ」から拡張し、実ダメージとのズレを可視化。
+  - `ATK(base)` に加えて、現在状態を反映した `Hit(予測)` / `Hit(Crit)` / `Mul(now)` を表示。
+  - `Mul(now)` は `maiAdvanced`・`maiAccelAttackMultiplier` の発動条件を反映。
+  - 固定ダメージ系（`frontStrike` / `sharpshooter`）も `Fixed:` として別表示。
+  - これにより「ATK 10表記でも100が出る」ケース（状態倍率・固定ダメージ由来）をF3で判別可能。
+- 2026-02-21: 検証。
+  - 構文チェック成功（`node --check`）。
+  - F3表示確認スクリーンショット: `output/web-game-attack-debug/shot-f3-attack.png`。
+- 2026-02-21: F3当たり判定表示のスロープ可視化を修正。
+  - これまで正方形だったスロープタイルを、実際の傾斜形状に合わせた三角形で描画。
+  - `right`: `(左上, 左下, 右下)` / `left`: `(左下, 右上, 右下)` の輪郭表示。
+  - 構文チェック成功（`node --check`）。
+- 2026-02-21: F3デバッグでダメージタイルを赤表示。
+  - `drawCharacterHitboxes` のタイル可視化を拡張し、`tileProps.deadly` タイルを赤枠+半透明赤で表示。
+  - ダメージタイルがスロープの場合も、スロープ三角形に合わせて赤表示。
+  - 石灰スパイク（79/80）は実際の危険領域に近い上部三角形で赤表示。
+  - 構文チェック成功（`node --check`）。
+  - F3確認スクリーンショット: `output/web-game-damage-block-debug/shot-f3-damage-block.png`。
+- 2026-02-21: `index copy3.html` を新規作成（16x16 当たり判定エディタ）。
+  - タイル/敵を切替編集、レイヤー `body` / `damage` / `block` を選択してセル単位で描画可能。
+  - ツール: 描く/消す/全塗り/全消し。
+  - `Cmd+S` (`Ctrl+S`) と保存ボタンで `collision-data.js` を書き出し。
+  - `showSaveFilePicker` + IndexedDBハンドル再利用（copy2相当）に対応。非対応環境はダウンロード保存にフォールバック。
+  - `collision-data.js` を読み込んで既存データを再編集可能。
+- 2026-02-21: `collision-data.js` 雛形を追加。
+  - `window.RAFT_COLLISION_DATA = { version:1, resolution:16, tiles:{}, enemies:{} }`。
+- 2026-02-21: `index.html` に当たり判定データ読込を追加。
+  - ブート時に `collision-data.js` を読み込み、`initGame(..., collisionData)` へ受け渡し。
+  - `initGame` 内で外部当たり判定データを正規化（tile/enemy profile）。
+- 2026-02-21: 外部当たり判定のゲーム反映（第一段）。
+  - タイル:
+    - `isSolidAtWorld` が `block` マスクを優先して判定。
+    - `isDeadlyRect` の内部 `isDeadlyPoint` / スパイク判定が `damage` マスクを優先。
+    - `tileProps` 初期化時に `block` ありなら `solidForPlayer/Monster`、`damage` ありなら `deadly` を自動反映。
+    - `isSolidTileForPlayer` / `isSolidTileForMonster` が外部 `block` を参照。
+  - 敵:
+    - `applyCardProjectileMonsterHit` が敵 `body` マスクでヒット判定。
+    - `findMonsterAtWorldPoint` が敵 `body` マスクを参照（半径ヒット時は周辺点も判定）。
+    - F3デバッグで敵 `body/damage/block` マスクを色分け表示。
+- 2026-02-21: 検証。
+  - 構文チェック: `index.html` / `index copy3.html` の script 抽出で `node --check` 成功。
+  - Playwright確認:
+    - `index copy3.html` 起動成功、コンソールエラーなし (`output/web-game-copy3-check/shot-copy3.png`)。
+    - `index.html` 起動成功 (`output/web-game-collision-load/shot-0.png`)、既存404のみ。
+- 2026-02-21: `index copy3.html` にアイテム一覧（`item-definitions.js`由来）を追加。
+  - `item-definitions.js` を読み込み、`window.itemDefinitions` から ID/名前/type/画像を一覧表示。
+  - 左パネルに検索付きのアイテムリストUIを追加（`ID/名前/type` フィルタ）。
+  - 各アイテムの画像を `img` パスで読み込み、サムネイルとして表示。
+  - `item-definitions.js` 変更時に再読み込みすれば最新一覧を反映可能。
+- 2026-02-21: 運用用ドキュメントを追加。
+  - `item-definitions-sync-todo.md` を新規作成。
+  - `item-definitions.js` 更新時の確認手順・注意点を記載。
+- 2026-02-21: 検証。
+  - `index copy3.html` 構文チェック成功（script抽出 + `node --check`）。
+  - Playwright確認: `output/web-game-copy3-items/shot-copy3-items.png`
+  - 一覧表示件数: `47` (`output/web-game-copy3-items/count.json`)。
+  - コンソールの404は一部アイテム画像未配置によるもの（一覧表示自体は継続）。
+- 2026-02-21: タイル定義の共通JS化を実施。
+  - `tile-definitions.js` を新規追加し、ID/名前/assetName/fallbackPath を `window.RAFT_TILE_DEFINITIONS` として提供。
+  - `index copy.html` の `basePaletteItems` 巨大ハードコードを撤去し、`RAFT_TILE_DEFINITIONS.tiles` から生成する方式へ変更。
+  - `index copy.html` のブートに `tile-definitions.js` 読み込みを追加（`Promise.all`へ組み込み）。
+  - `index copy2.html` の `TILE_NAME_BY_ID` を `tile-definitions.js` の `nameById` で同期する処理を追加。
+  - `index.html` に `tile-definitions.js` ローダーを追加し、`tileSourcesExtended` へ共通定義の画像/名前を適用する `applySharedTileDefinitionsToSources()` を追加。
+- TODO: `index.html` 側の `tileSourcesExtended` は挙動定義(固体/危険/entity)が依然として本体に残っているため、次段で挙動も外部JSへ分離可能。
+- TODO: ブラウザで `index.html` / `index copy.html` / `index copy2.html` を開き、タイル画像表示・パレット・背景エディタ色分けが期待どおりか目視確認。
+- 2026-02-21: `Now Loading...` 固定不具合を修正。
+  - 原因: `tile-definitions.js` 同期時に画像未定義タイルまで `tileSourcesExtended` に追加され、画像ロード待ちが 1 件完了せずローディング完了しない状態になっていた。
+  - 修正: `applySharedTileDefinitionsToSources()` で「既存なし + 画像なし」を追加しないガードを追加。さらに `tileProps` 生成ループで `def.img` がないタイルはスキップ。
+  - 再現確認: Playwright で `Now Loading...` 固定を再現。
+  - 修正後確認: Playwright再実行でゲーム画面まで遷移（`output/web-game/shot-0.png` で確認）。
+- 2026-02-21: 初期ローディングに「現在読み込み中のJS」を表示する機能を追加。
+  - `loading-script` 行をローディングUIに追加。
+  - ブートストラップ内 `loadScript()` で `JS読込中/完了/失敗: <script>` を更新。
+  - キャッシュクエリ付きURLは表示時にファイル名へ整形（例: `terrain-data.js`）。
+  - 起動テストを実施し、ReferenceErrorを修正済み（bootstrap内ヘルパー化）。
+- 2026-02-21: `index copy3.html` をタイル画像付き当たり判定編集に改修。
+  - `tile-definitions.js` を読み込み、全タイルIDを選択候補へ追加。
+  - 全タイル画像を `tileImageCache` に事前ロード。
+  - 選択中タイル画像をエディタキャンバス背景に描画し、その上へ当たり判定オーバーレイを重ねる仕様へ変更。
+  - 判定色を要望どおり変更: ダメージ=赤、体/ブロック=青。
+  - タイル選択ラベルを `ID / name` 表示に変更。
+- 2026-02-21: `index.html` の外部当たり判定適用を「差分寄り」に修正。
+  - `tileProps` 生成時の外部判定マージで `solidForPlayer/solidForMonster/deadly` の強制上書きを削除。
+  - `isSolidTileForPlayer` / `isSolidTileForMonster` で `profile.hasBlock` によるタイル全面solid化を削除。
+  - これにより、既存当たり判定をベースに外部マスクで変えた箇所（`isSolidAtWorld` / damage mask 判定）のみ反映される挙動へ。
+- 2026-02-21: `index copy3.html` の既存当たり判定読込状態を明示。
+  - 起動時に `collision-data.js` 読込成否を保持し、ステータスへ `collision-data.js 読込済み / 未検出(新規)` と tile/enemy件数を表示。
+- 2026-02-21: `copy3` で既存(旧ロジック)当たり判定の可視化を追加。
+  - `legacy-collision-defaults.js` を新規追加（`index.html` の `tileSourcesExtended` から抽出した `solid/deadly/slope/...` 定義）。
+  - `index copy3.html` 起動時に `legacy-collision-defaults.js` を読み込み。
+  - タイル未編集時は legacy 定義から初期プロファイルを生成して表示。
+    - 通常solidタイル: 16x16 全面 block/body
+    - slope(left/right): 斜面形状の block/body
+    - deadly: damage を生成（79/80 は既存ロジック準拠のスパイク形状）
+  - これにより「当たり判定作成前から存在したタイル判定」を copy3 側で見える化。
+- 2026-02-21: 要望「index側で当たり判定をコード指定しない」に対応。
+  - `initGame` を拡張し、`legacy-collision-defaults.js` + `collision-data.js` をマージして衝突プロファイルを構築。
+  - `isSolidAtWorld` / `isSolidTile*` / `get*SlopeType` / `isDeadlyRect` を tileProps(solid/deadly/slope) 非依存へ変更。
+  - ブートに `loadLegacyCollisionDefaultsData()` を追加し、`initGame(..., legacyCollisionData)` へ渡すよう変更。
+  - これにより、当たり判定は JS データ（既存デフォルト + 編集差分）のみで決定される構成になった。
+- 2026-02-21: `copy3` で「既存判定の塗りを消す」操作を永続化。
+  - これまで: 全消しで0にしても、保存時に空プロファイルが省略されるため、次回読込でlegacy判定が復活するケースがあった。
+  - 対応: `tileOverrideKeys/enemyOverrideKeys` を導入し、編集対象キーを明示管理。
+  - `toExportPayload()` は override keys を基準に書き出し（0マスクでも保存）。
+  - `全判定消去` ボタンを追加し、body/damage/block を一括0化して override 登録。
+- 2026-02-21: 当たり判定JS移行の未反映を追加修正（`index.html`）。
+  - プレイヤー衝突の残存フルタイル判定を16x16 blockマスク参照へ統一。
+  - 修正対象: `canPlayerOccupyAt` / `checkCollision` / 乗騎(アンテ)降車判定 / 壁張り付き壁検出 / 足元接地判定 / 1px段差上り判定 / ワールドドロップ物理衝突。
+  - `tileBlockMaskIntersectsRect` / `tileBlockMaskHasPoint` を使う形に揃え、半分ブロック等の部分判定が移動ロジックへ反映されるようにした。
+- 2026-02-21: develop-web-game 手順で Playwright 実行（`output/devloop_collision_fix/shot-0.png`）。
+  - 起動確認OK。コンソールは既存の404が1件（リソース欠損）で、今回修正に起因する新規JSエラーはなし。
+- 2026-02-21: 服スキン編集用の新規ページ `index copy4.html` を追加。
+  - 服選択(`item-definitions.js` の clothing_top/bottom + skinFolder)に対応。
+  - プレイヤー全フレーム（idle1-3, run1-6, crime1-4, squat1-2, swim1-3）を一覧表示し、各フレームを個別編集可能。
+  - カラーピッカー、ブラシサイズ、描く/消す、フレーム全消し/全フレーム全消しを追加。
+  - 保存は File System Access API のディレクトリ選択で `assets/skin/<skinFolder>/<frame>.png` を一括書き出し。
+  - Cmd+S / Ctrl+S で保存。
+- 2026-02-21: `index copy4.html` の「この服の色」抽出を修正。
+  - 色抽出ロジックを `extractDominantColorsFromRgba` に一本化し、URL画像・キャンバスの両方で同じ抽出を使用。
+  - URL抽出失敗時のフォールバックを追加（読み込み済みオーバーレイ `idle1/run1/swim1` -> Directory Handle内PNG）。
+  - Directory Handleの探索を `assets/skin/<folder>` 固定から複数候補（`assets/skin`, `skin`, 直下）に拡張。
+  - 抽出0件時にステータスへ理由表示を追加。
+  - カラースウォッチ選択時の反映を `setCurrentColor` 経由に統一。
+- 2026-02-21: develop-web-game Playwright client を `file://.../index copy4.html` で実行したが、canvas taint によりスクリーンショット取得で `SecurityError`。
+- 2026-02-21: `index copy4.html` のスポイト操作を改善。
+  - 右クリック開始時に即サンプリング、ドラッグ中も連続サンプリング、離した時に最終サンプリングしてペンへ復帰。
+  - `pointercancel` 時にも確実にスポイト終了するフェイルセーフを追加。
+- 2026-02-21: `index copy4.html` の tainted canvas 保存失敗を対策。
+  - `loadOverlayFrames` で `file://` 時のURLオーバーレイ読込を避け、可能ならDirectory Handle経由で安全読込。
+  - オーバーレイ読込後に `getImageData` 可否でtaint検査し、汚染時はクリアして継続。
+  - 保存時にもtaint検査を実施し、原因が分かるステータスメッセージを表示。
+- 2026-02-21: スポイト失敗（透明以外でも失敗）対策を追加。
+  - ベース画像の可読性フラグ(`baseImageReadable`)を導入し、`file://` でも保存先ハンドル経由で安全にベースを読み込める場合はそちらを優先。
+  - ベースが読めない環境ではスポイト失敗にせず透明扱い（消しゴム切替）で処理。
+  - 保存先選択直後にベースフレーム再読み込みを行い、即座にスポイト反映されるようにした。
+- 2026-02-21: `index copy4.html` の服一覧生成を修正。
+  - これまで `skinFolder + type` で重複除外していたため、同スキン共有アイテム（例: 紺色のスーツ/漢布/騎士の鎧/黒い仮面）が一覧に出ないケースがあった。
+  - ID単位で全服を表示する方式に変更（ソートはID順）。
+- 2026-02-21: 紺色系装備を黒系スキンから分離。
+  - `item-definitions.js` と `index.html` の item id 120/121 の `skinFolder` を `black_suit/black_pants` から `navy_suit/navy_pants` へ変更。
+  - `assets/skin/navy_suit` と `assets/skin/navy_pants` を新規作成し、初期内容として既存黒系フレームを複製。
+- 2026-02-21: 服スキンの個別編集要望に合わせ、共有 `skinFolder` を分離。
+  - `item-definitions.js` / `index.html` で以下を専用フォルダへ変更:
+    - 122: `leather_jacket`
+    - 123: `kanpu`
+    - 124: `knight_armor`
+    - 126: `true_raft_manteau`
+    - 127: `true_raft_shirt`
+    - 128: `true_raft_bottom`
+    - 129: `black_mask`
+    - 130: `true_tanutsuna_hood`
+    - 131: `true_mai_outfit`
+    - 132: `true_kanpu`
+    - 133: `knight_armor_formal`
+    - 134: `true_raft_formal`
+  - 新規フォルダ作成: `assets/skin/kanpu`, `assets/skin/true_kanpu`, `assets/skin/true_raft_manteau`, `assets/skin/true_raft_shirt`, `assets/skin/true_raft_bottom`, `assets/skin/true_tanutsuna_hood`, `assets/skin/true_mai_outfit`, `assets/skin/true_raft_formal`。
+  - 各フォルダへ元スキンPNGを複製して初期見た目を維持。
+- 2026-02-21: `index copy4.html` の服編集一覧から「真・系」を除外。
+  - `name.startsWith('真・')` の服定義を一覧生成対象外に変更。
+  - `skinFolder` が `true_` のディスクフォルダ自動追加も除外。
+- 2026-02-21: `index copy4.html` に Cmd/Ctrl+ドラッグ移動を追加。
+  - 左クリック時に Cmd/Ctrl 押下なら描画ではなくフレーム全体のピクセル移動モードへ。
+  - ドラッグ中はプレビュー更新、離すと確定（Undo対応）。
+  - 枠外保持のためオーバーレイ内部サイズを拡張（表示は64x64、内部はマージン付き保存領域）。
+  - 保存時は内部領域から中央64x64のみ切り出してPNG保存。
+- 2026-02-21: `index copy4.html` に服アイコン参考ビューを追加。
+  - 服選択に対応した参考アイコンキャンバス（128x128）を追加。
+  - 参考アイコンをクリックで色取得、右クリック押下+ドラッグで連続取得。
+  - 透明ピクセル取得時は消しゴムモードへ切替。
+  - 服切替時/起動時に参考アイコンを再読み込み。
+- 2026-02-21: 参考アイコン「読み込めない」対応。
+  - 欠損していたアイコンを補完: `assets/navy_suit.png`, `assets/navy_pants.png`, `assets/leather_pants.png`。
+  - `index copy4.html` の参考アイコン読込を強化し、保存先ハンドル経由（`assets/<skinFolder>.png` / `itemImg`）でも取得できるようにした。
+  - URL経由で可読不可（taint）でも、表示だけは維持する挙動に調整。
+- 2026-02-21: `index copy4.html` の保存/読込ルートを `assets` 基準に統一。
+  - 保存先選択は `assets` フォルダ（または `assets` を含む親）を受け取り、内部では `assets` ハンドルへ正規化。
+  - 服保存は `assets/skin/<skinFolder>` のPNGを一旦削除してから全フレーム再書込（フォルダ置換動作）。
+  - ベース画像・参考アイコン・スキン読込も `assets` 直下前提でハンドル経由読み込みに統一。
+- 2026-02-21: `index copy4.html` にコピー/貼り付けショートカットを追加。
+  - Cmd/Ctrl + C: 現在フレームのオーバーレイを内部バッファへコピー。
+  - Cmd/Ctrl + V: バッファを現在フレームへ貼り付け（Undo対応）。
+- 2026-02-21: `騎士の鎧-正装-` のアイコン/参照フォールバックを修正。
+  - `item-definitions.js` / `index.html` の item 133 で、`resolve...('knight_armor_formal.png', 'assets/knight_armor.png')` を `assets/knight_armor_formal.png` へ変更。
+  - 環境差でフォールバックに落ちた場合でも通常鎧画像にならないようにした。
+- 2026-02-21: `index.html` 装備オーバーレイにカラーキー透過を追加。
+  - `#31173e` (RGB 49,23,62) のピクセルを描画前に alpha=0 化。
+  - per-frame overlay 読み込み時に1回だけ処理し、WeakMapで再利用するよう実装。
+- 2026-02-21: アンテ騎乗中にプレイヤー当たり判定由来の危険地形ダメージ判定が抜ける問題を修正。
+  - `updatePlayer` のアンテ騎乗/レール騎乗の早期 return 前に `applyPlayerTileHazardDamage()` を実行するよう追加。
+  - これにより騎乗中でも `isPoisonRect` / `isDeadlyRect` 判定が有効になり、プレイヤー判定が消えたように見える症状を軽減。
+  - ローカルHTTP (`python3 -m http.server 4173`) + Playwrightクライアントで起動確認（`file://` では tainted canvas で失敗するためHTTP経由に切替）。
+- 2026-02-21: `ボロのズボン`(item 136) の参照不一致を修正。`index.html` の itemDefinitions で `black_pants` -> `leather_pants` に統一（img/skinFolder）。
+- 2026-02-21: 漢布系アイテム画像参照を修正。`漢布！` / `真・漢布` の `img` フォールバックを `assets/raft_manteau.png` から `assets/kanpu.png` に統一（`index.html` と `item-definitions.js` 両方）。
+- 2026-02-21: `漢布！` を外しても見た目が残る件に対応。`normalizeEquipmentSlotsByType()` を追加し、装備スロットの型不整合（旧セーブで top に bottom 装備など）を自動補正。`recalcPlayerStats()` 冒頭で毎回実行し、描画前に top/bottom スロットを正規化するようにした。
+- 2026-02-21: `ラフto.txt` を基準に追加装備のスキル/ステータスを再調整。
+  - `CLOTHING_META_OVERRIDES` を拡充し、ID 123/124/126/127/128/129/130/131/132/133 の uniqueSkill を実装接続。
+  - 皮のジャケット(122)を固定25ダメージ・最大Lv5に調整。
+  - まいさんの服(125)をスロット2/最大Lv3/速度+3 per Lv に調整。
+  - 図鑑説明(123〜133)の「補正なし」を実効果に更新。
+- 2026-02-21: 追加装備の最大Lv/スロット数を全件統一。
+  - `index.html` の itemDefinitions(120〜133) に `slotCap/baseSlots` を明示。
+  - `item-definitions.js` も同値で同期（重複定義の 124/125 も同様に反映）。
+  - 強化画面用 `CLOTHING_META_OVERRIDES` は同値を維持済み。
+- 2026-02-21: 強化不可装備で「強化できません」表示後に強化UIが開く不具合を修正。
+  - `enterUpgradeDetail()` を `boolean` 戻りに変更し、`isUpgradeBlockedItem()` を追加。
+  - 強化不可時は `false` を返して UI 遷移しない。
+  - 強化コンテキストメニューの `upgrade` 動作を修正（先に `openUpgradePanel()` を開かず、`enterUpgradeDetail()` のみ実行）。
+- 2026-02-21: 漢布！の仕様修正。
+  - 強化タブで `漢の怒り/男の怒り` を見える化（タブラベルと詳細テキストを追加）。
+  - `kanpu_rage` の説明行を強化UIに明示表示。
+  - 漢布！(ID 123) 装備時の上装備なし固定を実装。
+    - トップ装備を試みても装備不可（トースト通知）。
+    - 漢布！装備時に既存トップを自動解除。
+    - 再計算時にもロックを強制して保存へ反映。
+- 2026-02-21: Playwright実行メモ
+  - `file://` 直指定では canvas export が taint されるため失敗。
+  - `python3 -m http.server 4173` 経由で `web_game_playwright_client.js` を実行し、`output/web-game/shot-0.png` を取得。
+  - console error は既存の `404 (File not found)` が1件。
+- 2026-02-21: カーソル表示ロジックを再調整。
+  - 武器未装備時（および武器カーソル未対応ID）はソフトウェアカーソルを透明化するよう変更。
+  - `getRuntimeCursorDefaultSrc` は hand slot 生IDフォールバックを使わず、`getEquippedWeaponItemId()` のみ参照するよう変更。
+  - 木の棒/ショベル/斧/ツルハシのみ武器カーソルフレームを表示し、その他は非表示化。
+- 2026-02-21: マウスロック(Pointer Lock)を実装。
+  - ゲームプレイ中の左クリックで `requestPointerLock()` するよう追加。
+  - `L` キーでロックON/OFF切替を追加（トースト表示あり）。
+  - `Esc`/フォーカス喪失/ポーズ遷移/タイトル遷移時にロック解除されるよう `exitPointerLockSafely()` を導入。
+  - ロック中は `movementX/movementY` から内部カーソル位置を更新する処理を追加。
+- 2026-02-21: ユーザー要望でマウスロック実装を撤回し、OS標準カーソル非表示へ戻した。
+  - Pointer Lock API利用コード（Lキー切替・movementX追従・pointerlockイベント）を削除。
+  - `CURSOR_HIDE` を `none` に戻し、`ensureGlobalCursorHiddenStyle()` を定義直後にも実行して初期フレームから非表示を強制。
+- 2026-02-21: キー押しっぱなし固着対策を追加。
+  - 設定に `ホバー入力保持` (hoverInputHold) を追加（既定ON）。
+  - OFF時、メニュー/インベントリ/タイトル/ポーズ/別タブ/非フォーカス中は `keys` を毎フレーム自動クリア。
+  - `window.blur` 時も OFF設定なら即時で `keys` をクリア。
+- 2026-02-21: F3+F4 同時押しでフリーカメラを追加。
+  - `freeCameraState` を追加し、通常カメラ(`camera`)とは独立した位置/ズームで描画可能化。
+  - トグル: F3+F4 同時押し。移動: IJKL（A/W/S/D でも可）、ズーム: U/O（- / + でも可）。
+  - 描画変換のみ `renderCamera`（free cam）を利用し、更新・カリング・敵処理などは従来の `camera` のままに維持。
+  - 画面左上に FREE CAM 状態と base camera との差分情報を表示。
+- 2026-02-21: フリーカメラ拡張。
+  - フリーカメラ中は `gameplayFrozen/menuActive` 扱いにし、プレイヤー/敵の更新進行を停止。
+  - フリーカメラのズーム入力に十字キー `↑/↓` を追加（既存 U/O も維持）。
+  - 右下に全体マップオーバーレイを追加し、探索済みタイルを表示。
+  - 全体マップにプレイヤー位置マーカー（インベントリ地図と同系）とフリーカメラの表示範囲矩形を描画。
+- 2026-02-22: アンテ味方への攻撃リアクションを追加。
+  - `tryAttackWithEquippedWeapon` に味方アンテ専用ヒット判定を追加し、敵がいない場合でもアンテに当たれば落下モードへ遷移するよう変更。
+  - Anteモジュールへ `forcedFallUntil` / `updateForcedFall` を追加。落下中は追従・ホバーを止めて重力落下を優先。
+  - `window.triggerAnteCompanionForcedFall` を追加し、騎乗中に攻撃された場合は強制降車して落下を開始。
+- 2026-02-22: Playwrightで軽い回帰確認を実施。
+  - 実行: `web_game_playwright_client.js --url http://127.0.0.1:4173/index.html --actions-json '{"steps":[{"buttons":[],"frames":20}]}' --iterations 1`
+  - 生成物: `output/web-game/shot-0.png`, `output/web-game/errors-0.json`
+  - コンソールエラー: `assets-base64.js` の404のみ（既存構成由来）。今回の変更起因エラーは確認されず。
+- 2026-02-22: アンテ落下の追補修正。
+  - 武器処理順を変更し、`shovel/axe/pickaxe` 装備時でもアンテクリック時は先に落下リアクションを優先。
+  - `handleMonsterDefeat` に味方アンテ保護を追加。HP0到達時は死亡させず、強制落下だけ実行してHPを復帰。
+- 2026-02-22: ポーチ右ペインのUI調整。
+  - トップ/ボトムカテゴリの右側プレイヤープレビューで、紺色の枠線（ペイン外周・プレビュー枠）を削除。
+  - `clothingUI.pouch.selectedItemId` を追加し、カードクリック時に選択アイテムIDを保持。
+  - 右側プレイヤー表示エリアに「選択中アイテム名 + 説明文（ユニークスキル説明優先、次にitem.description）」を表示するよう変更。
+  - カテゴリ切替・ポーチ再オープン・クローズ時に選択状態をリセットするよう整理。
+- 2026-02-22: アンテ落下後の消滅演出を追加。
+  - 落下着地後は強制 `down` のまま1秒待機し、既存 `emitEnemyDeathSmoke` を発火してアンテを消去（spawnごと除去）するように変更。
+  - 状態変数 `fallVanishAt` / `fallSmokeTriggered` をAnteへ追加し、再落下時にリセット。
+  - `R` トグルの存在判定を `isAnteCompanion && instance` に変更し、再召喚の誤判定を防止。
+- 2026-02-22: 二段ジャンプ誤判定（崖際ジャンプ）を修正。
+  - `lastGroundedAt` を追加し、地面離脱直後は `COYOTE_JUMP_MS=120ms` 以内なら通常ジャンプ扱いに変更。
+  - 二段ジャンプは `AIR_JUMP_ARM_MS=110ms` 以上の空中滞在後のみ発動するよう制限。
+  - スケボー時ジャンプ処理と通常ジャンプ処理の両方に同条件を適用。
+- 2026-02-22: フリーカメラ中の `F4` 単押しで、現在のフリーカメラ視界を通常カメラへ同期して可視タイル範囲を読み込む処理を追加。
+  - `syncMainCameraToFreeCameraView()` を追加（x/y/zoom同期、cull範囲探索済み化、カメラ目標同期）。
+  - `F3+F4` のトグルは維持しつつ、`freeCameraState.enabled` 中の `F4` 単押しで同期実行。
+- 2026-02-22: Playwright自動確認（`output/devloop_freecam_f4_load`）を実行。
+  - 画面描画は継続確認。
+  - 既存404が `errors-0.json` に1件（今回変更由来は未確認）。
+- 2026-02-22: `index.html` の周期ラグ対策を実施。
+  - 原因候補として `cursorDebugState.enabled: true` を特定（ゲームループで毎フレーム `logCursorDebug` 呼び出し、1秒間隔で `getComputedStyle` + `console.log` 実行）。
+  - `cursorDebugState.enabled` の初期値を `false` に変更し、通常プレイ時の周期デバッグ処理を停止。
+- 2026-02-22: 軽量化モードの再調整（重くなる問題の対策）。
+  - 軽量化ON中は `qualityLevel=1` を強制し、CSSの全体フィルタ（blur/contrast/brightness）を無効化するよう変更。
+  - `resizeCanvas` のDPR上限を軽量化時 `0.45`（低電力互換時 `0.52`）へ調整。
+  - タイル描画のカリング余白を軽量化時 `0` に変更（通常時のみ既存マージン）。
+  - 余白削減で見切れやすい画面端は、軽量化時のみ `drawLightweightEdgeFog()` の霧グラデーションでマスク。
+- 2026-02-22: 軽量化モード調整の動作確認。
+  - Playwrightクライアント実行: `output/web-game/shot-0.png`（既存404のみ）。
+  - 軽量化ONのスクリーン確認: `output/web-game-lite/lite-shot.png`（画面端に霧マスクを確認）。
+  - 設定ロード検証: `output/web-game-lite/perf-state-from-settings.json` で `QUALITY_LEVEL=1`, `blur=0`, `contrast=1`, `brightness=1` を確認。
+- 2026-02-22: 軽量化モードの描画停止範囲を追加調整。
+  - `getLightweightCullConfig()` を追加し、軽量化時はカメラ中心の「内側矩形 + 円形半径」で描画対象をさらに縮小。
+  - `drawTiles` / `drawPlayerOverlayTiles` / `drawParallaxTileLayers` / `drawFrontTiles` / 背景列描画に円形判定カリングを適用。
+  - 画面端霧を円形ビネット寄りに強化して、矩形停止の見切れを緩和。
+  - 暗闇レイヤーは円形カリング対象から除外（中央暗転が過剰になる副作用の抑制）。
+- 2026-02-22: 検証
+  - 軽量化設定読み込み時に `QUALITY_LEVEL=1`, `blur=0` 維持を確認（`output/web-game-lite2/perf.json`）。
+  - スクリーンショット: `output/web-game-lite2/lite2-gameplay3.png`（軽量化時の強い中心寄り表示 + 外周霧）。
+- 2026-02-22: 軽量化モードの未描画領域フェード色を黒系から白系へ変更。
+  - `drawLightweightEdgeFog()` を更新し、外側を白で覆って中央可視円をくり抜く方式に変更。
+  - 可視円の境界には白のラジアルグラデーションを追加し、外周へ滑らかに白フェードする見た目に調整。
+  - 確認: `output/web-game-lite2/lite2-whitefade.png`
+- 2026-02-22: 低画質時のタイル境界シーム対策を強化。
+  - `getTileSeamBleed()` のオーバードロー量を増加（軽量化: 3px / 低電力: 2px / 低DPR: 2px）。
+  - 目的: 低解像度・低画質時に見えるタイル間の隙間線を抑制。
+- 2026-02-22: 軽量化の追加調整（白フェード弱化 + さらに低解像度化）。
+  - `drawLightweightEdgeFog()` の白オーバーレイ強度を低減（純白→薄い灰白、アルファを全体的に引き下げ）。
+  - `resizeCanvas()` の軽量化DPRをさらに低下（上限 0.24、下限 0.18）。
+  - 実測: `output/web-game-lite2/lite2-dpr-state.json` で `canvas 308x173`（1280x720表示時）を確認。
+  - 確認画像: `output/web-game-lite2/lite2-white-tuned.png`
+- 2026-02-22: 軽量化モードでも画質スライダーを段階反映するよう変更。
+  - 軽量化ON時に `quality=1` 固定していた処理を撤去。
+  - 軽量化ON時のDPRを `quality` 比率で補間（低品質=超低解像度、高品質=通常解像度相当）。
+  - 軽量化ON時のカリング強度（余白/円形範囲）も `quality` に応じて段階的に緩和。
+  - パフォーマンスプロファイル側の軽量化時 `qualityCap=2` 制限を撤去し、`qualityCap=10` へ変更。
+  - 検証: `output/web-game-lite2/lite-quality-compare2.json`
+    - `q1 -> canvas 231x130`
+    - `q10 -> canvas 1280x720`
+- 2026-02-22: タイル隙間の再発対策を追補。
+  - `snapToCanvasPixel()` が `dpr<1` 時に粗い量子化を起こしていたため、スナップ精度を最小1pxへ修正。
+  - 低解像度拡大時のタイル境界ずれ（疑似シーム）を抑制。
+  - 確認画像: `output/web-game-lite2/lite-seamfix3.png`
+- 2026-02-22: 通常最高画質でも発生するタイル隙間対策。
+  - `getTileSeamBleed()` の高品質時戻り値を `0 -> 1` に変更（常時最小オーバードロー）。
+  - 目的: サブピクセルずれ由来の縦横シームを最高画質時にも抑制。
+- 2026-02-22: インベントリUI（パネル/スロット）側のシーム対策を追加。
+  - `drawTiledImage` / `drawTiledRegion` にUI専用のオーバードロー（`uiSeamBleed`）を導入。
+  - タイル境界ごとに1〜2px重ね描きして、インベントリ/メニュー枠で出る隙間線を抑制。
+- 2026-02-22: 設定メニューに「最大FPS」を追加。
+  - 設定UIに `最大FPS (30-200)` スライダーを追加し、変更時に即時反映 + 永続化。
+  - `INDEX_SETTINGS` に `maxFps` を追加（default=120、load/persist時に `clampMaxFpsSetting` で正規化）。
+  - `applyDevicePerformanceProfile(settings)` で `settings.maxFps` を上限として適用。
+  - 実測確認: `maxFps=45` 設定で `window.getFrameRateLimit() === 45`。
+- 2026-02-22: 最大FPSを下げたときにゲーム速度まで遅くなる問題を修正。
+  - ループ制御を変更し、更新は `requestAnimationFrame` 周期で継続、FPS制限は描画のみを間引く方式へ変更。
+  - 追加: `shouldRenderThisFrame(now)`、`renderRateGateState`。
+  - `requestNextGameLoop` の `setTimeout` ベース制御を廃止。
+  - 簡易検証（3秒右移動）: 30fps/120fpsで移動量は近い値（以前の半減挙動を解消）。
+- 2026-02-22: 設定に入力方式 (`inputMode`) を追加。
+  - 設定画面に `操作` 行を新設し、`キーボード` / `コントローラー` を選択可能にした（日本語/英語UI対応）。
+  - `RAFT_INDEX_SETTINGS_V1` の読み書きに `inputMode` 正規化を追加。
+  - ゲームループへ Gamepad ポーリングを追加し、controllerモード時に移動/ジャンプ/ダッシュを仮想キーへ反映。
+  - タイトル/ポーズ/メニュー系はコントローラー入力を既存キーボードイベントへブリッジ（矢印/決定/戻る/ポーズ/E/M/Q/R）。
+  - Nintendo/Switch系IDを優先検知し、接続時にトースト表示を追加。
+- 2026-02-22: テスト
+  - `python3 -m http.server 4173 --bind 127.0.0.1` でローカル起動し、`web_game_playwright_client.js` を実行。
+  - 出力: `output/web-game-controller/shot-0.png` を確認（ゲーム画面描画OK）。
+  - `output/web-game-controller/errors-0.json` は既存の `404 (File not found)` 1件のみ。
+  - 途中で `ReferenceError: Cannot access 'SUPPORTED_INPUT_MODES' before initialization` を検出し、`normalizeInputMode` の定数参照を即修正済み。
+- 2026-02-22: コントローラー操作を追加改善。
+  - インベントリ表示中に X/Y/B 相当で閉じられるように `inventoryClose` を追加（controllerモード時）。
+  - Rスティックでソフトウェアカーソルを移動できるようにした（`updateMouseFromClient` を利用）。
+  - プレイ画面中は ZR で左クリック相当 (`mousedown/up`) を発火する処理を追加。
+  - 既存ショートカットと衝突しないよう `actionSecondary` は `R1` のみに整理し、`ZR` はクリック専用にした。
+- 2026-02-22: テスト
+  - `web_game_playwright_client.js` を再実行（`output/web-game-controller-2`）。
+  - 新規のJS例外は発生せず。`errors-0.json` は既存404のみ。
+- 2026-02-22: セーブデータに操作方式の引き継ぎを追加。
+  - `serializeCurrentGameState().uiState` に `inputMode` を保存。
+  - `restoreGameFromSlot` で `uiState.inputMode` がある場合のみ復元し、`applyInputModeSetting` と `persistIndexSettings` に反映。
+  - 旧セーブ（`inputMode` 未保存）は既存設定を維持する後方互換動作。
+- 2026-02-22: 設定に `A/Bボタン反転` を追加。
+  - 設定UIにトグルを追加（日本語/英語）。
+  - controllerモード時のゲームパッドマッピングで `A/B` の論理割当を設定値で切替。
+  - 反転ON時は `jump/confirm` と `crouch/cancel/inventoryClose` がA/B入れ替わる。
+- 2026-02-22: 保存対応。
+  - `RAFT_INDEX_SETTINGS_V1` に `controllerSwapAB` を追加し、起動後も保持。
+  - セーブデータ `uiState` に `controllerSwapAB` を保存し、ロード時に復元して設定へ反映。
+  - 旧セーブ互換: 値が無い場合は現在設定を維持。
+- 2026-02-22: テスト
+  - `web_game_playwright_client.js` 実行 (`output/web-game-controller-swapab`)。
+  - 新規JSエラーなし（既存404のみ）。
+- 2026-02-22: タイトル画面でもコントローラーのマウス操作を有効化。
+  - `ZR` クリックをキャンバス外のDOM要素にも送るよう拡張（`elementFromPoint` へ click 発火）。
+  - Rスティック移動時にDOM側へ `mousemove/pointermove` も送るようにし、タイトルUIのホバー反応を補助。
+- 2026-02-22: テスト
+  - `web_game_playwright_client.js` を実行 (`output/web-game-controller-title-mouse`)。
+  - 新規JSエラーなし（既存404のみ）。
+- 2026-02-22: コントローラーマッピング再調整。
+  - `- (Select)` をインベントリ開閉に固定し、ポーズは `+ (Start)` のみに変更。
+  - `X` を `KeyQ` 相当（アイテム取得/採取など）へ割当。
+  - レール乗降は `L` / `R`（`tryStartRailRide('primary'/'secondary')`）で操作可能に変更。
+  - `X` と競合しないよう `E` 相当は `ZL` 側へ分離。
+- 2026-02-22: 起動時のコントローラー設定反映を修正。
+  - `window.getIndexSettings` 初期化後に `applyInputModeSetting` / `applyControllerSwapABSetting` を再適用し、タイトル画面から設定が効くようにした。
+- 2026-02-22: HUDのキー表示を入力方式連動へ変更。
+  - コントローラーモード時は `Q` 表示を廃止し、`X`（取る/採集）・`L`（乗る）を表示。
+  - 下部ガイドの移動/ジャンプ/しゃがみ表記もコントローラー向けへ切替。
+- 2026-02-22: コントローラー `R` の挙動を調整。
+  - レール付近では従来どおり `tryStartRailRide('secondary')` を優先。
+  - レールが近くにない場合は、アンテ同行中なら `clearAnteCompanion()` で解除するようにした。
+- 2026-02-22: 応答停止対策（コントローラー由来イベント負荷）
+  - Rスティック移動時のDOM `mousemove/pointermove` 連打を抑制。
+  - 48msスロットリング + 最小移動量判定を追加し、`pointermove` 発火は停止（`mousemove` のみ）。
+- 2026-02-22: メダルスロットのクリック装着を追加。
+  - スロットメニューで `はめる` を選んだ後、下のメダルカードをクリックすると装着されるよう変更（ドラッグ不要）。
+  - 既存の `外す` はそのまま維持（スロットクリックでメニュー表示）。
+- 2026-02-22: テスト
+  - `web_game_playwright_client.js` 実行 (`output/web-game-controller-slot-fix`)。
+  - 新規JSエラーなし（既存404のみ）。
+- 2026-02-22: セーブ切替時のデータ混線・フリーズ対策を追加。
+  - `resetGameToDefaults` で `loadClothingProgress(null)` を呼び、服の強化/スロット/スキル状態が新規開始時に前スロットから残留しないよう修正。
+  - スロット自動保存の遅延タイマーが切替後スロットへ誤書き込みするのを防ぐため、`cancelActiveSlotPersist` を追加し、`beginGameFromSlot` で切替前フラッシュ + タイマー破棄を実施。
+  - ロード処理中の参照共有を減らすため、`slot.monsterStates` は復元時に浅コピーして `gameUIState` 側へ適用。
+  - `restoreGameFromSlot` / `resetGameToDefaults` 開始時にも遅延保存タイマーを停止。
+- 2026-02-22: Playwright検証（`output/web-game-slot-isolation-fix`）を実施し、ゲーム画面描画は正常を確認。コンソールには既存の404が1件（今回変更点とは無関係）。
+- 2026-02-22: 設定画面オープン時のデフォルト上書き対策。
+  - `openSettingsOverlay` で初期表示に使う `settings` を保存値だけでなくランタイム状態（`inputModeSetting` / `controllerSwapABSetting` / `qualityLevel` / `frameRateLimit` / 各音量など）で上書きしてから描画するよう修正。
+  - `persistAndToast` は `window.getIndexSettings()` を基底にマージし、古い `settings` スナップショットで `inputMode` などを巻き戻さないよう変更。
+  - 保存時は `persistIndexSettings(next)` ではなく `persistIndexSettings(settings)` に統一。
+- 2026-02-22: Playwright簡易確認（`output/web-game-settings-state-fix`）を実施。新規JSエラーなし（既存404のみ）。
+- 2026-02-23: `#31173e` 透過（まいさんの服）不具合を修正。
+  - 原因: フレーム単位で色キーが無い場合にフォルダ共通マスクのキャッシュを `null` で固定してしまい、`idle1` 以外で透過穴が消えていた。
+  - 対応: `getColorKeyCutoutMask` で `null` 時に `getOverlayFolderColorKeyMask(folder)` をフォールバック参照。
+  - 対応: フォルダマスク探索中の再入を防ぐ `overlayFolderMaskResolving` を追加。
+  - 対応: 色キー未検出フレームでフォルダキャッシュを即 `null` 固定しないように修正。
+- 2026-02-23: `#31173e` 透過が一部服で効かない問題を追加修正。
+  - 原因: フォルダ共通マスク探索(`getOverlayFolderColorKeyMask`)が、画像未読込の初回で `null` を固定キャッシュし、その後再試行されない。
+  - 対応: 未読込フレームがある場合は `null` を固定キャッシュせず、次フレームで再試行するように変更。
+  - 対応: フォルダマスク探索中に `perFrameOverlayCache` 未生成フレームをその場でロード開始するように変更。
+- 2026-02-23: アルファベットタイル `F.png` を共通定義へ追加。
+  - `tile-definitions.js` に `id:291 / name: letter_F` を追加。
+  - `index.html` の内蔵フォールバック `tileProps` にも `291: F.png` を追加。
+- 2026-02-23: `index copy.html` のブロックスロット補完を追加。
+  - `buildBasePaletteItems` で `RAFT_TILE_DEFINITIONS.tiles` に欠けがあっても、必須タイルを自動補完するよう変更。
+  - 補完対象: air(0), water(45/46), save_point(254), letter_F(291), rail(402/403), sandbag_switch(404), white_gate(405), sandbag_spawn(406), lantern(407)。
+  - これによりセーブポイント等がブロックスロットから消える問題を回避。
+- 2026-02-23: Debug2導入後の回帰を修正。
+  - `bootstrap` 側 `loadIndexSettings/persistIndexSettings` で `normalizeInputMode` 未定義参照が発生していたため、同スコープ専用の `normalizeInputModeForSettings` を追加して参照先を置換。
+  - `drawTiles` 前景描画で `fgDrawX/fgScale` を宣言前に参照していたため、DARKNESS_BLOCK分岐より前に計算するよう修正。
+- 2026-02-23: フリーズ対策(継続)を実施。
+  - 設定APIをキャッシュ化: `window.getIndexSettings` が毎回 localStorage を読む実装を廃止し、メモリ上 `runtimeSettingsCache` を返す方式に変更。
+  - `window.persistIndexSettings` はキャッシュ更新 + localStorage保存のラッパーに変更。
+  - `updateEncounterTracking` の設定参照を毎フレーム実行から 800ms 間隔に間引き（`encounterReplayState.replayEnabled` キャッシュ）。
+  - 直前バグの追修正: `fgDrawX`/`fgScale` の宣言順を修正して ReferenceError を解消。
+- 2026-02-24: `Q`長押しで連続採集できるように実装。
+  - `HARVEST_HOLD_INTERVAL_MS` / `harvestHoldState` を追加。
+  - `KeyQ` の `keydown` で単発採集に加えてホールド開始、`keyup` で確実にホールド解除。
+  - `gameLoop` 内でメニュー非表示時のみ `processHarvestHold(now)` を実行し、一定間隔で `tryHarvestNearbyTile()` を連続実行。
+  - `blur` 時にもホールド解除して入力取りこぼしで採集が残留しないようにした。
+- 2026-02-24: Playwright確認。
+  - 実行: `node $WEB_GAME_CLIENT --url http://127.0.0.1:4173/index.html --actions-file $WEB_GAME_ACTIONS --iterations 2 --pause-ms 200 --screenshot-dir output/web-game-qhold`
+  - 生成: `output/web-game-qhold/shot-0.png`, `output/web-game-qhold/errors-0.json`
+  - 既知の404が1件（リソース特定不能、今回変更範囲外）。新規のJS例外は未検出。
+- 2026-02-24: 設定画面に「収穫間隔 (40-500ms)」を追加。
+  - 保存キー: `harvestHoldIntervalMs`（`RAFT_INDEX_SETTINGS_V1`）。
+  - `DEFAULT_INDEX_SETTINGS` / 読み込み / 永続化 / ランタイムキャッシュすべてに反映。
+  - 実行側のQ長押し収穫は固定値ではなく `harvestHoldIntervalMs` を参照するよう変更。
+  - 初期化順バグ（TDZ: `Cannot access 'harvestHoldIntervalMs' before initialization`）を修正。
+- 2026-02-24: Playwright再確認。
+  - `output/web-game-harvest-setting/shot-0.png` 取得。
+  - `errors-0.json` は既知404のみ。新規JS例外なし。
+- 2026-03-12: セーブ処理を固定ストア + PIN暗号化フローへ改修。
+  - `loadSaveSlotsFromStorage` / `persistSaveSlots` を単一キー (`raftSaveSlots_v1`) 固定へ統一し、旧 `raftSaveSlots_v1_slot_*` 形式は自動移行。
+  - タイトル画面の保存/読み込みアイコンを「10桁PIN必須」に変更。
+  - 保存時: スロット内容を PBKDF2(SHA-256, 210000) + AES-GCM で暗号化し、固定ストアへ保存。
+  - 読込時: 同じ10桁PINで復号できた場合のみ対象スロットへ反映。
+  - 固定ストアは OPFS (`raft-save-slots.enc.json`) を優先し、利用不可環境は localStorage (`raftEncryptedSaveStore_v1`) にフォールバック。
+- 2026-03-12: Playwright検証を実施。
+  - 実行: `node ~/.codex/skills/develop-web-game/scripts/web_game_playwright_client.js --url http://127.0.0.1:4173/index.html --actions-file ~/.codex/skills/develop-web-game/references/action_payloads.json --iterations 1 --pause-ms 250`
+  - 生成物: `output/web-game/shot-0.png`, `output/web-game/errors-0.json`
+  - 画面確認: タイトル後のゲーム画面は描画されることを確認。
+  - 残件: console error に 404 が1件（既存リソース不足の可能性、今回変更のPIN処理とは直接無関係）。
+- 2026-03-12: 追加要望「データは暗号ファイルjsonとして」に対応。
+  - 保存先を暗号化JSONファイル中心に調整（File System Access API対応ブラウザ）。
+  - 初回保存時に `showSaveFilePicker` で JSON ファイルを指定し、以後は同ハンドルへ自動上書き。
+  - 読込時は同ハンドルを優先し、未設定時は `showOpenFilePicker` で暗号化JSONを選択。
+  - 既存の OPFS/localStorage もフォールバックとして維持。
+  - タイトルUIの保存/読込ツールチップを「暗号化JSONファイル」表現に更新。
+- 2026-03-12: Playwright再実行で起動確認。
+  - `output/web-game/shot-0.png` 更新、`errors-0.json` は既知404のみ。
+- 2026-03-12: PIN入力を `prompt` から専用UIへ変更。
+  - 画面中央・最前面のオーバーレイに 10 桁を横一列で表示。
+  - 各桁の上に `▲` ボタンを配置し、クリックで 0→9 を循環変更。
+  - キーボード数字入力 (`0-9`) は左から順に反映。
+  - `Backspace` で前桁を 0 に戻し、`Enter` 決定、`Esc` キャンセル。
+  - 暗号化保存/読込は新PIN UI (`askSavePin`) を await して動作。
+- 2026-03-12: Playwrightスモークテスト再実施、既知404以外の新規エラーなし。
+- 2026-03-12: PIN入力UIに下矢印 `▼` を追加。
+  - 各桁の上 `▲` で +1、下 `▼` で -1（0-9循環）。
+  - キーボード `ArrowUp/ArrowDown` でも現在桁を増減可能。
+- 2026-03-12: Playwrightスモーク再実行、既知404のみ。

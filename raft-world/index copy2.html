@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ラフトの世界 - 背景エディタ</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0b1020;
+      color: #e7efff;
+      font-family: "Segoe UI", sans-serif;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(220px, 32vw) 1fr;
+      width: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+    }
+    .panel {
+      padding: 14px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      overflow: auto;
+      background: rgba(8, 13, 28, 0.96);
+    }
+    .panel h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .row { margin-bottom: 12px; }
+    .row label {
+      display: block;
+      font-size: 12px;
+      color: rgba(231,239,255,0.78);
+      margin-bottom: 6px;
+    }
+    .inline {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    input, textarea, button {
+      border: 1px solid rgba(120,170,255,0.35);
+      border-radius: 8px;
+      background: rgba(22,35,66,0.95);
+      color: #e7efff;
+      padding: 8px;
+      font: inherit;
+    }
+    input[type="number"], input[type="text"] { width: 100%; }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button { cursor: pointer; font-weight: 700; }
+    .palette { display: flex; gap: 6px; flex-wrap: wrap; }
+    .palette button { min-width: 46px; }
+    .palette button.active {
+      outline: 2px solid #9fcbff;
+      box-shadow: 0 0 0 2px rgba(15,50,96,0.6) inset;
+    }
+    .main {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-width: 0;
+      min-height: 0;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(8, 13, 28, 0.8);
+    }
+    .hint {
+      padding: 8px 14px;
+      font-size: 12px;
+      color: rgba(231,239,255,0.8);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .canvas-wrap {
+      position: relative;
+      min-height: 0;
+      background: #040917;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+    .status {
+      padding: 8px 14px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: rgba(231,239,255,0.84);
+      background: rgba(8, 13, 28, 0.82);
+    }
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(140px, 40vh) 1fr;
+      }
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>背景エディタ (copy2)</h1>
+
+      <div class="row">
+        <label>バイオームスロット</label>
+        <div id="palette" class="palette"></div>
+      </div>
+      <div class="row">
+        <label>ワールドスロット</label>
+        <div id="worldSlots" class="palette"></div>
+      </div>
+
+      <div class="row inline">
+        <button id="exportBtn">background-data.js 保存</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <span id="viewInfo"></span>
+      </div>
+      <div class="hint">
+        左ドラッグで背景列を描画 / 右ドラッグでベースへ。`WASD`でカメラ移動。地形は単色タイル表示（上・下バーで背景列確認）。
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="bgCanvas"></canvas>
+      </div>
+      <div id="status" class="status">準備中...</div>
+    </main>
+  </div>
+
+  <script>
+  (function () {
+    const DEFAULT_DATA = {
+      baseBiomeId: 1,
+      saveMiddleAsNewBiome: true,
+      defaultMiddleImage: '',
+      biomes: {
+        1: { label: '森丘', image: 'assets/background/forest/forest.png', scale: 7, opacity: 0.75, tintEnabled: false },
+        1.5: { label: '森丘2', image: 'assets/background/forest/forest2.png', scale: 7, opacity: 0.75, tintEnabled: false },
+        2: { label: '山岳', image: 'assets/background/mountains/mountains.png', scale: 7, opacity: 0.75, tintEnabled: false },
+        3: { label: '沼地', image: 'assets/moss.png', scale: 1, opacity: 0.72, tintEnabled: false },
+        4: { label: '森', image: 'assets/leaf_block1.png', scale: 1, opacity: 0.78, tintEnabled: false },
+        5: { label: '温帯', image: 'assets/grass.png', scale: 1, opacity: 0.75, tintEnabled: false },
+        6: { label: '砂漠', image: 'assets/limestone.png', scale: 1, opacity: 0.7, tintEnabled: false },
+        7: { label: '海', image: 'assets/water.png', scale: 1, opacity: 0.72, tintEnabled: false },
+        8: { label: '密林', image: 'assets/background/forest/forest.png', scale: 7, opacity: 0.78, tintEnabled: false }
+      },
+      transitions: {},
+      columnBiomes: {}
+    };
+    const BIOME_COLORS = {
+      1: '#3fbf5d',
+      1.5: '#72cf7f',
+      2: '#8aa1b7',
+      3: '#4b8962',
+      4: '#226b3b',
+      5: '#91c84b',
+      6: '#d3a35a',
+      7: '#3092c7',
+      8: '#2b9852'
+    };
+    const TILE_NAME_BY_ID = {
+      1: 'grass',
+      2: 'dirt',
+      3: 'grass-dirt',
+      4: 'dirt2',
+      5: 'dirt3',
+      6: 'dirt4',
+      7: 'dirt2_fh',
+      8: 'dirt_fh',
+      9: 'grass-dirt_fh',
+      10: 'grass_fh',
+      11: 'dirt3_fh',
+      12: 'stone1',
+      13: 'stone2',
+      14: 'stone-dirt',
+      15: 'stone-dirt_fh',
+      16: 'stone-grass',
+      17: 'stone-grass_fh',
+      18: 'stone-grass2',
+      19: 'stone-grass2_fh',
+      20: 'log1',
+      21: 'log2',
+      22: 'leaf1',
+      23: 'leaf2',
+      24: 'leaf3',
+      25: 'leaf4',
+      26: 'leaf5',
+      27: 'leaf6',
+      30: 'dirt_back',
+      31: 'stone-dirt_back',
+      32: 'stone-dirt_fh_back',
+      33: 'stone1_back',
+      34: 'poison',
+      35: 'sand',
+      36: 'sand-grass',
+      37: 'sand-grass_fh',
+      38: 'sand-dirt',
+      39: 'sand-dirt_fh',
+      40: 'sand-stone',
+      41: 'sand-stone_fh',
+      42: 'sand-stone2',
+      43: 'sand-stone2_fh',
+      44: 'ladder',
+      45: 'water',
+      46: 'water2',
+      48: 'rock1',
+      49: 'rock2',
+      50: 'rock3',
+      68: 'stone-break1',
+      69: 'stone-break2',
+      70: 'stone-break3',
+      72: 'leaf_block',
+      73: 'leaf_block1',
+      74: 'leaf_block2',
+      75: 'small_stone',
+      76: 'bushes',
+      77: 'moss',
+      78: 'grass-leaf',
+      79: 'limestone-cave_fh',
+      80: 'limestone-cave',
+      83: 'dark-grass',
+      84: 'dark-dirt',
+      85: 'dark-leaf1',
+      86: 'dark-leaf2',
+      87: 'dark-leaf3',
+      89: 'cloud',
+      90: 'cloud2',
+      91: 'cloud3',
+      243: 'white_block',
+      255: 'player_barrier_invisible',
+      256: 'monster_barrier_invisible'
+    };
+    const TILE_SRC_BY_ID = Object.create(null);
+    const DEBUG_BACKGROUND_ENTER_BASE = 20000;
+    const CAMERA_STORAGE_KEY = 'raft_bg_editor_copy2_camera_v1';
+    const HANDLE_DB_NAME = 'raft_editor_handles';
+    const HANDLE_DB_STORE = 'handles';
+    const BG_HANDLE_KEY = 'background_js_file';
+    const WORLD_SLOT_DEFS = [
+      { slot: 1, file: 'terrain-data.js', label: 'terrain-data' },
+      { slot: 2, file: 'terrain-data2.js', label: 'terrain-data2' },
+      { slot: 3, file: 'test.js', label: 'test' }
+    ];
+
+    function syncTileNameByIdFromDefinitions() {
+      const sharedNameById = window.RAFT_TILE_DEFINITIONS?.nameById;
+      if (!sharedNameById || typeof sharedNameById !== 'object') return;
+      Object.keys(sharedNameById).forEach((id) => {
+        TILE_NAME_BY_ID[id] = sharedNameById[id];
+      });
+      const tiles = Array.isArray(window.RAFT_TILE_DEFINITIONS?.tiles)
+        ? window.RAFT_TILE_DEFINITIONS.tiles
+        : [];
+      tiles.forEach((entry) => {
+        const id = Number(entry?.id);
+        if (!Number.isFinite(id) || id <= 0) return;
+        const fallbackPath = entry?.fallbackPath === '__DARKNESS_BLOCK_PIXEL__'
+          ? String(window.RAFT_TILE_DEFINITIONS?.darknessBlockPixel || '')
+          : String(entry?.fallbackPath || '');
+        const assetName = String(entry?.assetName || '').trim();
+        const src = fallbackPath || (assetName ? `assets/${assetName}` : '');
+        if (src) TILE_SRC_BY_ID[id] = src;
+      });
+    }
+
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    const paletteEl = document.getElementById('palette');
+    const worldSlotsEl = document.getElementById('worldSlots');
+    const exportBtn = document.getElementById('exportBtn');
+    const viewInfoEl = document.getElementById('viewInfo');
+    const statusEl = document.getElementById('status');
+
+    const state = {
+      cols: 512,
+      rows: 256,
+      selectedBiome: 1,
+      brushCols: 1,
+      tilePixel: 12,
+      baseBiomeId: 1,
+      biomes: {},
+      saveMiddleAsNewBiome: true,
+      columnBiomes: [],
+      terrainMap: [],
+      terrainMarkers: [],
+      camCol: 0,
+      camRow: 0,
+      keys: Object.create(null),
+      lastFrameAt: 0,
+      isPainting: false,
+      eraseMode: false,
+      activeWorldSlot: 1,
+      tileImageCache: new Map()
+    };
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function copyData(data) {
+      return JSON.parse(JSON.stringify(data || {}));
+    }
+
+    function normalizeData(input) {
+      const src = (input && typeof input === 'object') ? input : {};
+      const data = copyData(DEFAULT_DATA);
+      if (Number.isFinite(Number(src.baseBiomeId))) data.baseBiomeId = Number(src.baseBiomeId);
+      if (typeof src.saveMiddleAsNewBiome === 'boolean') data.saveMiddleAsNewBiome = src.saveMiddleAsNewBiome;
+      if (src.biomes && typeof src.biomes === 'object') data.biomes = copyData(src.biomes);
+      if (Array.isArray(src.columnBiomes)) {
+        data.columnBiomes = src.columnBiomes.slice();
+      } else if (src.columnBiomes && typeof src.columnBiomes === 'object') {
+        data.columnBiomes = copyData(src.columnBiomes);
+      }
+      return data;
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(script);
+      });
+    }
+
+    function openHandleDb() {
+      if (typeof window === 'undefined' || !window.indexedDB) {
+        return Promise.reject(new Error('indexedDB unavailable'));
+      }
+      return new Promise((resolve, reject) => {
+        const request = window.indexedDB.open(HANDLE_DB_NAME, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(HANDLE_DB_STORE)) {
+            db.createObjectStore(HANDLE_DB_STORE);
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function readHandleFromDb(key) {
+      const db = await openHandleDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(HANDLE_DB_STORE, 'readonly');
+        const store = tx.objectStore(HANDLE_DB_STORE);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function writeHandleToDb(key, value) {
+      const db = await openHandleDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(HANDLE_DB_STORE, 'readwrite');
+        const store = tx.objectStore(HANDLE_DB_STORE);
+        const req = store.put(value, key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getTerrainDataShape() {
+      const bundle = window.RAFT_TERRAIN_WORLDS;
+      if (bundle && Array.isArray(bundle.worlds) && bundle.worlds.length) {
+        const active = bundle.worlds.find((w) => w.id === bundle.activeWorldId) || bundle.worlds[0];
+        const map = active?.data?.map || active?.data?.layers?.map;
+        if (Array.isArray(map) && Array.isArray(map[0])) {
+          return { cols: map[0].length, rows: map.length };
+        }
+      }
+      const single = window.RAFT_TERRAIN_DATA || window.FALLBACK_TERRAIN_DATA || window.RAFT_MAP_DATA;
+      const map = single?.map || single?.layers?.map;
+      if (Array.isArray(map) && Array.isArray(map[0])) {
+        return { cols: map[0].length, rows: map.length };
+      }
+      return { cols: 512, rows: 256 };
+    }
+
+    function getActiveTerrainData() {
+      const bundle = window.RAFT_TERRAIN_WORLDS;
+      if (bundle && Array.isArray(bundle.worlds) && bundle.worlds.length) {
+        const active = bundle.worlds.find((w) => w.id === bundle.activeWorldId) || bundle.worlds[0];
+        return active?.data || null;
+      }
+      return window.RAFT_TERRAIN_DATA || window.FALLBACK_TERRAIN_DATA || window.RAFT_MAP_DATA || null;
+    }
+
+    function clearTerrainGlobals() {
+      const keys = [
+        'RAFT_TERRAIN_WORLDS',
+        'RAFT_TERRAIN_DATA',
+        'FALLBACK_TERRAIN_DATA',
+        'RAFT_MAP_DATA',
+        '__RAFT_TERRAIN_DATA__',
+        '__RAFT_MAP_DATA__'
+      ];
+      keys.forEach((key) => {
+        try {
+          delete window[key];
+        } catch (_) {
+          try { window[key] = undefined; } catch (_) {}
+        }
+      });
+    }
+
+    function extractTerrainPreviewInfo(terrainData, cols, rows) {
+      const result = {
+        map: Array.from({ length: rows }, () => new Array(cols).fill(0)),
+        markers: [],
+      };
+      if (!terrainData || typeof terrainData !== 'object') return result;
+      const map = terrainData.map || terrainData?.layers?.map || null;
+      const debug = terrainData.debug || terrainData?.layers?.debug || null;
+      if (Array.isArray(map) && Array.isArray(map[0])) {
+        const maxRows = Math.min(rows, map.length);
+        const maxCols = Math.min(cols, map[0].length);
+        for (let r = 0; r < maxRows; r++) {
+          for (let c = 0; c < maxCols; c++) {
+            result.map[r][c] = Number(map[r]?.[c] || 0);
+          }
+        }
+      }
+      if (Array.isArray(debug) && Array.isArray(debug[0])) {
+        const maxRows = Math.min(rows, debug.length);
+        const maxCols = Math.min(cols, debug[0].length);
+        for (let c = 0; c < maxCols; c++) {
+          let markerId = null;
+          for (let r = 0; r < maxRows; r++) {
+            const value = Number(debug[r]?.[c] || 0);
+            if (value >= DEBUG_BACKGROUND_ENTER_BASE) {
+              markerId = value - DEBUG_BACKGROUND_ENTER_BASE;
+              break;
+            }
+          }
+          if (Number.isFinite(markerId)) {
+            result.markers.push({ col: c, id: markerId });
+          }
+        }
+      }
+      return result;
+    }
+
+    function applyDataToState(data) {
+      const norm = normalizeData(data);
+      state.baseBiomeId = Number(norm.baseBiomeId) || 1;
+      state.selectedBiome = state.baseBiomeId;
+      state.biomes = norm.biomes && typeof norm.biomes === 'object' ? norm.biomes : {};
+      state.saveMiddleAsNewBiome = norm.saveMiddleAsNewBiome !== false;
+      state.columnBiomes = new Array(state.cols).fill(state.baseBiomeId);
+      if (Array.isArray(norm.columnBiomes)) {
+        for (let i = 0; i < Math.min(state.cols, norm.columnBiomes.length); i++) {
+          const id = Number(norm.columnBiomes[i]);
+          if (Number.isFinite(id)) state.columnBiomes[i] = id;
+        }
+      } else if (norm.columnBiomes && typeof norm.columnBiomes === 'object') {
+        Object.entries(norm.columnBiomes).forEach(([k, v]) => {
+          const col = Number(k);
+          const id = Number(v);
+          if (!Number.isFinite(col) || !Number.isFinite(id)) return;
+          if (col >= 0 && col < state.cols) state.columnBiomes[col] = id;
+        });
+      }
+      rebuildPalette();
+      render();
+    }
+
+    function rebuildPalette() {
+      const ids = Object.keys(state.biomes).map((v) => Number(v)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+      if (!ids.length) ids.push(1, 2, 8);
+      paletteEl.innerHTML = '';
+      ids.forEach((id) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = String(id);
+        btn.style.background = BIOME_COLORS[id] || 'rgba(30,50,90,0.95)';
+        if (id === state.selectedBiome) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          state.selectedBiome = id;
+          rebuildPalette();
+        });
+        paletteEl.appendChild(btn);
+      });
+    }
+
+    function rebuildWorldSlots() {
+      worldSlotsEl.innerHTML = '';
+      WORLD_SLOT_DEFS.forEach((world) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = `${world.slot}: ${world.label}`;
+        if (world.slot === state.activeWorldSlot) btn.classList.add('active');
+        btn.addEventListener('click', async () => {
+          await loadTerrainForSlot(world.slot);
+        });
+        worldSlotsEl.appendChild(btn);
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = Math.max(320, Math.floor(rect.width));
+      canvas.height = Math.max(240, Math.floor(rect.height));
+      render();
+    }
+
+    function getColumnAtClientX(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const colInView = Math.floor(x / Math.max(2, state.tilePixel));
+      return Math.floor(state.camCol) + colInView;
+    }
+
+    function paintAtColumn(col) {
+      if (!Number.isFinite(col) || col < 0 || col >= state.cols) return;
+      const brush = Math.max(1, Math.floor(state.brushCols));
+      const half = Math.floor((brush - 1) / 2);
+      const start = Math.max(0, col - half);
+      const end = Math.min(state.cols - 1, start + brush - 1);
+      for (let c = start; c <= end; c++) {
+        state.columnBiomes[c] = state.eraseMode ? state.baseBiomeId : state.selectedBiome;
+      }
+      render();
+    }
+
+    function getTerrainTileColor(tileId) {
+      if (!tileId) return '#0c162b';
+      const name = String(TILE_NAME_BY_ID[tileId] || '').toLowerCase();
+      if (!name) return '#6d778b';
+      if (name.includes('water')) return '#2f8fc7';
+      if (name.includes('poison')) return '#7b2ea0';
+      if (name.includes('sand')) return '#d2a35a';
+      if (name.includes('limestone')) return '#93a2b1';
+      if (name.includes('stone') || name.includes('rock')) return '#8b96a7';
+      if (name.includes('grass')) return '#5ca455';
+      if (name.includes('leaf') || name.includes('moss') || name.includes('bush')) return '#46894a';
+      if (name.includes('log') || name.includes('wood')) return '#8a6443';
+      if (name.includes('dirt')) return '#7e6248';
+      if (name.includes('cloud')) return '#c9d7e8';
+      if (name.includes('ladder')) return '#c89153';
+      if (name.includes('barrier') || name.includes('white_block')) return '#d8dde7';
+      return '#6d778b';
+    }
+    function getTerrainTileImage(tileId) {
+      const id = Number(tileId);
+      if (!Number.isFinite(id) || id <= 0) return null;
+      if (state.tileImageCache.has(id)) return state.tileImageCache.get(id);
+      const src = String(TILE_SRC_BY_ID[id] || '').trim();
+      if (!src) {
+        state.tileImageCache.set(id, null);
+        return null;
+      }
+      const img = new Image();
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.onerror = () => {
+        img.onerror = null;
+        state.tileImageCache.set(id, null);
+      };
+      img.src = src;
+      state.tileImageCache.set(id, img);
+      return img;
+    }
+
+    function clampCamera() {
+      const tilePx = Math.max(2, Math.floor(state.tilePixel));
+      const barH = Math.max(14, Math.floor(tilePx * 1.6));
+      const terrainH = Math.max(1, canvas.height - barH * 2);
+      const viewCols = Math.max(1, Math.floor(canvas.width / tilePx));
+      const viewRows = Math.max(1, Math.floor(terrainH / tilePx));
+      state.camCol = Math.max(0, Math.min(Math.max(0, state.cols - viewCols), state.camCol));
+      state.camRow = Math.max(0, Math.min(Math.max(0, state.rows - viewRows), state.camRow));
+      return { tilePx, barH, viewCols, viewRows, terrainY: barH };
+    }
+
+    function saveCameraState() {
+      try {
+        const payload = {
+          camCol: Number(state.camCol) || 0,
+          camRow: Number(state.camRow) || 0
+        };
+        localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(payload));
+      } catch (_) {}
+    }
+
+    function restoreCameraState() {
+      try {
+        const raw = localStorage.getItem(CAMERA_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const camCol = Number(parsed?.camCol);
+        const camRow = Number(parsed?.camRow);
+        if (Number.isFinite(camCol)) state.camCol = camCol;
+        if (Number.isFinite(camRow)) state.camRow = camRow;
+      } catch (_) {}
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const { tilePx, barH, viewCols, viewRows, terrainY } = clampCamera();
+      const startCol = Math.floor(state.camCol);
+      const startRow = Math.floor(state.camRow);
+      const endCol = Math.min(state.cols - 1, startCol + viewCols - 1);
+      const endRow = Math.min(state.rows - 1, startRow + viewRows - 1);
+
+      // Upper/lower background bars by biome column
+      for (let c = startCol; c <= endCol; c++) {
+        const x = (c - startCol) * tilePx;
+        const biome = state.columnBiomes[c] ?? state.baseBiomeId;
+        ctx.fillStyle = BIOME_COLORS[biome] || '#27436f';
+        ctx.fillRect(x, 0, tilePx, barH);
+        ctx.fillRect(x, canvas.height - barH, tilePx, barH);
+      }
+
+      // Terrain tiles (solid color blocks)
+      ctx.fillStyle = '#0c162b';
+      ctx.fillRect(0, terrainY, canvas.width, canvas.height - barH * 2);
+      for (let r = startRow; r <= endRow; r++) {
+        const y = terrainY + (r - startRow) * tilePx;
+        const row = state.terrainMap[r];
+        if (!row) continue;
+        for (let c = startCol; c <= endCol; c++) {
+          const tile = Number(row[c] || 0);
+          if (!tile) continue;
+          const x = (c - startCol) * tilePx;
+          const img = getTerrainTileImage(tile);
+          if (img && img.complete && img.naturalWidth > 0) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img, x, y, tilePx, tilePx);
+          } else {
+            ctx.fillStyle = getTerrainTileColor(tile);
+            ctx.fillRect(x, y, tilePx, tilePx);
+          }
+        }
+      }
+
+      // Marker lines from debug background enter tiles
+      for (const marker of state.terrainMarkers) {
+        if (!marker || !Number.isFinite(marker.col)) continue;
+        if (marker.col < startCol || marker.col > endCol) continue;
+        const x = Math.floor((marker.col - startCol) * tilePx + tilePx * 0.5) + 0.5;
+        ctx.strokeStyle = 'rgba(255, 150, 120, 0.95)';
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255, 210, 200, 0.95)';
+        ctx.font = '10px monospace';
+        ctx.fillText(String(marker.id), x + 3, terrainY + 12);
+      }
+
+      // separators
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.beginPath();
+      ctx.moveTo(0, barH + 0.5);
+      ctx.lineTo(canvas.width, barH + 0.5);
+      ctx.moveTo(0, canvas.height - barH + 0.5);
+      ctx.lineTo(canvas.width, canvas.height - barH + 0.5);
+      ctx.stroke();
+
+      const worldDef = WORLD_SLOT_DEFS.find((d) => d.slot === state.activeWorldSlot);
+      const worldLabel = worldDef ? worldDef.label : `slot${state.activeWorldSlot}`;
+      viewInfoEl.textContent = `world:${worldLabel}  cam col:${startCol}-${endCol} row:${startRow}-${endRow} / map ${state.cols}x${state.rows}`;
+      setStatus(`ワールド:${worldLabel}  選択バイオーム:${state.selectedBiome}  WASD移動  マーカー:${state.terrainMarkers.length}`);
+    }
+
+    function buildSparseColumnMap() {
+      const out = {};
+      for (let c = 0; c < state.cols; c++) {
+        const id = state.columnBiomes[c];
+        if (id !== state.baseBiomeId) out[c] = id;
+      }
+      return out;
+    }
+
+    function buildBackgroundJsContent() {
+      const payload = {
+        baseBiomeId: state.baseBiomeId,
+        saveMiddleAsNewBiome: true,
+        biomes: state.biomes,
+        transitions: {},
+        columnBiomes: buildSparseColumnMap()
+      };
+      return `window.RAFT_BACKGROUND_DATA = ${JSON.stringify(payload, null, 2)};\n`;
+    }
+
+    async function performBackgroundSave(options = {}) {
+      const forcePicker = options.forcePicker === true;
+      const sourceFile = 'background-data.js';
+      const content = buildBackgroundJsContent();
+      try {
+        let jsHandle = null;
+        if (typeof window.showSaveFilePicker === 'function') {
+          const ensureWritable = async (existingHandle, pickerOptions) => {
+            let handle = forcePicker ? null : existingHandle;
+            try {
+              if (!forcePicker && handle && handle.queryPermission) {
+                const perm = await handle.queryPermission({ mode: 'readwrite' });
+                if (perm !== 'granted' && handle.requestPermission) {
+                  const request = await handle.requestPermission({ mode: 'readwrite' });
+                  if (request !== 'granted') {
+                    handle = null;
+                  }
+                }
+              }
+            } catch (_) {
+              handle = null;
+            }
+            if (!handle || typeof handle.createWritable !== 'function') {
+              handle = await window.showSaveFilePicker(pickerOptions);
+            }
+            return handle;
+          };
+          if (!forcePicker) {
+            try {
+              jsHandle = await readHandleFromDb(BG_HANDLE_KEY);
+            } catch (_) {
+              jsHandle = null;
+            }
+          }
+          jsHandle = await ensureWritable(jsHandle, {
+            suggestedName: sourceFile,
+            types: [{ description: 'JavaScript', accept: { 'application/javascript': ['.js'] } }]
+          });
+        }
+
+        if (jsHandle && typeof jsHandle.createWritable === 'function') {
+          const writable = await jsHandle.createWritable();
+          await writable.write(new Blob([content], { type: 'application/javascript' }));
+          await writable.close();
+          if (!forcePicker) {
+            await writeHandleToDb(BG_HANDLE_KEY, jsHandle);
+          }
+          setStatus(forcePicker ? `保存先を指定して ${sourceFile} を保存しました` : `${sourceFile} を保存しました`);
+          return;
+        }
+
+        const blob = new Blob([content], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = sourceFile;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setStatus(`${sourceFile} を出力しました`);
+      } catch (error) {
+        if (error && error.name === 'AbortError') {
+          setStatus('保存をキャンセルしました');
+          return;
+        }
+        console.error(error);
+        setStatus('保存に失敗しました（保存先を再選択してください）');
+      }
+    }
+
+    function resizeColumnBiomesForCols(nextCols) {
+      const current = Array.isArray(state.columnBiomes) ? state.columnBiomes.slice() : [];
+      const out = new Array(nextCols).fill(state.baseBiomeId);
+      const copyLen = Math.min(current.length, nextCols);
+      for (let i = 0; i < copyLen; i++) {
+        const v = Number(current[i]);
+        if (Number.isFinite(v)) out[i] = v;
+      }
+      state.columnBiomes = out;
+    }
+
+    async function loadTerrainForSlot(slot, options = {}) {
+      const world = WORLD_SLOT_DEFS.find((d) => d.slot === slot);
+      if (!world) return false;
+      const silent = options.silent === true;
+      clearTerrainGlobals();
+      try {
+        await loadScript(world.file + '?v=' + Date.now());
+      } catch (error) {
+        if (!silent) setStatus(`ワールド読み込み失敗: ${world.file}`);
+        console.warn('[copy2] failed to load world script', world.file, error);
+        return false;
+      }
+      const terrainData = getActiveTerrainData();
+      if (!terrainData) {
+        if (!silent) setStatus(`地形データ未検出: ${world.file}`);
+        return false;
+      }
+      const shape = getTerrainDataShape();
+      state.cols = Math.max(64, shape.cols);
+      state.rows = Math.max(32, shape.rows);
+      resizeColumnBiomesForCols(state.cols);
+      const previewInfo = extractTerrainPreviewInfo(terrainData, state.cols, state.rows);
+      state.terrainMap = previewInfo.map;
+      state.terrainMarkers = previewInfo.markers;
+      state.activeWorldSlot = slot;
+      clampCamera();
+      rebuildWorldSlots();
+      render();
+      if (!silent) setStatus(`${world.label} を読み込みました`);
+      return true;
+    }
+
+    function bindEvents() {
+      exportBtn.addEventListener('click', () => {
+        performBackgroundSave();
+      });
+
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      canvas.addEventListener('mousedown', (event) => {
+        state.isPainting = true;
+        state.eraseMode = event.button === 2;
+        paintAtColumn(getColumnAtClientX(event.clientX));
+      });
+      window.addEventListener('mousemove', (event) => {
+        if (!state.isPainting) return;
+        paintAtColumn(getColumnAtClientX(event.clientX));
+      });
+      window.addEventListener('mouseup', () => {
+        state.isPainting = false;
+      });
+      const keyToMove = (event) => {
+        const code = String(event.code || '');
+        if (code === 'KeyW') return 'w';
+        if (code === 'KeyA') return 'a';
+        if (code === 'KeyS') return 's';
+        if (code === 'KeyD') return 'd';
+        const key = String(event.key || '').toLowerCase();
+        if (key === 'w' || key === 'a' || key === 's' || key === 'd') return key;
+        return '';
+      };
+      window.addEventListener('keydown', (event) => {
+        const moveKey = keyToMove(event);
+        if (moveKey) {
+          state.keys[moveKey] = true;
+          event.preventDefault();
+        }
+      });
+      window.addEventListener('keyup', (event) => {
+        const moveKey = keyToMove(event);
+        if (moveKey) {
+          state.keys[moveKey] = false;
+          event.preventDefault();
+        }
+      });
+      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('beforeunload', saveCameraState);
+    }
+
+    function updateCameraFromKeys(now) {
+      if (!state.lastFrameAt) state.lastFrameAt = now;
+      const dt = Math.max(0, Math.min(0.05, (now - state.lastFrameAt) / 1000));
+      state.lastFrameAt = now;
+      const speed = 36; // tiles per second
+      let moved = false;
+      if (state.keys.a) { state.camCol -= speed * dt; moved = true; }
+      if (state.keys.d) { state.camCol += speed * dt; moved = true; }
+      if (state.keys.w) { state.camRow -= speed * dt; moved = true; }
+      if (state.keys.s) { state.camRow += speed * dt; moved = true; }
+      if (moved) {
+        clampCamera();
+        render();
+        saveCameraState();
+      }
+    }
+
+    function startLoop() {
+      const tick = (now) => {
+        updateCameraFromKeys(now || performance.now());
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    async function bootstrap() {
+      const cacheBust = '?v=' + Date.now();
+      try {
+        await loadScript('background-data.js' + cacheBust);
+      } catch (_) {}
+      try {
+        await loadScript('tile-definitions.js' + cacheBust);
+        syncTileNameByIdFromDefinitions();
+      } catch (_) {}
+      restoreCameraState();
+      const source = window.RAFT_BACKGROUND_DATA || DEFAULT_DATA;
+      applyDataToState(source);
+      bindEvents();
+      resizeCanvas();
+      rebuildWorldSlots();
+      await loadTerrainForSlot(1, { silent: true });
+      startLoop();
+      setStatus('準備完了');
+    }
+
+    bootstrap();
+  })();
+  </script>
+</body>
+</html>

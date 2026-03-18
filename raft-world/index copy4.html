@@ -1,0 +1,2126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>服スキンエディタ (copy4)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #081126;
+      color: #e8f0ff;
+      font-family: "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      width: 100%;
+      height: 100dvh;
+    }
+    .side {
+      border-right: 1px solid rgba(255,255,255,0.1);
+      background: rgba(7, 14, 30, 0.95);
+      padding: 12px;
+      overflow: auto;
+    }
+    .main {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      min-width: 0;
+      min-height: 0;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+    .row { margin-bottom: 10px; }
+    .row label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: rgba(224, 236, 255, 0.82);
+    }
+    select, input, button {
+      width: 100%;
+      border: 1px solid rgba(133, 180, 255, 0.4);
+      border-radius: 8px;
+      background: rgba(26, 41, 70, 0.95);
+      color: #eef4ff;
+      padding: 8px;
+      font: inherit;
+    }
+    button { cursor: pointer; font-weight: 700; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hint {
+      font-size: 12px;
+      color: rgba(205, 221, 248, 0.8);
+      line-height: 1.55;
+    }
+    .editor-wrap {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      min-height: 0;
+      min-width: 0;
+    }
+    .canvas-wrap {
+      display: grid;
+      place-items: center;
+      background: #3f4147;
+      min-height: 0;
+    }
+    #paintCanvas {
+      width: min(88vmin, 760px);
+      height: min(88vmin, 760px);
+      image-rendering: pixelated;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: #f0f0f0;
+      cursor: crosshair;
+    }
+    .frames {
+      border-left: 1px solid rgba(255,255,255,0.1);
+      background: rgba(7, 14, 30, 0.92);
+      overflow: auto;
+      padding: 10px;
+    }
+    .frames-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .frame-btn {
+      border: 1px solid rgba(133, 180, 255, 0.35);
+      border-radius: 8px;
+      background: rgba(15, 28, 53, 0.92);
+      padding: 6px;
+      cursor: pointer;
+      display: grid;
+      gap: 4px;
+      justify-items: center;
+      color: #e7efff;
+      font-size: 11px;
+    }
+    .frame-btn.active {
+      outline: 2px solid #a8d0ff;
+      background: rgba(40, 69, 112, 0.95);
+    }
+    .frame-thumb {
+      width: 72px;
+      height: 72px;
+      border: 1px solid rgba(133, 180, 255, 0.3);
+      border-radius: 6px;
+      image-rendering: pixelated;
+      background: #0d1b38;
+    }
+    .status {
+      border-top: 1px solid rgba(255,255,255,0.1);
+      background: rgba(5, 10, 24, 0.95);
+      color: rgba(233, 243, 255, 0.88);
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+    .palette-head {
+      display: grid;
+      grid-template-columns: 1fr 38px;
+      gap: 6px;
+      align-items: center;
+    }
+    .color-wheel-wrap {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      border: 1px solid rgba(133,180,255,0.28);
+      border-radius: 10px;
+      background: rgba(12, 21, 40, 0.78);
+      padding: 8px;
+    }
+    .wheel-stack {
+      position: relative;
+      width: 232px;
+      height: 232px;
+    }
+    .wheel-canvas {
+      position: absolute;
+      inset: 0;
+      width: 232px;
+      height: 232px;
+      image-rendering: auto;
+    }
+    #svCanvas {
+      width: 150px;
+      height: 150px;
+      left: 41px;
+      top: 41px;
+      border: 1px solid rgba(0,0,0,0.6);
+    }
+    .color-meta {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+    .color-current {
+      width: 48px;
+      height: 48px;
+      border: 2px solid rgba(180, 210, 255, 0.7);
+      border-radius: 8px;
+      background: #ff0000;
+    }
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 4px;
+      border: 1px solid rgba(133,180,255,0.28);
+      border-radius: 8px;
+      background: rgba(12, 21, 40, 0.78);
+      padding: 6px;
+      min-height: 38px;
+    }
+    .swatch-btn {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 1px solid rgba(214, 230, 255, 0.25);
+      border-radius: 4px;
+      padding: 0;
+      min-height: 20px;
+    }
+    .swatch-btn.active {
+      outline: 2px solid #a8d0ff;
+    }
+    .item-ref-canvas {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 1px solid rgba(133, 180, 255, 0.35);
+      border-radius: 8px;
+      image-rendering: pixelated;
+      background: #e8e8e8;
+      cursor: copy;
+    }
+    @media (max-width: 1050px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .side { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); }
+      .editor-wrap { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+      .frames { border-left: none; border-top: 1px solid rgba(255,255,255,0.1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <h1>服スキンエディタ (copy4)</h1>
+      <div class="row">
+        <label>服選択</label>
+        <select id="clothingSelect"></select>
+      </div>
+      <div class="row">
+        <label>色</label>
+        <input id="colorPicker" type="color" value="#ff0000" />
+      </div>
+      <div class="row">
+        <label>参考アイコン（クリックで色取得）</label>
+        <canvas id="itemRefCanvas" class="item-ref-canvas" width="128" height="128"></canvas>
+        <div class="hint" id="itemRefHint" style="margin-top:6px;">読み込み中...</div>
+      </div>
+      <div class="row inline">
+        <button id="drawModeBtn">ドット</button>
+        <button id="eraseModeBtn">消す</button>
+      </div>
+      <div class="row">
+        <button id="fillModeBtn">塗りつぶし</button>
+      </div>
+      <div class="row">
+        <label>カラーピッカー</label>
+        <div class="color-wheel-wrap">
+          <div class="wheel-stack">
+            <canvas id="hueWheelCanvas" class="wheel-canvas" width="232" height="232"></canvas>
+            <canvas id="svCanvas" class="wheel-canvas" width="150" height="150"></canvas>
+          </div>
+          <div class="color-meta">
+            <div id="currentColorSwatch" class="color-current"></div>
+            <input id="hexColorInput" type="text" value="#ff0000" maxlength="7" />
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <label>カラーセット</label>
+        <div class="palette-head">
+          <div class="hint" style="font-size:11px;">クリックで選択</div>
+          <button id="saveColorBtn" title="今の色を追加">+</button>
+        </div>
+        <div id="colorSetGrid" class="palette-grid" style="margin-top:6px;"></div>
+      </div>
+      <div class="row">
+        <label>この服の色</label>
+        <div id="clothingColorGrid" class="palette-grid"></div>
+      </div>
+      <div class="row inline">
+        <button id="clearFrameBtn">現在フレーム全消し</button>
+        <button id="clearAllBtn">全フレーム全消し</button>
+      </div>
+      <div class="row inline">
+        <button id="saveDirBtn">保存先選択</button>
+        <button id="saveBtn">保存</button>
+      </div>
+      <div class="hint" id="metaInfo">準備中...</div>
+      <hr style="border-color: rgba(255,255,255,0.12); border-width: 1px 0 0; margin: 12px 0;" />
+      <div class="hint">
+        各フレームに個別で服を描けます。<br>
+        保存時は `assets/skin/&lt;skinFolder&gt;/idle1.png` などに書き込みます。<br>
+        Cmd+S / Ctrl+S でも保存できます。
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="editor-wrap">
+        <div class="canvas-wrap">
+          <canvas id="paintCanvas" width="512" height="512"></canvas>
+        </div>
+        <section class="frames">
+          <div id="framesGrid" class="frames-grid"></div>
+        </section>
+      </div>
+      <div class="status" id="status">準備中...</div>
+    </main>
+  </div>
+
+  <script>
+  (function(){
+    const FRAME_FILES = [
+      'idle1.png','idle2.png','idle3.png',
+      'run1.png','run2.png','run3.png','run4.png','run5.png','run6.png',
+      'crime1.png','crime2.png','crime3.png','crime4.png',
+      'squat1.png','squat2.png',
+      'swim1.png','swim2.png','swim3.png'
+    ];
+    const SKIN_FRAME_SIZE = 64;
+    const FRAME_VIEW_SIZE = SKIN_FRAME_SIZE;
+    const OVERLAY_STORAGE_MARGIN = 0;
+    const OVERLAY_STORAGE_SIZE = FRAME_VIEW_SIZE + OVERLAY_STORAGE_MARGIN * 2;
+
+    const clothingSelect = document.getElementById('clothingSelect');
+    const colorPicker = document.getElementById('colorPicker');
+    const hueWheelCanvas = document.getElementById('hueWheelCanvas');
+    const svCanvas = document.getElementById('svCanvas');
+    const currentColorSwatch = document.getElementById('currentColorSwatch');
+    const hexColorInput = document.getElementById('hexColorInput');
+    const drawModeBtn = document.getElementById('drawModeBtn');
+    const eraseModeBtn = document.getElementById('eraseModeBtn');
+    const fillModeBtn = document.getElementById('fillModeBtn');
+    const saveColorBtn = document.getElementById('saveColorBtn');
+    const colorSetGrid = document.getElementById('colorSetGrid');
+    const clothingColorGrid = document.getElementById('clothingColorGrid');
+    const clearFrameBtn = document.getElementById('clearFrameBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const saveDirBtn = document.getElementById('saveDirBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const framesGrid = document.getElementById('framesGrid');
+    const paintCanvas = document.getElementById('paintCanvas');
+    const paintCtx = paintCanvas.getContext('2d');
+    const itemRefCanvas = document.getElementById('itemRefCanvas');
+    const itemRefCtx = itemRefCanvas.getContext('2d');
+    const itemRefHint = document.getElementById('itemRefHint');
+    const statusEl = document.getElementById('status');
+    const metaInfoEl = document.getElementById('metaInfo');
+
+    const state = {
+      clothingEntries: [],
+      selectedIndex: 0,
+      selectedFrame: FRAME_FILES[0],
+      mode: 'draw',
+      brushSize: 1,
+      color: '#ff0000',
+      hue: 0,
+      sat: 1,
+      val: 1,
+      colorSet: [],
+      clothingColors: [],
+      baseImages: new Map(),
+      baseImageReadable: new Map(),
+      overlayCanvases: new Map(),
+      frameHistory: new Map(),
+      frameButtons: new Map(),
+      itemPreviewCache: new Map(),
+      outputRootHandle: null,
+      paintActive: false,
+      lastPoint: null,
+      moveActive: false,
+      moveStartPoint: null,
+      moveLastPoint: null,
+      moveSnapshot: null,
+      copyBufferCanvas: null,
+      refPickActive: false,
+      referenceIconCanvas: null,
+      referenceIconReadable: false,
+      eyedropActive: false,
+      eyedropLastPoint: null,
+      eyedropSampleTransparent: false
+    };
+    const COLOR_SET_STORAGE_KEY = 'raft_skin_editor_copy4_color_set_v1';
+    const DEFAULT_COLOR_SET = [
+      '#f5f5f5','#e6e6e6','#bcbcbc','#7f7f7f','#4a4a4a','#1f1f1f','#000000','#804d00',
+      '#ffcc00','#ffd966','#f6b26b','#e69138','#cc0000','#ff0000','#990000','#660000',
+      '#00cc00','#00aa00','#008000','#006600','#00c8ff','#0099ff','#2f55ff','#1200d8',
+      '#ff00ff','#cc66ff','#b4a7d6','#8e7cc3','#c27ba0','#a64d79','#783f04','#b45f06'
+    ];
+    const HISTORY_LIMIT = 40;
+    const HANDLE_DB_NAME = 'raft_skin_editor_copy4_db_v1';
+    const HANDLE_STORE_NAME = 'handles';
+    const HANDLE_KEY_OUTPUT_ROOT = 'outputRootHandle';
+
+    function setStatus(text) {
+      statusEl.textContent = String(text || '');
+    }
+    function openHandleDb() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+          reject(new Error('indexedDB not available'));
+          return;
+        }
+        const req = indexedDB.open(HANDLE_DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(HANDLE_STORE_NAME)) {
+            db.createObjectStore(HANDLE_STORE_NAME);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('indexedDB open failed'));
+      });
+    }
+    async function saveOutputRootHandleToDb(handle) {
+      if (!handle) return;
+      try {
+        const db = await openHandleDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+          tx.objectStore(HANDLE_STORE_NAME).put(handle, HANDLE_KEY_OUTPUT_ROOT);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error || new Error('db write failed'));
+          tx.onabort = () => reject(tx.error || new Error('db write aborted'));
+        });
+        db.close();
+      } catch (_) {}
+    }
+    async function loadOutputRootHandleFromDb() {
+      try {
+        const db = await openHandleDb();
+        const handle = await new Promise((resolve, reject) => {
+          const tx = db.transaction(HANDLE_STORE_NAME, 'readonly');
+          const req = tx.objectStore(HANDLE_STORE_NAME).get(HANDLE_KEY_OUTPUT_ROOT);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error || new Error('db read failed'));
+        });
+        db.close();
+        return handle;
+      } catch (_) {
+        return null;
+      }
+    }
+    async function tryRestoreOutputRootHandle() {
+      if (!window.showDirectoryPicker || !window.FileSystemHandle) return false;
+      const saved = await loadOutputRootHandleFromDb();
+      if (!saved) return false;
+      try {
+        let perm = 'prompt';
+        if (typeof saved.queryPermission === 'function') {
+          perm = await saved.queryPermission({ mode: 'readwrite' });
+        }
+        if (perm !== 'granted') return false;
+        const assetsRoot = await resolveAssetsRootHandle(saved, false);
+        if (!assetsRoot) return false;
+        state.outputRootHandle = assetsRoot;
+        const folders = await discoverSkinFoldersFromDirectoryHandle(state.outputRootHandle);
+        if (folders.length) {
+          const merged = mergeSkinFolderEntriesFromDisk(state.clothingEntries, folders);
+          if (merged.length !== state.clothingEntries.length) {
+            const prevFolder = getSelectedEntry()?.skinFolder || '';
+            state.clothingEntries = merged;
+            const nextIndex = state.clothingEntries.findIndex((entry) => entry.skinFolder === prevFolder);
+            state.selectedIndex = nextIndex >= 0 ? nextIndex : 0;
+            rebuildClothingSelect();
+          }
+        }
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+      });
+    }
+    function normalizeHexColor(value) {
+      const text = String(value || '').trim().toLowerCase();
+      if (!/^#[0-9a-f]{6}$/.test(text)) return '#000000';
+      return text;
+    }
+    function hsvToRgb(h, s, v) {
+      const hh = ((Number(h) % 360) + 360) % 360;
+      const ss = Math.max(0, Math.min(1, Number(s)));
+      const vv = Math.max(0, Math.min(1, Number(v)));
+      const c = vv * ss;
+      const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+      const m = vv - c;
+      let r = 0, g = 0, b = 0;
+      if (hh < 60) { r = c; g = x; b = 0; }
+      else if (hh < 120) { r = x; g = c; b = 0; }
+      else if (hh < 180) { r = 0; g = c; b = x; }
+      else if (hh < 240) { r = 0; g = x; b = c; }
+      else if (hh < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+      return {
+        r: Math.round((r + m) * 255),
+        g: Math.round((g + m) * 255),
+        b: Math.round((b + m) * 255)
+      };
+    }
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map((n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0')).join('');
+    }
+    function hexToRgb(hex) {
+      const h = normalizeHexColor(hex);
+      return {
+        r: parseInt(h.slice(1, 3), 16),
+        g: parseInt(h.slice(3, 5), 16),
+        b: parseInt(h.slice(5, 7), 16)
+      };
+    }
+    function rgbToHsv(r, g, b) {
+      const rr = Math.max(0, Math.min(255, Number(r))) / 255;
+      const gg = Math.max(0, Math.min(255, Number(g))) / 255;
+      const bb = Math.max(0, Math.min(255, Number(b))) / 255;
+      const max = Math.max(rr, gg, bb);
+      const min = Math.min(rr, gg, bb);
+      const d = max - min;
+      let h = 0;
+      if (d !== 0) {
+        if (max === rr) h = 60 * (((gg - bb) / d) % 6);
+        else if (max === gg) h = 60 * (((bb - rr) / d) + 2);
+        else h = 60 * (((rr - gg) / d) + 4);
+      }
+      if (h < 0) h += 360;
+      const s = max === 0 ? 0 : d / max;
+      const v = max;
+      return { h, s, v };
+    }
+    function setCurrentColor(hex) {
+      const normalized = normalizeHexColor(hex);
+      state.color = normalized;
+      colorPicker.value = normalized;
+      hexColorInput.value = normalized;
+      currentColorSwatch.style.background = normalized;
+      const rgb = hexToRgb(normalized);
+      const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+      state.hue = hsv.h;
+      state.sat = hsv.s;
+      state.val = hsv.v;
+      drawColorWheelPicker();
+      renderColorPalettes();
+    }
+    function setCurrentColorFromHsv(h, s, v) {
+      state.hue = ((Number(h) % 360) + 360) % 360;
+      state.sat = Math.max(0, Math.min(1, Number(s)));
+      state.val = Math.max(0, Math.min(1, Number(v)));
+      const rgb = hsvToRgb(state.hue, state.sat, state.val);
+      const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+      state.color = hex;
+      colorPicker.value = hex;
+      hexColorInput.value = hex;
+      currentColorSwatch.style.background = hex;
+      drawColorWheelPicker();
+      renderColorPalettes();
+    }
+    function drawColorWheelPicker() {
+      const wheelCtx = hueWheelCanvas.getContext('2d');
+      const w = hueWheelCanvas.width;
+      const h = hueWheelCanvas.height;
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const outer = Math.min(w, h) * 0.5 - 5;
+      const inner = outer - 22;
+      wheelCtx.clearRect(0, 0, w, h);
+      for (let deg = 0; deg < 360; deg += 1) {
+        wheelCtx.beginPath();
+        wheelCtx.strokeStyle = `hsl(${deg},100%,50%)`;
+        wheelCtx.lineWidth = outer - inner;
+        wheelCtx.arc(cx, cy, (outer + inner) * 0.5, (deg - 1) * Math.PI / 180, deg * Math.PI / 180);
+        wheelCtx.stroke();
+      }
+      wheelCtx.strokeStyle = 'rgba(15, 24, 46, 0.9)';
+      wheelCtx.lineWidth = 2;
+      wheelCtx.beginPath();
+      wheelCtx.arc(cx, cy, outer, 0, Math.PI * 2);
+      wheelCtx.stroke();
+      wheelCtx.beginPath();
+      wheelCtx.arc(cx, cy, inner, 0, Math.PI * 2);
+      wheelCtx.stroke();
+
+      const ang = state.hue * Math.PI / 180;
+      const markerR = (outer + inner) * 0.5;
+      const mx = cx + Math.cos(ang) * markerR;
+      const my = cy + Math.sin(ang) * markerR;
+      wheelCtx.beginPath();
+      wheelCtx.fillStyle = '#fff';
+      wheelCtx.strokeStyle = 'rgba(0,0,0,0.85)';
+      wheelCtx.lineWidth = 2;
+      wheelCtx.arc(mx, my, 7, 0, Math.PI * 2);
+      wheelCtx.fill();
+      wheelCtx.stroke();
+
+      const svCtx = svCanvas.getContext('2d');
+      const sw = svCanvas.width;
+      const sh = svCanvas.height;
+      svCtx.clearRect(0, 0, sw, sh);
+      const pure = hsvToRgb(state.hue, 1, 1);
+      svCtx.fillStyle = rgbToHex(pure.r, pure.g, pure.b);
+      svCtx.fillRect(0, 0, sw, sh);
+      const whiteGrad = svCtx.createLinearGradient(0, 0, sw, 0);
+      whiteGrad.addColorStop(0, '#ffffff');
+      whiteGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      svCtx.fillStyle = whiteGrad;
+      svCtx.fillRect(0, 0, sw, sh);
+      const blackGrad = svCtx.createLinearGradient(0, 0, 0, sh);
+      blackGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      blackGrad.addColorStop(1, '#000000');
+      svCtx.fillStyle = blackGrad;
+      svCtx.fillRect(0, 0, sw, sh);
+      svCtx.strokeStyle = 'rgba(0,0,0,0.82)';
+      svCtx.lineWidth = 2;
+      svCtx.strokeRect(1, 1, sw - 2, sh - 2);
+      const sx = state.sat * sw;
+      const sy = (1 - state.val) * sh;
+      svCtx.beginPath();
+      svCtx.fillStyle = '#fff';
+      svCtx.strokeStyle = 'rgba(0,0,0,0.9)';
+      svCtx.lineWidth = 2;
+      svCtx.arc(sx, sy, 6, 0, Math.PI * 2);
+      svCtx.fill();
+      svCtx.stroke();
+    }
+    function loadColorSetFromStorage() {
+      try {
+        const raw = localStorage.getItem(COLOR_SET_STORAGE_KEY);
+        if (!raw) return DEFAULT_COLOR_SET.slice();
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return DEFAULT_COLOR_SET.slice();
+        const out = [];
+        parsed.forEach((entry) => {
+          const hex = normalizeHexColor(entry);
+          if (out.includes(hex)) return;
+          out.push(hex);
+        });
+        return out.length ? out : DEFAULT_COLOR_SET.slice();
+      } catch (_) {
+        return DEFAULT_COLOR_SET.slice();
+      }
+    }
+    function saveColorSetToStorage() {
+      try { localStorage.setItem(COLOR_SET_STORAGE_KEY, JSON.stringify(state.colorSet)); } catch (_) {}
+    }
+    function addColorToSet(color) {
+      const hex = normalizeHexColor(color);
+      if (state.colorSet.includes(hex)) return false;
+      state.colorSet.unshift(hex);
+      if (state.colorSet.length > 120) state.colorSet.length = 120;
+      saveColorSetToStorage();
+      return true;
+    }
+    function renderSwatchGrid(element, colors, options = {}) {
+      if (!element) return;
+      const list = Array.isArray(colors) ? colors : [];
+      element.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      list.forEach((color) => {
+        const hex = normalizeHexColor(color);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'swatch-btn' + (normalizeHexColor(state.color) === hex ? ' active' : '');
+        btn.style.background = hex;
+        btn.title = hex;
+        btn.addEventListener('click', () => {
+          setCurrentColor(hex);
+        });
+        frag.appendChild(btn);
+      });
+      if (!list.length && options.emptyText) {
+        const empty = document.createElement('div');
+        empty.className = 'hint';
+        empty.style.gridColumn = '1 / -1';
+        empty.textContent = options.emptyText;
+        frag.appendChild(empty);
+      }
+      element.appendChild(frag);
+    }
+    function renderColorPalettes() {
+      renderSwatchGrid(colorSetGrid, state.colorSet);
+      renderSwatchGrid(clothingColorGrid, state.clothingColors, { emptyText: '抽出できる色がありません' });
+    }
+    function extractDominantColorsFromRgba(rgba, options = {}) {
+      const data = rgba instanceof Uint8ClampedArray ? rgba : null;
+      if (!data || !data.length) return [];
+      const bucketStep = Math.max(4, Number(options.bucketStep) || 16);
+      const minAlpha = Math.max(0, Math.min(255, Number(options.minAlpha) || 24));
+      const minCount = Math.max(1, Number(options.minCount) || 2);
+      const maxColors = Math.max(1, Number(options.maxColors) || 24);
+      const minDist = Math.max(1, Number(options.minDist) || 26);
+      const buckets = new Map();
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < minAlpha) continue;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const br = Math.floor(r / bucketStep);
+        const bg = Math.floor(g / bucketStep);
+        const bb = Math.floor(b / bucketStep);
+        const key = `${br},${bg},${bb}`;
+        const hit = buckets.get(key) || { count: 0, r: 0, g: 0, b: 0 };
+        hit.count += 1;
+        hit.r += r;
+        hit.g += g;
+        hit.b += b;
+        buckets.set(key, hit);
+      }
+      const dominant = Array.from(buckets.values())
+        .sort((a, b) => b.count - a.count)
+        .map((entry) => ({
+          r: Math.round(entry.r / Math.max(1, entry.count)),
+          g: Math.round(entry.g / Math.max(1, entry.count)),
+          b: Math.round(entry.b / Math.max(1, entry.count)),
+          count: entry.count
+        }))
+        .filter((entry) => entry.count >= minCount);
+      const merged = [];
+      for (let i = 0; i < dominant.length; i++) {
+        const current = dominant[i];
+        let close = false;
+        for (let j = 0; j < merged.length; j++) {
+          const p = merged[j];
+          const dist = Math.hypot(current.r - p.r, current.g - p.g, current.b - p.b);
+          if (dist < minDist) {
+            close = true;
+            break;
+          }
+        }
+        if (close) continue;
+        merged.push(current);
+        if (merged.length >= maxColors) break;
+      }
+      return merged.map((entry) => rgbToHex(entry.r, entry.g, entry.b));
+    }
+    function extractDominantColorsFromCanvas(canvas) {
+      if (!canvas || typeof canvas.getContext !== 'function') return [];
+      try {
+        const cx = canvas.getContext('2d', { willReadFrequently: true });
+        const img = cx.getImageData(0, 0, canvas.width, canvas.height);
+        return extractDominantColorsFromRgba(img.data);
+      } catch (_) {
+        return [];
+      }
+    }
+    function appendUniqueColors(target, seen, list, maxColors = 24) {
+      const out = Array.isArray(target) ? target : [];
+      const memo = seen instanceof Set ? seen : new Set();
+      const src = Array.isArray(list) ? list : [];
+      for (let i = 0; i < src.length; i++) {
+        const hex = normalizeHexColor(src[i]);
+        if (memo.has(hex)) continue;
+        memo.add(hex);
+        out.push(hex);
+        if (out.length >= maxColors) break;
+      }
+      return out;
+    }
+    async function extractColorsFromImageUrl(src) {
+      const key = String(src || '').trim();
+      if (!key) return [];
+      if (state.itemPreviewCache.has(key)) {
+        const cached = state.itemPreviewCache.get(key);
+        if (Array.isArray(cached) && cached.length) return cached.slice();
+      }
+      const img = await loadImage(key);
+      if (!(img && (img.naturalWidth || img.width))) return [];
+      const w = Math.max(1, Number(img.naturalWidth || img.width));
+      const h = Math.max(1, Number(img.naturalHeight || img.height));
+      const c = createTransparentCanvas(w, h);
+      const cx = c.getContext('2d', { willReadFrequently: true });
+      let out = [];
+      try {
+        cx.imageSmoothingEnabled = false;
+        cx.drawImage(img, 0, 0, w, h);
+        out = extractDominantColorsFromCanvas(c);
+      } catch (_) {}
+      if (out.length) state.itemPreviewCache.set(key, out.slice());
+      return out;
+    }
+    async function resolveAssetsRootHandle(rootHandle, create) {
+      if (!rootHandle || typeof rootHandle.getDirectoryHandle !== 'function') return null;
+      const shouldCreate = !!create;
+      if (String(rootHandle.name || '').toLowerCase() === 'assets') return rootHandle;
+      try {
+        return await rootHandle.getDirectoryHandle('assets', shouldCreate ? { create: true } : undefined);
+      } catch (_) {
+        return null;
+      }
+    }
+    async function getSkinFolderHandleFromRoot(rootHandle, folder) {
+      if (!rootHandle || !folder) return null;
+      try {
+        const assetsRoot = await resolveAssetsRootHandle(rootHandle, false);
+        if (!assetsRoot) return null;
+        const skinRoot = await assetsRoot.getDirectoryHandle('skin');
+        return await skinRoot.getDirectoryHandle(folder);
+      } catch (_) {
+        return null;
+      }
+    }
+    async function resolveSkinOutputDir(rootHandle, folder) {
+      if (!rootHandle || !folder) return null;
+      try {
+        const assetsRoot = await resolveAssetsRootHandle(rootHandle, true);
+        if (!assetsRoot) return null;
+        const skinRoot = await assetsRoot.getDirectoryHandle('skin', { create: true });
+        return await skinRoot.getDirectoryHandle(folder, { create: true });
+      } catch (_) {
+        return null;
+      }
+    }
+    async function extractColorsFromSkinFolderFiles(folder) {
+      const colors = [];
+      if (!state.outputRootHandle || !folder) return colors;
+      try {
+        const target = await getSkinFolderHandleFromRoot(state.outputRootHandle, folder);
+        if (!target) return colors;
+        const picks = ['idle1.png', 'run1.png', 'swim1.png'];
+        const seen = new Set();
+        for (let i = 0; i < picks.length; i++) {
+          const fileName = picks[i];
+          let fileHandle;
+          try { fileHandle = await target.getFileHandle(fileName); } catch (_) { fileHandle = null; }
+          if (!fileHandle) continue;
+          const file = await fileHandle.getFile();
+          const bitmap = await createImageBitmap(file);
+          const c = createTransparentCanvas(bitmap.width || 1, bitmap.height || 1);
+          const cx = c.getContext('2d', { willReadFrequently: true });
+          cx.imageSmoothingEnabled = false;
+          cx.drawImage(bitmap, 0, 0, c.width, c.height);
+          if (typeof bitmap.close === 'function') bitmap.close();
+          const extracted = extractDominantColorsFromCanvas(c);
+          appendUniqueColors(colors, seen, extracted, 24);
+          if (colors.length >= 24) break;
+        }
+      } catch (_) {}
+      return colors;
+    }
+    function extractColorsFromLoadedOverlays() {
+      const picks = ['idle1.png', 'run1.png', 'swim1.png'];
+      const out = [];
+      const seen = new Set();
+      for (let i = 0; i < picks.length; i++) {
+        const frame = picks[i];
+        const overlay = state.overlayCanvases.get(frame);
+        if (!overlay) continue;
+        const extracted = extractDominantColorsFromCanvas(overlay);
+        appendUniqueColors(out, seen, extracted, 24);
+        if (out.length >= 24) break;
+      }
+      return out;
+    }
+    async function refreshClothingPalette() {
+      const entry = getSelectedEntry();
+      if (!entry) {
+        state.clothingColors = [];
+        renderColorPalettes();
+        return;
+      }
+      const sources = [];
+      if (entry.itemImg) sources.push(entry.itemImg);
+      sources.push(`assets/${entry.skinFolder}.png`);
+      const seen = new Set();
+      const merged = [];
+      for (let i = 0; i < sources.length; i++) {
+        const list = await extractColorsFromImageUrl(sources[i]);
+        appendUniqueColors(merged, seen, list, 24);
+        if (merged.length >= 24) break;
+      }
+      if (!merged.length) {
+        appendUniqueColors(merged, seen, extractColorsFromLoadedOverlays(), 24);
+      }
+      if (!merged.length) {
+        const fallback = await extractColorsFromSkinFolderFiles(entry.skinFolder);
+        appendUniqueColors(merged, seen, fallback, 24);
+      }
+      state.clothingColors = merged.slice(0, 24);
+      renderColorPalettes();
+      if (!state.clothingColors.length) {
+        setStatus('この服の色: 抽出0件（画像未取得か透明のみ）');
+      }
+    }
+
+    function uniqueClothingEntries(itemDefs) {
+      const entries = [];
+      const usedIds = new Set();
+      Object.entries(itemDefs || {}).forEach(([idText, def]) => {
+        if (!def || typeof def !== 'object') return;
+        const type = String(def.type || '');
+        if (type !== 'clothing_top' && type !== 'clothing_bottom') return;
+        const skinFolder = String(def.skinFolder || '').trim();
+        if (!skinFolder) return;
+        const id = Number(idText);
+        if (!Number.isFinite(id)) return;
+        if (usedIds.has(id)) return;
+        const name = String(def.name || `ID ${id}`);
+        if (name.startsWith('真・')) return;
+        if (skinFolder.startsWith('true_')) return;
+        usedIds.add(id);
+        const entry = {
+          id,
+          name,
+          type,
+          skinFolder,
+          itemImg: String(def.img || '').trim()
+        };
+        entries.push(entry);
+      });
+      entries.sort((a, b) => a.id - b.id);
+      return entries;
+    }
+    function mergeSkinFolderEntriesFromDisk(baseEntries, skinFolders) {
+      const out = Array.isArray(baseEntries) ? baseEntries.slice() : [];
+      const exists = new Set(out.map((e) => `${e.skinFolder}::${e.type}`));
+      const folders = Array.isArray(skinFolders) ? skinFolders : [];
+      folders.forEach((folder) => {
+        const skinFolder = String(folder || '').trim();
+        if (!skinFolder) return;
+        if (skinFolder.startsWith('true_')) return;
+        const topKey = `${skinFolder}::clothing_top`;
+        if (!exists.has(topKey)) {
+          out.push({
+            id: 900000 + out.length,
+            name: `${skinFolder} (読み込み)`,
+            type: 'clothing_top',
+            skinFolder
+          });
+          exists.add(topKey);
+        }
+      });
+      out.sort((a, b) => {
+        if (a.skinFolder === b.skinFolder) return a.id - b.id;
+        return a.skinFolder.localeCompare(b.skinFolder, 'ja');
+      });
+      return out;
+    }
+    async function discoverSkinFoldersFromServer() {
+      const folders = new Set();
+      const proto = String(location.protocol || '').toLowerCase();
+      if (proto !== 'http:' && proto !== 'https:') {
+        return [];
+      }
+      try {
+        const response = await fetch(`assets/skin/?v=${Date.now()}`, { cache: 'no-store' });
+        const html = await response.text();
+        const re = /href=\"([^\"]+)\"/g;
+        let m;
+        while ((m = re.exec(html))) {
+          const href = String(m[1] || '');
+          if (!href || href === '../') continue;
+          if (!href.endsWith('/')) continue;
+          const clean = href.replace(/\/+$/, '');
+          const name = clean.split('/').pop();
+          if (!name || name === '.' || name === '..') continue;
+          folders.add(name);
+        }
+      } catch (_) {}
+      return Array.from(folders);
+    }
+    async function discoverSkinFoldersFromDirectoryHandle(rootHandle) {
+      const folders = [];
+      if (!rootHandle || typeof rootHandle.getDirectoryHandle !== 'function') return folders;
+      try {
+        const assetsDir = await resolveAssetsRootHandle(rootHandle, false);
+        if (!assetsDir) return folders;
+        const skinDir = await assetsDir.getDirectoryHandle('skin');
+        for await (const [name, handle] of skinDir.entries()) {
+          if (!handle || handle.kind !== 'directory') continue;
+          const folder = String(name || '').trim();
+          if (!folder || folder === '.' || folder === '..') continue;
+          folders.push(folder);
+        }
+      } catch (_) {}
+      return folders;
+    }
+
+    function createTransparentCanvas(w, h) {
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, w | 0);
+      c.height = Math.max(1, h | 0);
+      return c;
+    }
+    function canReadCanvasPixels(canvas) {
+      if (!canvas || typeof canvas.getContext !== 'function') return false;
+      try {
+        const cx = canvas.getContext('2d', { willReadFrequently: true });
+        cx.getImageData(0, 0, 1, 1);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    async function loadOverlayImageFromHandle(folder, frame) {
+      if (!state.outputRootHandle || !folder || !frame) return null;
+      try {
+        const dir = await getSkinFolderHandleFromRoot(state.outputRootHandle, folder);
+        if (!dir) return null;
+        const fileHandle = await dir.getFileHandle(frame);
+        const file = await fileHandle.getFile();
+        const bitmap = await createImageBitmap(file);
+        return bitmap;
+      } catch (_) {
+        return null;
+      }
+    }
+    async function loadBaseImageFromHandle(frame) {
+      if (!state.outputRootHandle || !frame) return null;
+      const candidates = [[frame]];
+      for (let i = 0; i < candidates.length; i++) {
+        const path = candidates[i];
+        try {
+          let handle = await resolveAssetsRootHandle(state.outputRootHandle, false);
+          if (!handle) continue;
+          for (let j = 0; j < path.length - 1; j++) {
+            handle = await handle.getDirectoryHandle(path[j]);
+          }
+          const fileHandle = await handle.getFileHandle(path[path.length - 1]);
+          const file = await fileHandle.getFile();
+          const bitmap = await createImageBitmap(file);
+          return bitmap;
+        } catch (_) {}
+      }
+      return null;
+    }
+    async function loadReferenceIconFromHandle(entry) {
+      if (!state.outputRootHandle || !entry) return null;
+      const assetsRoot = await resolveAssetsRootHandle(state.outputRootHandle, false);
+      if (!assetsRoot) return null;
+      const candidates = [];
+      const skin = String(entry.skinFolder || '').trim();
+      if (skin) candidates.push([`${skin}.png`]);
+      const imgPath = String(entry.itemImg || '').trim().replace(/^\.?\//, '');
+      if (imgPath) {
+        let parts = imgPath.split('/').filter(Boolean);
+        if (parts[0] && parts[0].toLowerCase() === 'assets') parts = parts.slice(1);
+        if (parts.length) candidates.push(parts);
+      }
+      for (let i = 0; i < candidates.length; i++) {
+        const path = candidates[i];
+        try {
+          let handle = assetsRoot;
+          for (let j = 0; j < path.length - 1; j++) {
+            handle = await handle.getDirectoryHandle(path[j]);
+          }
+          const fileHandle = await handle.getFileHandle(path[path.length - 1]);
+          const file = await fileHandle.getFile();
+          const bitmap = await createImageBitmap(file);
+          const w = Math.max(1, bitmap.width || 1);
+          const h = Math.max(1, bitmap.height || 1);
+          const c = createTransparentCanvas(w, h);
+          const cx = c.getContext('2d', { willReadFrequently: true });
+          cx.imageSmoothingEnabled = false;
+          cx.drawImage(bitmap, 0, 0, w, h);
+          if (typeof bitmap.close === 'function') bitmap.close();
+          return {
+            canvas: c,
+            readable: canReadCanvasPixels(c)
+          };
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    function getBaseSizeForFrame(frame) {
+      return { w: OVERLAY_STORAGE_SIZE, h: OVERLAY_STORAGE_SIZE };
+    }
+    function getOverlayViewOrigin() {
+      return { x: OVERLAY_STORAGE_MARGIN, y: OVERLAY_STORAGE_MARGIN };
+    }
+    function logicalPointToOverlayPoint(point) {
+      if (!point) return null;
+      const origin = getOverlayViewOrigin();
+      return {
+        x: (point.x | 0) + origin.x,
+        y: (point.y | 0) + origin.y
+      };
+    }
+
+    function ensureOverlayCanvas(frame) {
+      if (state.overlayCanvases.has(frame)) return state.overlayCanvases.get(frame);
+      const size = getBaseSizeForFrame(frame);
+      const canvas = createTransparentCanvas(size.w, size.h);
+      state.overlayCanvases.set(frame, canvas);
+      return canvas;
+    }
+    function ensureFrameHistory(frame) {
+      if (state.frameHistory.has(frame)) return state.frameHistory.get(frame);
+      const h = { undo: [], redo: [] };
+      state.frameHistory.set(frame, h);
+      return h;
+    }
+    function captureOverlaySnapshot(frame) {
+      const c = ensureOverlayCanvas(frame);
+      const copy = createTransparentCanvas(c.width, c.height);
+      const ccx = copy.getContext('2d');
+      ccx.imageSmoothingEnabled = false;
+      ccx.clearRect(0, 0, copy.width, copy.height);
+      ccx.drawImage(c, 0, 0);
+      return copy;
+    }
+    function applyOverlaySnapshot(frame, snapshot) {
+      if (!snapshot || typeof snapshot.getContext !== 'function') return false;
+      const c = ensureOverlayCanvas(frame);
+      const cx = c.getContext('2d');
+      cx.clearRect(0, 0, c.width, c.height);
+      cx.imageSmoothingEnabled = false;
+      cx.drawImage(snapshot, 0, 0, c.width, c.height);
+      return true;
+    }
+    function pushUndoSnapshot(frame) {
+      try {
+        const h = ensureFrameHistory(frame);
+        h.undo.push(captureOverlaySnapshot(frame));
+        if (h.undo.length > HISTORY_LIMIT) h.undo.shift();
+        h.redo.length = 0;
+      } catch (err) {
+        console.warn('undo snapshot skipped', err);
+      }
+    }
+    function undoFrame(frame) {
+      const h = ensureFrameHistory(frame);
+      if (!h.undo.length) return false;
+      h.redo.push(captureOverlaySnapshot(frame));
+      const snapshot = h.undo.pop();
+      return applyOverlaySnapshot(frame, snapshot);
+    }
+    function redoFrame(frame) {
+      const h = ensureFrameHistory(frame);
+      if (!h.redo.length) return false;
+      h.undo.push(captureOverlaySnapshot(frame));
+      if (h.undo.length > HISTORY_LIMIT) h.undo.shift();
+      const snapshot = h.redo.pop();
+      return applyOverlaySnapshot(frame, snapshot);
+    }
+
+    function clearOverlay(frame) {
+      const c = ensureOverlayCanvas(frame);
+      const cx = c.getContext('2d');
+      cx.clearRect(0, 0, c.width, c.height);
+    }
+    function copyCurrentFrameToBuffer() {
+      const frame = state.selectedFrame;
+      const src = ensureOverlayCanvas(frame);
+      const copy = createTransparentCanvas(src.width, src.height);
+      const cx = copy.getContext('2d');
+      cx.imageSmoothingEnabled = false;
+      cx.clearRect(0, 0, copy.width, copy.height);
+      cx.drawImage(src, 0, 0);
+      state.copyBufferCanvas = copy;
+      setStatus(`コピー: ${frame}`);
+      return true;
+    }
+    function pasteBufferToCurrentFrame() {
+      const frame = state.selectedFrame;
+      const src = state.copyBufferCanvas;
+      if (!(src && src.width && src.height)) {
+        setStatus('貼り付け失敗: コピーがありません');
+        return false;
+      }
+      const dst = ensureOverlayCanvas(frame);
+      pushUndoSnapshot(frame);
+      const dx = dst.getContext('2d');
+      dx.imageSmoothingEnabled = false;
+      dx.clearRect(0, 0, dst.width, dst.height);
+      dx.drawImage(src, 0, 0, dst.width, dst.height);
+      renderMainCanvas();
+      renderFrameThumbnails();
+      setStatus(`貼り付け: ${frame}`);
+      return true;
+    }
+    function flipCurrentFrame(horizontal) {
+      const frame = state.selectedFrame;
+      const canvas = ensureOverlayCanvas(frame);
+      pushUndoSnapshot(frame);
+      const snapshot = createTransparentCanvas(canvas.width, canvas.height);
+      const sx = snapshot.getContext('2d');
+      sx.imageSmoothingEnabled = false;
+      sx.drawImage(canvas, 0, 0);
+      const cx = canvas.getContext('2d');
+      cx.save();
+      cx.clearRect(0, 0, canvas.width, canvas.height);
+      cx.imageSmoothingEnabled = false;
+      if (horizontal) {
+        cx.translate(canvas.width, 0);
+        cx.scale(-1, 1);
+        cx.drawImage(snapshot, 0, 0);
+        setStatus(`左右反転: ${frame}`);
+      } else {
+        cx.translate(0, canvas.height);
+        cx.scale(1, -1);
+        cx.drawImage(snapshot, 0, 0);
+        setStatus(`上下反転: ${frame}`);
+      }
+      cx.restore();
+      renderMainCanvas();
+      renderFrameThumbnails();
+      return true;
+    }
+    function drawReferenceIconPreview() {
+      if (!itemRefCtx) return;
+      itemRefCtx.clearRect(0, 0, itemRefCanvas.width, itemRefCanvas.height);
+      drawChecker(itemRefCtx, itemRefCanvas.width, itemRefCanvas.height, 12);
+      const src = state.referenceIconCanvas;
+      if (!(src && (src.width || src.naturalWidth))) {
+        itemRefHint.textContent = '参考アイコンがありません';
+        state.__itemRefDrawRect = null;
+        return;
+      }
+      const srcW = Math.max(1, Number(src.width || src.naturalWidth || 1));
+      const srcH = Math.max(1, Number(src.height || src.naturalHeight || 1));
+      const maxW = itemRefCanvas.width - 8;
+      const maxH = itemRefCanvas.height - 8;
+      const scale = Math.max(1, Math.floor(Math.min(maxW / srcW, maxH / srcH)));
+      const drawW = Math.max(1, srcW * scale);
+      const drawH = Math.max(1, srcH * scale);
+      const dx = Math.floor((itemRefCanvas.width - drawW) * 0.5);
+      const dy = Math.floor((itemRefCanvas.height - drawH) * 0.5);
+      itemRefCtx.imageSmoothingEnabled = false;
+      itemRefCtx.drawImage(src, dx, dy, drawW, drawH);
+      state.__itemRefDrawRect = { dx, dy, drawW, drawH, srcW, srcH };
+      itemRefHint.textContent = state.referenceIconReadable ? '左クリックで色取得 / 右ドラッグでも取得' : '表示のみ（色取得不可）';
+    }
+    async function loadReferenceIconForEntry(entry) {
+      state.referenceIconCanvas = null;
+      state.referenceIconReadable = false;
+      if (!entry) {
+        drawReferenceIconPreview();
+        return;
+      }
+      const fromHandle = await loadReferenceIconFromHandle(entry);
+      if (fromHandle && fromHandle.canvas) {
+        state.referenceIconCanvas = fromHandle.canvas;
+        state.referenceIconReadable = !!fromHandle.readable;
+        drawReferenceIconPreview();
+        return;
+      }
+      const sources = [];
+      sources.push(`assets/${entry.skinFolder}.png`);
+      if (entry.itemImg) sources.push(entry.itemImg);
+      for (let i = 0; i < sources.length; i++) {
+        const src = String(sources[i] || '').trim();
+        if (!src) continue;
+        const img = await loadImage(src);
+        if (!(img && (img.naturalWidth || img.width))) continue;
+        const w = Math.max(1, Number(img.naturalWidth || img.width));
+        const h = Math.max(1, Number(img.naturalHeight || img.height));
+        const c = createTransparentCanvas(w, h);
+        const cx = c.getContext('2d', { willReadFrequently: true });
+        try {
+          cx.imageSmoothingEnabled = false;
+          cx.drawImage(img, 0, 0, w, h);
+          const readable = canReadCanvasPixels(c);
+          state.referenceIconCanvas = c;
+          state.referenceIconReadable = readable;
+          break;
+        } catch (_) {}
+      }
+      drawReferenceIconPreview();
+    }
+    function sampleReferenceIconColor(clientX, clientY) {
+      const d = state.__itemRefDrawRect;
+      const src = state.referenceIconCanvas;
+      if (!(d && src)) return false;
+      const rect = itemRefCanvas.getBoundingClientRect();
+      const x = (clientX - rect.left) * (itemRefCanvas.width / rect.width);
+      const y = (clientY - rect.top) * (itemRefCanvas.height / rect.height);
+      if (x < d.dx || y < d.dy || x >= d.dx + d.drawW || y >= d.dy + d.drawH) return false;
+      const sx = Math.max(0, Math.min(d.srcW - 1, Math.floor((x - d.dx) / (d.drawW / d.srcW))));
+      const sy = Math.max(0, Math.min(d.srcH - 1, Math.floor((y - d.dy) / (d.drawH / d.srcH))));
+      try {
+        const cx = src.getContext('2d', { willReadFrequently: true });
+        const px = cx.getImageData(sx, sy, 1, 1).data;
+        if (!px || px[3] < 8) {
+          setMode('erase');
+          setStatus('参考アイコン: 透明を取得（消しゴム）');
+          return true;
+        }
+        const hex = rgbToHex(px[0], px[1], px[2]);
+        setCurrentColor(hex);
+        setStatus(`参考アイコン: 色取得 ${hex}`);
+        return true;
+      } catch (_) {
+        // Fallback: sample what is actually drawn on reference preview canvas.
+        try {
+          const previewPx = itemRefCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+          if (!previewPx || previewPx[3] < 8) {
+            setMode('erase');
+            setStatus('参考アイコン: 透明を取得（消しゴム）');
+            return true;
+          }
+          const hex = rgbToHex(previewPx[0], previewPx[1], previewPx[2]);
+          setCurrentColor(hex);
+          setStatus(`参考アイコン: 色取得 ${hex}`);
+          return true;
+        } catch (_) {
+          setStatus('参考アイコンの色取得に失敗。保存先選択でフォルダ許可後に再試行してください');
+          return false;
+        }
+      }
+    }
+
+    function getSelectedEntry() {
+      return state.clothingEntries[state.selectedIndex] || null;
+    }
+
+    async function loadImage(src) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = src;
+      await new Promise((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+      return img;
+    }
+
+    async function loadBaseFrames() {
+      state.baseImageReadable.clear();
+      for (const frame of FRAME_FILES) {
+        let readable = false;
+        let source = null;
+        const fromHandle = await loadBaseImageFromHandle(frame);
+        if (fromHandle && (fromHandle.width || fromHandle.height)) {
+          const safe = createTransparentCanvas(SKIN_FRAME_SIZE, SKIN_FRAME_SIZE);
+          const sctx = safe.getContext('2d');
+          sctx.imageSmoothingEnabled = false;
+          sctx.drawImage(fromHandle, 0, 0, safe.width, safe.height);
+          if (typeof fromHandle.close === 'function') fromHandle.close();
+          source = safe;
+          readable = canReadCanvasPixels(safe);
+        }
+        if (!source) {
+          const img = await loadImage(`assets/${frame}`);
+          if (img && (img.naturalWidth || img.width)) {
+            source = img;
+            const probe = createTransparentCanvas(SKIN_FRAME_SIZE, SKIN_FRAME_SIZE);
+            const pctx = probe.getContext('2d');
+            try {
+              pctx.imageSmoothingEnabled = false;
+              pctx.drawImage(img, 0, 0, probe.width, probe.height);
+              readable = canReadCanvasPixels(probe);
+            } catch (_) {
+              readable = false;
+            }
+          }
+        }
+        state.baseImages.set(frame, source || null);
+        state.baseImageReadable.set(frame, !!readable);
+      }
+    }
+
+    async function loadOverlayFrames() {
+      state.overlayCanvases.clear();
+      state.frameHistory.clear();
+      const entry = getSelectedEntry();
+      if (!entry) return;
+      const folder = entry.skinFolder;
+      const isFileProtocol = String(location.protocol || '').toLowerCase() === 'file:';
+      for (const frame of FRAME_FILES) {
+        const baseSize = getBaseSizeForFrame(frame);
+        const overlay = createTransparentCanvas(baseSize.w, baseSize.h);
+        const overlayCtx = overlay.getContext('2d');
+        let loaded = false;
+        const fromHandle = await loadOverlayImageFromHandle(folder, frame);
+        if (fromHandle && (fromHandle.width || fromHandle.height)) {
+          overlayCtx.imageSmoothingEnabled = false;
+          const origin = getOverlayViewOrigin();
+          overlayCtx.drawImage(fromHandle, origin.x, origin.y, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE);
+          loaded = true;
+          if (typeof fromHandle.close === 'function') fromHandle.close();
+        }
+        if (!loaded && !isFileProtocol) {
+          const img = await loadImage(`assets/skin/${folder}/${frame}?v=${Date.now()}`);
+          if (img && (img.naturalWidth || img.width)) {
+            overlayCtx.imageSmoothingEnabled = false;
+            const origin = getOverlayViewOrigin();
+            overlayCtx.drawImage(img, origin.x, origin.y, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE);
+            loaded = true;
+          }
+        }
+        if (!canReadCanvasPixels(overlay)) {
+          overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+          loaded = false;
+        }
+        if (!loaded) {
+          overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+        } else {
+          overlayCtx.imageSmoothingEnabled = false;
+        }
+        state.overlayCanvases.set(frame, overlay);
+        ensureFrameHistory(frame);
+      }
+    }
+
+    function drawChecker(ctx, w, h, cell) {
+      const s = Math.max(4, cell | 0);
+      for (let y = 0; y < h; y += s) {
+        for (let x = 0; x < w; x += s) {
+          const even = (((x / s) | 0) + ((y / s) | 0)) % 2 === 0;
+          ctx.fillStyle = even ? '#f3f3f3' : '#dfdfdf';
+          ctx.fillRect(x, y, s, s);
+        }
+      }
+    }
+
+    function renderMainCanvas() {
+      const frame = state.selectedFrame;
+      const base = state.baseImages.get(frame);
+      const overlay = ensureOverlayCanvas(frame);
+      const cw = paintCanvas.width;
+      const ch = paintCanvas.height;
+      paintCtx.clearRect(0, 0, cw, ch);
+      drawChecker(paintCtx, cw, ch, 24);
+
+      const srcW = FRAME_VIEW_SIZE;
+      const srcH = FRAME_VIEW_SIZE;
+      const scale = Math.max(1, Math.floor(Math.min(cw / srcW, ch / srcH)));
+      const drawW = srcW * scale;
+      const drawH = srcH * scale;
+      const dx = Math.floor((cw - drawW) / 2);
+      const dy = Math.floor((ch - drawH) / 2);
+
+      paintCtx.imageSmoothingEnabled = false;
+      if (base && (base.naturalWidth || base.width)) {
+        paintCtx.globalAlpha = 0.52;
+        paintCtx.drawImage(base, dx, dy, drawW, drawH);
+      }
+      paintCtx.globalAlpha = 1;
+      const origin = getOverlayViewOrigin();
+      paintCtx.drawImage(
+        overlay,
+        origin.x, origin.y, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE,
+        dx, dy, drawW, drawH
+      );
+
+      paintCtx.strokeStyle = 'rgba(168,208,255,0.85)';
+      paintCtx.lineWidth = 1;
+      paintCtx.strokeRect(dx + 0.5, dy + 0.5, drawW - 1, drawH - 1);
+
+      state.__drawRect = { dx, dy, drawW, drawH, srcW, srcH, scale };
+    }
+
+    function renderFrameThumbnails() {
+      const selected = state.selectedFrame;
+      state.frameButtons.forEach((btn, frame) => {
+        btn.classList.toggle('active', frame === selected);
+        const thumb = btn.querySelector('canvas');
+        if (!thumb) return;
+        const tctx = thumb.getContext('2d');
+        tctx.clearRect(0, 0, thumb.width, thumb.height);
+        drawChecker(tctx, thumb.width, thumb.height, 8);
+        const base = state.baseImages.get(frame);
+        const ov = ensureOverlayCanvas(frame);
+        tctx.imageSmoothingEnabled = false;
+        if (base && (base.naturalWidth || base.width)) {
+          tctx.globalAlpha = 0.52;
+          tctx.drawImage(base, 0, 0, thumb.width, thumb.height);
+        }
+        tctx.globalAlpha = 1;
+        const origin = getOverlayViewOrigin();
+        tctx.drawImage(
+          ov,
+          origin.x, origin.y, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE,
+          0, 0, thumb.width, thumb.height
+        );
+      });
+    }
+
+    function canvasPointToPixel(clientX, clientY) {
+      const rect = paintCanvas.getBoundingClientRect();
+      const x = (clientX - rect.left) * (paintCanvas.width / rect.width);
+      const y = (clientY - rect.top) * (paintCanvas.height / rect.height);
+      const d = state.__drawRect;
+      if (!d) return null;
+      if (x < d.dx || y < d.dy || x >= d.dx + d.drawW || y >= d.dy + d.drawH) return null;
+      const px = Math.floor((x - d.dx) / d.scale);
+      const py = Math.floor((y - d.dy) / d.scale);
+      if (px < 0 || py < 0 || px >= d.srcW || py >= d.srcH) return null;
+      return { x: px, y: py };
+    }
+
+    function colorHexToRgb(hex) {
+      return hexToRgb(hex);
+    }
+    function stampPixel(cx, x, y, size, erase, color) {
+      const s = Math.max(1, Math.floor(size));
+      const half = Math.floor(s / 2);
+      const sx = x - half;
+      const sy = y - half;
+      if (erase) {
+        cx.clearRect(sx, sy, s, s);
+      } else {
+        cx.fillStyle = color;
+        cx.fillRect(sx, sy, s, s);
+      }
+    }
+    function drawLinePixels(cx, from, to, size, erase, color) {
+      let x0 = from.x | 0;
+      let y0 = from.y | 0;
+      const x1 = to.x | 0;
+      const y1 = to.y | 0;
+      const dx = Math.abs(x1 - x0);
+      const sx = x0 < x1 ? 1 : -1;
+      const dy = -Math.abs(y1 - y0);
+      const sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
+      while (true) {
+        stampPixel(cx, x0, y0, size, erase, color);
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+      }
+    }
+    function fillOnOverlay(startPoint) {
+      const frame = state.selectedFrame;
+      const canvas = ensureOverlayCanvas(frame);
+      const cx = canvas.getContext('2d', { willReadFrequently: true });
+      const w = canvas.width;
+      const h = canvas.height;
+      const mapped = logicalPointToOverlayPoint(startPoint);
+      if (!mapped) return;
+      const x = Math.max(0, Math.min(w - 1, mapped.x | 0));
+      const y = Math.max(0, Math.min(h - 1, mapped.y | 0));
+      let imageData;
+      try {
+        imageData = cx.getImageData(0, 0, w, h);
+      } catch (err) {
+        console.warn('fill skipped (image data unavailable)', err);
+        return;
+      }
+      const data = imageData.data;
+      const targetIdx = (y * w + x) * 4;
+      const tr = data[targetIdx];
+      const tg = data[targetIdx + 1];
+      const tb = data[targetIdx + 2];
+      const ta = data[targetIdx + 3];
+      const fillRgb = colorHexToRgb(state.color);
+      const fillA = state.mode === 'erase' ? 0 : 255;
+      if (tr === fillRgb.r && tg === fillRgb.g && tb === fillRgb.b && ta === fillA) return;
+      const match = (idx) => (
+        data[idx] === tr &&
+        data[idx + 1] === tg &&
+        data[idx + 2] === tb &&
+        data[idx + 3] === ta
+      );
+      const set = (idx) => {
+        if (state.mode === 'erase') {
+          data[idx] = 0; data[idx + 1] = 0; data[idx + 2] = 0; data[idx + 3] = 0;
+        } else {
+          data[idx] = fillRgb.r;
+          data[idx + 1] = fillRgb.g;
+          data[idx + 2] = fillRgb.b;
+          data[idx + 3] = 255;
+        }
+      };
+      const stack = [x, y];
+      while (stack.length) {
+        const cy = stack.pop();
+        const cxPos = stack.pop();
+        if (cxPos < 0 || cy < 0 || cxPos >= w || cy >= h) continue;
+        const idx = (cy * w + cxPos) * 4;
+        if (!match(idx)) continue;
+        set(idx);
+        stack.push(cxPos - 1, cy);
+        stack.push(cxPos + 1, cy);
+        stack.push(cxPos, cy - 1);
+        stack.push(cxPos, cy + 1);
+      }
+      cx.putImageData(imageData, 0, 0);
+    }
+    function drawOnOverlay(from, to) {
+      const frame = state.selectedFrame;
+      const c = ensureOverlayCanvas(frame);
+      const cx = c.getContext('2d');
+      cx.imageSmoothingEnabled = false;
+      const fromOverlay = logicalPointToOverlayPoint(from);
+      const toOverlay = logicalPointToOverlayPoint(to);
+      if (!fromOverlay || !toOverlay) return;
+      drawLinePixels(cx, fromOverlay, toOverlay, state.brushSize, state.mode === 'erase', state.color);
+    }
+    function pickColorFromPoint(point) {
+      if (!point) return false;
+      const frame = state.selectedFrame;
+      const overlay = ensureOverlayCanvas(frame);
+      const base = state.baseImages.get(frame);
+      const baseReadable = !!state.baseImageReadable.get(frame);
+      const mapped = logicalPointToOverlayPoint(point);
+      if (!mapped) return false;
+      const sx = Math.max(0, Math.min(overlay.width - 1, mapped.x | 0));
+      const sy = Math.max(0, Math.min(overlay.height - 1, mapped.y | 0));
+      try {
+        const ovCtx = overlay.getContext('2d', { willReadFrequently: true });
+        const ovPx = ovCtx.getImageData(sx, sy, 1, 1).data;
+        if (ovPx && ovPx[3] >= 8) {
+          state.eyedropSampleTransparent = false;
+          const ovHex = rgbToHex(ovPx[0], ovPx[1], ovPx[2]);
+          setCurrentColor(ovHex);
+          return true;
+        }
+      } catch (_) {}
+      if (!baseReadable || !(base && (base.naturalWidth || base.width))) {
+        state.eyedropSampleTransparent = true;
+        return true;
+      }
+      const sample = createTransparentCanvas(FRAME_VIEW_SIZE, FRAME_VIEW_SIZE);
+      const sctx = sample.getContext('2d', { willReadFrequently: true });
+      try {
+        sctx.imageSmoothingEnabled = false;
+        if (base && (base.naturalWidth || base.width)) {
+          sctx.drawImage(base, 0, 0, sample.width, sample.height);
+        }
+        const origin = getOverlayViewOrigin();
+        sctx.drawImage(overlay, origin.x, origin.y, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE, 0, 0, sample.width, sample.height);
+        const px = sctx.getImageData(point.x | 0, point.y | 0, 1, 1).data;
+        if (!px || px[3] < 8) {
+          state.eyedropSampleTransparent = true;
+          return true;
+        }
+        state.eyedropSampleTransparent = false;
+        const hex = rgbToHex(px[0], px[1], px[2]);
+        setCurrentColor(hex);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    function beginEyedrop(pointerId, point) {
+      state.eyedropActive = true;
+      state.eyedropLastPoint = point || null;
+      state.eyedropSampleTransparent = false;
+      if (typeof pointerId === 'number') {
+        try { paintCanvas.setPointerCapture(pointerId); } catch (_) {}
+      }
+      paintCanvas.style.cursor = 'copy';
+      if (pickColorFromPoint(state.eyedropLastPoint) && !state.eyedropSampleTransparent) {
+        setStatus(`色を取得: ${normalizeHexColor(state.color)}`);
+      }
+    }
+    function endEyedrop(point) {
+      const finalPoint = point || state.eyedropLastPoint;
+      if (finalPoint && !point) state.eyedropLastPoint = finalPoint;
+      if (pickColorFromPoint(finalPoint)) {
+        if (state.eyedropSampleTransparent) {
+          setMode('erase');
+          setStatus('透明を取得: 消しゴムモード');
+        } else {
+          setMode('draw');
+          setStatus(`色を取得: ${normalizeHexColor(state.color)}`);
+        }
+      } else {
+        setMode('draw');
+        setStatus('色の取得に失敗しました');
+      }
+      state.eyedropActive = false;
+      state.eyedropLastPoint = null;
+      state.eyedropSampleTransparent = false;
+      paintCanvas.style.cursor = 'crosshair';
+    }
+    function beginMoveOverlay(pointerId, point) {
+      if (!point) return false;
+      pushUndoSnapshot(state.selectedFrame);
+      state.moveActive = true;
+      state.moveStartPoint = { x: point.x | 0, y: point.y | 0 };
+      state.moveLastPoint = { x: point.x | 0, y: point.y | 0 };
+      state.moveSnapshot = captureOverlaySnapshot(state.selectedFrame);
+      if (typeof pointerId === 'number') {
+        try { paintCanvas.setPointerCapture(pointerId); } catch (_) {}
+      }
+      setStatus('Cmd/Ctrl移動: ドラッグ中');
+      return true;
+    }
+    function previewMoveOverlay(point) {
+      if (!state.moveActive || !state.moveSnapshot || !state.moveStartPoint || !point) return;
+      state.moveLastPoint = { x: point.x | 0, y: point.y | 0 };
+      const dx = (state.moveLastPoint.x - state.moveStartPoint.x) | 0;
+      const dy = (state.moveLastPoint.y - state.moveStartPoint.y) | 0;
+      const canvas = ensureOverlayCanvas(state.selectedFrame);
+      const cx = canvas.getContext('2d');
+      cx.clearRect(0, 0, canvas.width, canvas.height);
+      cx.imageSmoothingEnabled = false;
+      cx.drawImage(state.moveSnapshot, dx, dy);
+      renderMainCanvas();
+      renderFrameThumbnails();
+    }
+    function endMoveOverlay() {
+      if (!state.moveActive) return;
+      state.moveActive = false;
+      state.moveStartPoint = null;
+      state.moveLastPoint = null;
+      state.moveSnapshot = null;
+      setStatus('移動しました');
+    }
+
+    function setMode(mode) {
+      state.mode = (mode === 'erase' || mode === 'fill') ? mode : 'draw';
+      drawModeBtn.style.outline = state.mode === 'draw' ? '2px solid #a8d0ff' : 'none';
+      eraseModeBtn.style.outline = state.mode === 'erase' ? '2px solid #a8d0ff' : 'none';
+      fillModeBtn.style.outline = state.mode === 'fill' ? '2px solid #a8d0ff' : 'none';
+    }
+
+    function refreshMeta() {
+      const entry = getSelectedEntry();
+      if (!entry) {
+        metaInfoEl.textContent = '服がありません';
+        return;
+      }
+      metaInfoEl.textContent = `ID ${entry.id} / ${entry.name} / ${entry.type} / folder: ${entry.skinFolder}`;
+    }
+
+    function rebuildClothingSelect() {
+      clothingSelect.innerHTML = '';
+      state.clothingEntries.forEach((entry, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `ID ${entry.id} / ${entry.name} / ${entry.skinFolder}`;
+        clothingSelect.appendChild(opt);
+      });
+      state.selectedIndex = Math.max(0, Math.min(state.clothingEntries.length - 1, state.selectedIndex));
+      clothingSelect.value = String(state.selectedIndex);
+      refreshMeta();
+    }
+
+    function rebuildFrameGrid() {
+      framesGrid.innerHTML = '';
+      state.frameButtons.clear();
+      FRAME_FILES.forEach((frame) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'frame-btn';
+        const cv = document.createElement('canvas');
+        cv.className = 'frame-thumb';
+        cv.width = 72;
+        cv.height = 72;
+        const label = document.createElement('div');
+        label.textContent = frame;
+        btn.appendChild(cv);
+        btn.appendChild(label);
+        btn.addEventListener('click', () => {
+          state.selectedFrame = frame;
+          renderMainCanvas();
+          renderFrameThumbnails();
+          setStatus(`${frame} を編集中`);
+        });
+        framesGrid.appendChild(btn);
+        state.frameButtons.set(frame, btn);
+      });
+      renderFrameThumbnails();
+    }
+
+    async function chooseOutputRoot() {
+      if (typeof window.showDirectoryPicker !== 'function') {
+        setStatus('このブラウザはフォルダ保存に未対応です');
+        return;
+      }
+      try {
+        const picked = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const assetsRoot = await resolveAssetsRootHandle(picked, false);
+        if (!assetsRoot) {
+          setStatus('assetsフォルダ（またはassetsを含む親）を選択してください');
+          return;
+        }
+        state.outputRootHandle = assetsRoot;
+        await saveOutputRootHandleToDb(state.outputRootHandle);
+        const folders = await discoverSkinFoldersFromDirectoryHandle(state.outputRootHandle);
+        if (folders.length) {
+          const merged = mergeSkinFolderEntriesFromDisk(state.clothingEntries, folders);
+          if (merged.length !== state.clothingEntries.length) {
+            const prevFolder = getSelectedEntry()?.skinFolder || '';
+            state.clothingEntries = merged;
+            const nextIndex = state.clothingEntries.findIndex((entry) => entry.skinFolder === prevFolder);
+            state.selectedIndex = nextIndex >= 0 ? nextIndex : 0;
+            rebuildClothingSelect();
+          }
+        }
+        await loadBaseFrames();
+        renderMainCanvas();
+        renderFrameThumbnails();
+        await refreshClothingPalette();
+        setStatus('保存先を assets フォルダに設定しました');
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          setStatus('保存先選択をキャンセルしました');
+          return;
+        }
+        console.error(err);
+        setStatus('保存先の選択に失敗しました');
+      }
+    }
+
+    async function saveAllFrames() {
+      const entry = getSelectedEntry();
+      if (!entry) return;
+      if (!state.outputRootHandle) {
+        const restored = await tryRestoreOutputRootHandle();
+        if (!restored || !state.outputRootHandle) {
+          setStatus('初回だけ「保存先選択」が必要です（次回から自動）');
+          return;
+        }
+      }
+      try {
+        const outDir = await resolveSkinOutputDir(state.outputRootHandle, entry.skinFolder);
+        if (!outDir) {
+          setStatus('保存先の解決に失敗しました');
+          return;
+        }
+        for await (const [name, handle] of outDir.entries()) {
+          if (!handle || handle.kind !== 'file') continue;
+          if (!String(name || '').toLowerCase().endsWith('.png')) continue;
+          try { await outDir.removeEntry(name); } catch (_) {}
+        }
+        for (const frame of FRAME_FILES) {
+          const canvas = ensureOverlayCanvas(frame);
+          if (!canReadCanvasPixels(canvas)) {
+            throw new Error(`overlay canvas is tainted: ${frame}`);
+          }
+          const exportCanvas = createTransparentCanvas(FRAME_VIEW_SIZE, FRAME_VIEW_SIZE);
+          const ex = exportCanvas.getContext('2d');
+          ex.imageSmoothingEnabled = false;
+          const origin = getOverlayViewOrigin();
+          ex.drawImage(
+            canvas,
+            origin.x, origin.y, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE,
+            0, 0, FRAME_VIEW_SIZE, FRAME_VIEW_SIZE
+          );
+          const blob = await new Promise((resolve) => exportCanvas.toBlob(resolve, 'image/png'));
+          if (!blob) continue;
+          const fileHandle = await outDir.getFileHandle(frame, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        }
+        setStatus(`保存しました: skin/${entry.skinFolder}/`);
+      } catch (err) {
+        console.error(err);
+        if (String(err && err.message || '').includes('tainted')) {
+          setStatus('保存に失敗: 画像が汚染されています。保存先選択後に服を再読み込みしてください');
+          return;
+        }
+        setStatus('保存に失敗しました');
+      }
+    }
+
+    function bindEvents() {
+      const clearAllFramesWithUndo = () => {
+        FRAME_FILES.forEach((frame) => {
+          pushUndoSnapshot(frame);
+          clearOverlay(frame);
+        });
+        renderMainCanvas();
+        renderFrameThumbnails();
+      };
+      clothingSelect.addEventListener('change', async () => {
+        const idx = Number(clothingSelect.value);
+        if (!Number.isFinite(idx)) return;
+        state.selectedIndex = idx;
+        refreshMeta();
+        await loadReferenceIconForEntry(getSelectedEntry());
+        await loadOverlayFrames();
+        await refreshClothingPalette();
+        renderMainCanvas();
+        renderFrameThumbnails();
+        setStatus('服を切り替えました');
+      });
+
+      colorPicker.addEventListener('input', () => {
+        setCurrentColor(colorPicker.value);
+      });
+      hexColorInput.addEventListener('change', () => {
+        setCurrentColor(hexColorInput.value);
+      });
+      hexColorInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          setCurrentColor(hexColorInput.value);
+        }
+      });
+      drawModeBtn.addEventListener('click', () => setMode('draw'));
+      eraseModeBtn.addEventListener('click', () => setMode('erase'));
+      fillModeBtn.addEventListener('click', () => setMode('fill'));
+      saveColorBtn.addEventListener('click', () => {
+        if (addColorToSet(state.color)) {
+          renderColorPalettes();
+          setStatus(`カラーセットに追加: ${normalizeHexColor(state.color)}`);
+        }
+      });
+
+      clearFrameBtn.addEventListener('click', () => {
+        pushUndoSnapshot(state.selectedFrame);
+        clearOverlay(state.selectedFrame);
+        renderMainCanvas();
+        renderFrameThumbnails();
+      });
+      clearAllBtn.addEventListener('click', () => {
+        clearAllFramesWithUndo();
+      });
+      saveDirBtn.addEventListener('click', chooseOutputRoot);
+      saveBtn.addEventListener('click', saveAllFrames);
+      paintCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
+      itemRefCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
+      itemRefCanvas.addEventListener('pointerdown', (event) => {
+        const sampled = sampleReferenceIconColor(event.clientX, event.clientY);
+        if (!sampled) return;
+        if (event.button === 2) {
+          state.refPickActive = true;
+          try { itemRefCanvas.setPointerCapture(event.pointerId); } catch (_) {}
+        }
+      });
+      itemRefCanvas.addEventListener('pointermove', (event) => {
+        if (!state.refPickActive) return;
+        sampleReferenceIconColor(event.clientX, event.clientY);
+      });
+
+      let dragHue = false;
+      let dragSv = false;
+      const updateHueFromPointer = (event) => {
+        const rect = hueWheelCanvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left) * (hueWheelCanvas.width / rect.width);
+        const y = (event.clientY - rect.top) * (hueWheelCanvas.height / rect.height);
+        const cx = hueWheelCanvas.width * 0.5;
+        const cy = hueWheelCanvas.height * 0.5;
+        const dx = x - cx;
+        const dy = y - cy;
+        const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+        setCurrentColorFromHsv(hue, state.sat, state.val);
+      };
+      const updateSvFromPointer = (event) => {
+        const rect = svCanvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left) * (svCanvas.width / rect.width);
+        const y = (event.clientY - rect.top) * (svCanvas.height / rect.height);
+        const sat = Math.max(0, Math.min(1, x / svCanvas.width));
+        const val = Math.max(0, Math.min(1, 1 - (y / svCanvas.height)));
+        setCurrentColorFromHsv(state.hue, sat, val);
+      };
+      hueWheelCanvas.addEventListener('pointerdown', (event) => {
+        dragHue = true;
+        hueWheelCanvas.setPointerCapture(event.pointerId);
+        updateHueFromPointer(event);
+      });
+      hueWheelCanvas.addEventListener('pointermove', (event) => {
+        if (!dragHue) return;
+        updateHueFromPointer(event);
+      });
+      svCanvas.addEventListener('pointerdown', (event) => {
+        dragSv = true;
+        svCanvas.setPointerCapture(event.pointerId);
+        updateSvFromPointer(event);
+      });
+      svCanvas.addEventListener('pointermove', (event) => {
+        if (!dragSv) return;
+        updateSvFromPointer(event);
+      });
+
+      paintCanvas.addEventListener('pointerdown', (event) => {
+        if (event.button === 2) {
+          event.preventDefault();
+          const point = canvasPointToPixel(event.clientX, event.clientY);
+          beginEyedrop(event.pointerId, point);
+          return;
+        }
+        if (event.button !== 0) return;
+        const point = canvasPointToPixel(event.clientX, event.clientY);
+        if ((event.metaKey || event.ctrlKey) && point) {
+          beginMoveOverlay(event.pointerId, point);
+          return;
+        }
+        paintCanvas.setPointerCapture(event.pointerId);
+        state.paintActive = true;
+        if (!point) return;
+        pushUndoSnapshot(state.selectedFrame);
+        if (state.mode === 'fill') {
+          fillOnOverlay(point);
+          state.paintActive = false;
+          state.lastPoint = null;
+          renderMainCanvas();
+          renderFrameThumbnails();
+          return;
+        }
+        state.lastPoint = point;
+        drawOnOverlay(point, point);
+        renderMainCanvas();
+        renderFrameThumbnails();
+      });
+      paintCanvas.addEventListener('pointermove', (event) => {
+        if (state.eyedropActive) {
+          const point = canvasPointToPixel(event.clientX, event.clientY);
+          if (point) {
+            state.eyedropLastPoint = point;
+            pickColorFromPoint(point);
+          }
+          return;
+        }
+        if (state.moveActive) {
+          const point = canvasPointToPixel(event.clientX, event.clientY);
+          if (point) previewMoveOverlay(point);
+          return;
+        }
+        if (!state.paintActive) return;
+        const point = canvasPointToPixel(event.clientX, event.clientY);
+        if (!point || !state.lastPoint) return;
+        drawOnOverlay(state.lastPoint, point);
+        state.lastPoint = point;
+        renderMainCanvas();
+        renderFrameThumbnails();
+      });
+      window.addEventListener('pointerup', (event) => {
+        if (state.eyedropActive) {
+          const point = canvasPointToPixel(event.clientX, event.clientY);
+          endEyedrop(point);
+        }
+        if (state.moveActive) {
+          const point = canvasPointToPixel(event.clientX, event.clientY);
+          if (point) previewMoveOverlay(point);
+          endMoveOverlay();
+        }
+        state.refPickActive = false;
+        dragHue = false;
+        dragSv = false;
+        state.paintActive = false;
+        state.lastPoint = null;
+      });
+      window.addEventListener('pointercancel', () => {
+        if (state.eyedropActive) endEyedrop(null);
+        if (state.moveActive) endMoveOverlay();
+        state.refPickActive = false;
+        dragHue = false;
+        dragSv = false;
+        state.paintActive = false;
+        state.lastPoint = null;
+      });
+      window.addEventListener('keydown', (event) => {
+        const tag = String(event.target?.tagName || '').toUpperCase();
+        const isTextInput = (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          event.target?.isContentEditable
+        );
+        const key = String(event.key || '');
+        const code = String(event.code || '');
+        const isDeleteLikeKey = (
+          key === 'Delete' ||
+          key === 'Backspace' ||
+          code === 'Delete' ||
+          code === 'Backspace'
+        );
+        if (!isTextInput && isDeleteLikeKey) {
+          event.preventDefault();
+          clearAllFramesWithUndo();
+          setStatus('全フレームを削除しました');
+          return;
+        }
+        const lowerKey = key.toLowerCase();
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && lowerKey === 'c') {
+          event.preventDefault();
+          copyCurrentFrameToBuffer();
+          return;
+        }
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && lowerKey === 'v') {
+          event.preventDefault();
+          pasteBufferToCurrentFrame();
+          return;
+        }
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && lowerKey === 'f') {
+          event.preventDefault();
+          flipCurrentFrame(true);
+          return;
+        }
+        if (((event.metaKey || event.ctrlKey) && !event.shiftKey && lowerKey === 'h') || (!isTextInput && !event.metaKey && !event.ctrlKey && !event.altKey && lowerKey === 'h')) {
+          event.preventDefault();
+          flipCurrentFrame(false);
+          return;
+        }
+        if ((event.metaKey || event.ctrlKey) && lowerKey === 'z' && !event.shiftKey) {
+          event.preventDefault();
+          if (undoFrame(state.selectedFrame)) {
+            renderMainCanvas();
+            renderFrameThumbnails();
+            setStatus('取り消しました');
+          }
+          return;
+        }
+        if ((event.metaKey || event.ctrlKey) && ((event.shiftKey && lowerKey === 'z') || (!event.metaKey && event.ctrlKey && lowerKey === 'y'))) {
+          event.preventDefault();
+          if (redoFrame(state.selectedFrame)) {
+            renderMainCanvas();
+            renderFrameThumbnails();
+            setStatus('やり直しました');
+          }
+          return;
+        }
+        if ((event.metaKey || event.ctrlKey) && lowerKey === 's') {
+          event.preventDefault();
+          saveAllFrames();
+        }
+      });
+      window.addEventListener('resize', renderMainCanvas);
+    }
+
+    async function bootstrap() {
+      state.colorSet = loadColorSetFromStorage();
+      setCurrentColor(colorPicker.value || '#ff0000');
+      setStatus('item-definitions.js 読込中...');
+      try {
+        await loadScript('item-definitions.js?v=' + Date.now());
+      } catch (_) {}
+      const defEntries = uniqueClothingEntries(window.itemDefinitions || {});
+      setStatus('assets/skin 読込中...');
+      const discoveredSkinFolders = await discoverSkinFoldersFromServer();
+      state.clothingEntries = mergeSkinFolderEntriesFromDisk(defEntries, discoveredSkinFolders);
+      if (!state.clothingEntries.length) {
+        setStatus('服定義が見つかりません');
+        return;
+      }
+      rebuildClothingSelect();
+      await tryRestoreOutputRootHandle();
+      await loadReferenceIconForEntry(getSelectedEntry());
+      setStatus('ベースフレーム読込中...');
+      await loadBaseFrames();
+      setStatus('既存スキン読込中...');
+      await loadOverlayFrames();
+      await refreshClothingPalette();
+      rebuildFrameGrid();
+      renderColorPalettes();
+      setMode('draw');
+      renderMainCanvas();
+      bindEvents();
+      setStatus('準備完了');
+    }
+
+    bootstrap().catch((err) => {
+      console.error(err);
+      setStatus('初期化に失敗しました');
+    });
+  })();
+  </script>
+</body>
+</html>
