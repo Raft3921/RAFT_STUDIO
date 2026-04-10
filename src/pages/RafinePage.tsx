@@ -214,16 +214,12 @@ export const RafinePage = () => {
 
     const loadAttachments = async () => {
       const nextUrls: Record<string, string> = {}
+      const attachmentsSnap = await getDocs(collection(db, 'workspaces', workspaceId, 'rafine_attachments'))
+      const allAttachments = attachmentsSnap.docs.map((item) => item.data() as { attachmentId: string; index: number; data: string })
 
       for (const attachmentId of attachmentIdsToLoad) {
-        const chunksSnap = await getDocs(
-          query(
-            collection(db, 'workspaces', workspaceId, 'rafine_attachments', attachmentId, 'chunks'),
-            orderBy('index', 'asc'),
-          ),
-        )
-        const chunks = chunksSnap.docs
-          .map((item) => item.data() as { data: string; index: number })
+        const chunks = allAttachments
+          .filter((item) => item.attachmentId === attachmentId)
           .sort((left, right) => left.index - right.index)
         const mediaType = displayedMessages.find((message) => message.attachmentId === attachmentId)?.mediaType ?? 'application/octet-stream'
         const blob = base64ToBlob(chunks.map((chunk) => chunk.data).join(''), mediaType)
@@ -303,14 +299,12 @@ export const RafinePage = () => {
             'workspaces',
             workspaceId,
             'rafine_attachments',
-            attachmentId,
-            'chunks',
           )
 
           for (let index = 0; index < chunkCount; index += 1) {
             const start = index * ATTACHMENT_CHUNK_BYTES
             const end = start + ATTACHMENT_CHUNK_BYTES
-            await setDoc(doc(chunkCollection, String(index)), {
+            await setDoc(doc(chunkCollection, `${attachmentId}-${index}`), {
               attachmentId,
               index,
               data: base64.slice(start, end),
@@ -355,13 +349,11 @@ export const RafinePage = () => {
       const target = messages.find((message) => message.id === messageId)
       const attachmentId = target?.attachmentId
       if (attachmentId) {
-        const chunksSnap = await getDocs(
-          collection(db, 'workspaces', workspaceId, 'rafine_attachments', attachmentId, 'chunks'),
-        )
+        const attachmentsSnap = await getDocs(collection(db, 'workspaces', workspaceId, 'rafine_attachments'))
         await Promise.all(
-          chunksSnap.docs.map((item) =>
-            deleteDoc(doc(db, 'workspaces', workspaceId, 'rafine_attachments', attachmentId, 'chunks', item.id)),
-          ),
+          attachmentsSnap.docs
+            .filter((item) => (item.data() as { attachmentId?: string }).attachmentId === attachmentId)
+            .map((item) => deleteDoc(doc(db, 'workspaces', workspaceId, 'rafine_attachments', item.id))),
         )
         setAttachmentUrls((prev) => {
           const next = { ...prev }
