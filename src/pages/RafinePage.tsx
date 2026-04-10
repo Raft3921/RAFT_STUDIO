@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  setDoc,
+} from 'firebase/firestore'
 import { useSearchParams } from 'react-router-dom'
 import { getMemberIcon } from '../lib/memberIcon'
-import { firebaseStorage, firestoreDb } from '../lib/firebase'
+import { firestoreDb } from '../lib/firebase'
 import { isNewerThanSeen, loadSeenState, markSeenNow } from '../lib/notice'
 import { useApp } from '../store/AppContext'
 
@@ -17,6 +26,7 @@ interface RafineMessage {
   mediaUrl?: string
   mediaType?: string
   mediaName?: string
+  attachmentId?: string
 }
 
 const localKey = (workspaceId: string) => `rafine-messages-${workspaceId}`
@@ -55,6 +65,26 @@ const stripUndefinedFields = <T extends Record<string, unknown>>(value: T) => {
   ) as T
 }
 
+const ATTACHMENT_CHUNK_BYTES = 192 * 1024
+
+const bufferToBase64 = (buffer: ArrayBuffer) => {
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index])
+  }
+  return window.btoa(binary)
+}
+
+const base64ToBlob = (base64: string, mediaType: string) => {
+  const binary = window.atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return new Blob([bytes], { type: mediaType })
+}
+
 export const RafinePage = () => {
   const { data, currentUserId, workspaceId, storageMode } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -71,6 +101,7 @@ export const RafinePage = () => {
   const [text, setText] = useState('')
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const [messages, setMessages] = useState<RafineMessage[]>([])
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({})
   const [localVersion, setLocalVersion] = useState(0)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification === 'undefined' ? 'denied' : Notification.permission,
@@ -79,6 +110,7 @@ export const RafinePage = () => {
   const listRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
+  const attachmentUrlsRef = useRef<Record<string, string>>({})
   const localMessages = useMemo(() => {
     void localVersion
     return loadLocalMessages(workspaceId)
@@ -100,6 +132,16 @@ export const RafinePage = () => {
       }),
     [allMessages, currentUserId, dmTarget],
   )
+  const attachmentIdsToLoad = useMemo(() => {
+    if (storageMode !== 'firebase') return []
+    const ids = new Set<string>()
+    displayedMessages.forEach((message) => {
+      if (message.attachmentId && !message.mediaUrl && !attachmentUrls[message.attachmentId]) {
+        ids.add(message.attachmentId)
+      }
+    })
+    return [...ids]
+  }, [attachmentUrls, displayedMessages, storageMode])
 
   useEffect(() => {
     if (displayedMessages.length === 0) return
@@ -159,6 +201,56 @@ export const RafinePage = () => {
     return () => URL.revokeObjectURL(attachedPreviewUrl)
   }, [attachedPreviewUrl])
 
+  useEffect(() => {
+    attachmentUrlsRef.current = attachmentUrls
+  }, [attachmentUrls])
+
+  useEffect(() => {
+    if (storageMode !== 'firebase' || !firestoreDb) return
+    const db = firestoreDb
+    if (attachmentIdsToLoad.length === 0) return
+
+    let cancelled = false
+
+    const loadAttachments = async () => {
+      const nextUrls: Record<string, string> = {}
+
+      for (const attachmentId of attachmentIdsToLoad) {
+        const chunksSnap = await getDocs(
+          query(
+            collection(db, 'workspaces', workspaceId, 'rafine_attachments', attachmentId, 'chunks'),
+            orderBy('index', 'asc'),
+          ),
+        )
+        const chunks = chunksSnap.docs
+          .map((item) => item.data() as { data: string; index: number })
+          .sort((left, right) => left.index - right.index)
+        const mediaType = displayedMessages.find((message) => message.attachmentId === attachmentId)?.mediaType ?? 'application/octet-stream'
+        const blob = base64ToBlob(chunks.map((chunk) => chunk.data).join(''), mediaType)
+        nextUrls[attachmentId] = URL.createObjectURL(blob)
+      }
+
+      if (cancelled) {
+        Object.values(nextUrls).forEach((url) => URL.revokeObjectURL(url))
+        return
+      }
+
+      setAttachmentUrls((prev) => ({ ...prev, ...nextUrls }))
+    }
+
+    void loadAttachments()
+
+    return () => {
+      cancelled = true
+    }
+  }, [attachmentIdsToLoad, displayedMessages, firestoreDb, storageMode, workspaceId])
+
+  useEffect(() => {
+    return () => {
+      Object.values(attachmentUrlsRef.current).forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [])
+
   const canSend = text.trim().length > 0 || !!attachedFile
   const onlineLabel = useMemo(
     () => (storageMode === 'firebase' ? '共有メッセージ（全員同期）' : 'この端末のみ'),
@@ -201,12 +293,33 @@ export const RafinePage = () => {
 
     try {
       if (attachedFile) {
-        if (storageMode === 'firebase' && firebaseStorage) {
-          const ext = attachedFile.name.includes('.') ? attachedFile.name.split('.').pop() : 'bin'
-          const path = `workspaces/${workspaceId}/rafine_uploads/${crypto.randomUUID()}.${ext}`
-          const storageRef = ref(firebaseStorage, path)
-          await uploadBytes(storageRef, attachedFile)
-          payload.mediaUrl = await getDownloadURL(storageRef)
+        if (storageMode === 'firebase' && firestoreDb) {
+          const attachmentId = crypto.randomUUID()
+          const raw = await attachedFile.arrayBuffer()
+          const base64 = bufferToBase64(raw)
+          const chunkCount = Math.max(1, Math.ceil(base64.length / ATTACHMENT_CHUNK_BYTES))
+          const chunkCollection = collection(
+            firestoreDb,
+            'workspaces',
+            workspaceId,
+            'rafine_attachments',
+            attachmentId,
+            'chunks',
+          )
+
+          for (let index = 0; index < chunkCount; index += 1) {
+            const start = index * ATTACHMENT_CHUNK_BYTES
+            const end = start + ATTACHMENT_CHUNK_BYTES
+            await setDoc(doc(chunkCollection, String(index)), {
+              attachmentId,
+              index,
+              data: base64.slice(start, end),
+            })
+          }
+
+          payload.attachmentId = attachmentId
+          payload.mediaName = attachedFile.name
+          payload.mediaType = attachedFile.type
         } else {
           payload.mediaUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader()
@@ -214,9 +327,9 @@ export const RafinePage = () => {
             reader.onerror = () => reject(new Error('read-failed'))
             reader.readAsDataURL(attachedFile)
           })
+          payload.mediaType = attachedFile.type
+          payload.mediaName = attachedFile.name
         }
-        payload.mediaType = attachedFile.type
-        payload.mediaName = attachedFile.name
       }
 
       if (storageMode === 'firebase' && firestoreDb) {
@@ -238,7 +351,28 @@ export const RafinePage = () => {
   const onDelete = async (messageId: string) => {
     if (!window.confirm('このメッセージを削除しますか？')) return
     if (storageMode === 'firebase' && firestoreDb) {
-      await deleteDoc(doc(firestoreDb, 'workspaces', workspaceId, 'rafine_messages', messageId))
+      const db = firestoreDb
+      const target = messages.find((message) => message.id === messageId)
+      const attachmentId = target?.attachmentId
+      if (attachmentId) {
+        const chunksSnap = await getDocs(
+          collection(db, 'workspaces', workspaceId, 'rafine_attachments', attachmentId, 'chunks'),
+        )
+        await Promise.all(
+          chunksSnap.docs.map((item) =>
+            deleteDoc(doc(db, 'workspaces', workspaceId, 'rafine_attachments', attachmentId, 'chunks', item.id)),
+          ),
+        )
+        setAttachmentUrls((prev) => {
+          const next = { ...prev }
+          if (next[attachmentId]) {
+            URL.revokeObjectURL(next[attachmentId])
+            delete next[attachmentId]
+          }
+          return next
+        })
+      }
+      await deleteDoc(doc(db, 'workspaces', workspaceId, 'rafine_messages', messageId))
       return
     }
     const next = localMessages.filter((message) => message.id !== messageId)
@@ -288,6 +422,7 @@ export const RafinePage = () => {
               !mine &&
               (!message.recipientId || message.recipientId === currentUserId) &&
               isNewerThanSeen(message.createdAt, seenRafineAt)
+            const resolvedMediaUrl = message.mediaUrl ?? (message.attachmentId ? attachmentUrls[message.attachmentId] : '')
             return (
               <div key={message.id} className={`rafine-message-item ${mine ? 'mine' : ''}`}>
                 <img src={getMemberIcon(message.displayName)} alt="" className="member-chip-icon rafine-msg-icon" />
@@ -307,11 +442,11 @@ export const RafinePage = () => {
                     </div>
                   </div>
                   {message.text && <p>{message.text}</p>}
-                  {message.mediaUrl && message.mediaType?.startsWith('image/') && (
-                    <img src={message.mediaUrl} alt={message.mediaName ?? '添付画像'} className="rafine-media" />
+                  {resolvedMediaUrl && message.mediaType?.startsWith('image/') && (
+                    <img src={resolvedMediaUrl} alt={message.mediaName ?? '添付画像'} className="rafine-media" />
                   )}
-                  {message.mediaUrl && message.mediaType?.startsWith('video/') && (
-                    <video className="rafine-media" controls preload="metadata" src={message.mediaUrl}>
+                  {resolvedMediaUrl && message.mediaType?.startsWith('video/') && (
+                    <video className="rafine-media" controls preload="metadata" src={resolvedMediaUrl}>
                       お使いの環境では動画を再生できません。
                     </video>
                   )}
