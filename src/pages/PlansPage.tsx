@@ -4,12 +4,13 @@ import { StatusBadge } from '../components/StatusBadge'
 import { getMemberIcon } from '../lib/memberIcon'
 import { isNewerThanSeen, loadSeenState, markSeenNow } from '../lib/notice'
 import { statusLabel, statusOrder } from '../lib/utils'
-import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
+import { dedupeMembersByDisplayName, formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { PlanStatus } from '../types'
 
 export const PlansPage = () => {
   const { data, currentUserId, workspaceId, reassignPlanCreator } = useApp()
+  const visibleMembers = useMemo(() => dedupeMembersByDisplayName(data.members), [data.members])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<PlanStatus | 'all'>('all')
   const seenPlansAt = loadSeenState(workspaceId, currentUserId).plans
@@ -64,11 +65,11 @@ export const PlansPage = () => {
           const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
           const isNew = plan.createdBy !== currentUserId && isNewerThanSeen(plan.createdAt, seenPlansAt)
           const onChangeCreator = async () => {
-            const options = data.members.map((member, index) => `${index + 1}: ${member.displayName}`).join('\n')
+            const options = visibleMembers.map((member, index) => `${index + 1}: ${member.displayName}`).join('\n')
             const selected = window.prompt(`作成者を選んでください:\n${options}`)
             if (!selected) return
             const pickedIndex = Number(selected) - 1
-            const picked = data.members[pickedIndex]
+            const picked = visibleMembers[pickedIndex]
             if (!picked) {
               window.alert('番号が正しくありません。')
               return

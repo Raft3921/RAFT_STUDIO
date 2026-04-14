@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { roleSummaryText } from '../lib/plan'
+import { dedupeMembersByDisplayName, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import type { EventChecklistItem } from '../types'
+
+const normalizeName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
 
 type ChecklistDraftItem = Pick<EventChecklistItem, 'label' | 'scope' | 'assigneeIds'>
 const lineKey = (label: string, index: number) => `line-${index}-${label}`
@@ -47,12 +49,22 @@ export const EventCreatePage = () => {
   )
 
   const selectedPlan = useMemo(() => data.plans.find((plan) => plan.id === planId), [data.plans, planId])
+  const visibleMembers = useMemo(() => dedupeMembersByDisplayName(data.members), [data.members])
+  const selectedPlanMemberNames = useMemo(() => {
+    if (!selectedPlan) return new Set<string>()
+    return new Set(
+      selectedPlan.participantIds
+        .map((id) => data.members.find((member) => member.id === id)?.displayName)
+        .filter((name): name is string => !!name)
+        .map((name) => normalizeName(name)),
+    )
+  }, [data.members, selectedPlan])
   const targetMembers = useMemo(
     () =>
       selectedPlan
-        ? data.members.filter((member) => selectedPlan.participantIds.includes(member.id))
-        : data.members,
-    [data.members, selectedPlan],
+        ? visibleMembers.filter((member) => selectedPlanMemberNames.has(normalizeName(member.displayName)))
+        : visibleMembers,
+    [selectedPlan, selectedPlanMemberNames, visibleMembers],
   )
   const checklistDraft = useMemo(() => {
     const extraItems = extraChecklist

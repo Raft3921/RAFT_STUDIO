@@ -1,8 +1,14 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { durationPresets, roleDefinitions } from '../data/templates'
-import { buildGenreTitleCandidates, getGenrePromptFlow, getGenreTrees } from '../lib/titleGenerator'
-import { clampDuration, createEmptyRoleAssignments, formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
+import { durationPresets, planTemplates, roleDefinitions } from '../data/templates'
+import {
+  clampDuration,
+  createEmptyRoleAssignments,
+  dedupeMembersByDisplayName,
+  formatDuration,
+  participantSummaryText,
+  resolveRoleNames,
+} from '../lib/plan'
 import { getMemberIcon } from '../lib/memberIcon'
 import { useApp } from '../store/AppContext'
 import type { Plan, RoleAssignments } from '../types'
@@ -15,9 +21,6 @@ const roleGroups = [
   { label: '画面に出る役割', ids: ['mc', 'reaction', 'action'] },
   { label: '制作・進行の役割', ids: ['tech', 'progress'] },
 ]
-
-const genres = getGenreTrees()
-const findGenreKeyByLabel = (label?: string) => genres.find((genre) => genre.label === label)?.key ?? ''
 interface SpeechRecognitionResultLike {
   transcript?: string
   confidence?: number
@@ -57,15 +60,10 @@ export const PlanCreatePage = () => {
   const { createPlan, updatePlan, data } = useApp()
   const editingPlan = id ? data.plans.find((plan) => plan.id === id) : null
   const missingEditTarget = Boolean(id && !editingPlan)
+  const visibleMembers = useMemo(() => dedupeMembersByDisplayName(data.members), [data.members])
 
   const [gameTitle, setGameTitle] = useState(editingPlan?.gameTitle ?? defaultGame)
-  const [genreKey, setGenreKey] = useState(() => findGenreKeyByLabel(editingPlan?.templateType))
-  const [titleFlowStarted, setTitleFlowStarted] = useState(Boolean(editingPlan))
-  const [questionIndex, setQuestionIndex] = useState(0)
-  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
-  const [draftAnswer, setDraftAnswer] = useState('')
-  const [titleCandidates, setTitleCandidates] = useState<string[]>([])
-  const [keywordPreview, setKeywordPreview] = useState<string[]>([])
+  const [templateType, setTemplateType] = useState(editingPlan?.templateType ?? planTemplates[0])
 
   const [durationSec, setDurationSec] = useState(editingPlan?.durationSec ?? 480)
   const [participantIds, setParticipantIds] = useState<string[]>(editingPlan?.participantIds ?? [])
@@ -81,18 +79,13 @@ export const PlanCreatePage = () => {
   const keepListeningRef = useRef(false)
   const lastTranscriptRef = useRef('')
 
-  const activeGenre = useMemo(() => getGenrePromptFlow(genreKey), [genreKey])
-  const questionCount = activeGenre?.questions.length ?? 0
-  const questionComplete = Boolean(activeGenre) && questionIndex >= questionCount
-  const currentQuestion = questionComplete ? null : activeGenre?.questions[questionIndex] ?? null
-
   const selectedMembersLabel = useMemo(
     () =>
       participantSummaryText(
         {
           id: 'tmp',
           title: '',
-          templateType: activeGenre?.label ?? '未選択',
+          templateType,
           status: 'candidate',
           durationSec,
           participantIds,
@@ -102,86 +95,15 @@ export const PlanCreatePage = () => {
           createdAt: '',
           createdBy: '',
         },
-        data.members,
+        visibleMembers,
         8,
       ),
-    [activeGenre?.label, data.members, durationSec, goal, participantIds, subtitleStyle],
+    [durationSec, goal, participantIds, subtitleStyle, templateType, visibleMembers],
   )
-
-  const resetGenreFlow = (nextGenreKey: string) => {
-    setGenreKey(nextGenreKey)
-    setTitleFlowStarted(false)
-    setQuestionIndex(0)
-    setQuestionAnswers({})
-    setDraftAnswer('')
-    setTitleCandidates([])
-    setKeywordPreview([])
-    setTitle('')
-    setOverview('')
-  }
-
-  const onNextQuestion = () => {
-    if (!currentQuestion) return
-    const nextAnswer = draftAnswer.trim()
-    if (!nextAnswer) {
-      window.alert('回答を入力してください。')
-      return
-    }
-    const mergedAnswers = { ...questionAnswers, [currentQuestion.id]: nextAnswer }
-    setQuestionAnswers(mergedAnswers)
-    const nextIndex = questionIndex + 1
-    if (!activeGenre) return
-    if (nextIndex >= activeGenre.questions.length) {
-      setQuestionIndex(activeGenre.questions.length)
-      setDraftAnswer('')
-      return
-    }
-    const nextQuestion = activeGenre.questions[nextIndex]
-    setQuestionIndex(nextIndex)
-    setDraftAnswer(mergedAnswers[nextQuestion.id] ?? '')
-  }
-
-  const onBackQuestion = () => {
-    if (!activeGenre) return
-    if (questionIndex === 0) return
-    const prevIndex = Math.max(0, questionIndex - 1)
-    const prevQuestion = activeGenre.questions[prevIndex]
-    setQuestionIndex(prevIndex)
-    setDraftAnswer(questionAnswers[prevQuestion.id] ?? '')
-  }
-
-  const runTitleCandidates = () => {
-    if (!activeGenre) {
-      window.alert('最初にジャンルを選択してください。')
-      setKeywordPreview([])
-      return
-    }
-    if (!titleFlowStarted) {
-      setTitleFlowStarted(true)
-      setQuestionIndex(0)
-      setDraftAnswer(questionAnswers[activeGenre.questions[0]?.id ?? ''] ?? '')
-      return
-    }
-    const mergedAnswers = { ...questionAnswers }
-    if (currentQuestion && draftAnswer.trim()) {
-      mergedAnswers[currentQuestion.id] = draftAnswer.trim()
-    }
-    const hasAnyAnswer = Object.values(mergedAnswers).some((value) => value.trim().length > 0)
-    if (!questionComplete) {
-      window.alert('質問に最後まで回答してから実行してください。')
-      setTitleCandidates([])
-      setKeywordPreview([])
-      return
-    }
-    if (!hasAnyAnswer) {
-      setTitleCandidates([activeGenre.fallbackTitle])
-      setKeywordPreview([])
-      return
-    }
-    const result = buildGenreTitleCandidates(activeGenre.key, mergedAnswers, gameTitle.trim() || defaultGame)
-    setTitleCandidates(result.titles)
-    setKeywordPreview(result.keywords)
-  }
+  const selectedPlanMembers = useMemo(
+    () => visibleMembers.filter((member) => participantIds.includes(member.id)),
+    [participantIds, visibleMembers],
+  )
 
   const startOverviewVoiceInput = async () => {
     const speechWindow = window as SpeechRecognitionWindow
@@ -305,24 +227,14 @@ export const PlanCreatePage = () => {
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!activeGenre) {
-      window.alert('最初にジャンルを選択してください。')
-      return
-    }
-    if (!questionComplete) {
-      window.alert('質問に最後まで回答してください。')
-      return
-    }
-
-    const selectedTitle = title.trim() || titleCandidates[0] || activeGenre.fallbackTitle
-    const selectedOverview =
-      overview.trim() || titleCandidates[0] || `${gameTitle || defaultGame} / ${activeGenre.label} / ${selectedMembersLabel}`
+    const selectedTitle = title.trim() || `${gameTitle || defaultGame} / ${templateType} / ${selectedMembersLabel}`
+    const selectedOverview = overview.trim() || `${gameTitle || defaultGame} / ${templateType} / ${selectedMembersLabel}`
 
     if (editingPlan) {
       await updatePlan(editingPlan.id, {
         title: selectedTitle,
         gameTitle: gameTitle.trim(),
-        templateType: activeGenre.label,
+        templateType,
         durationSec,
         participantIds,
         goal,
@@ -338,7 +250,7 @@ export const PlanCreatePage = () => {
     await createPlan({
       title: selectedTitle,
       gameTitle: gameTitle.trim(),
-      templateType: activeGenre.label,
+      templateType,
       durationSec,
       participantIds,
       goal,
@@ -357,73 +269,7 @@ export const PlanCreatePage = () => {
         <>
           <section className="panel">
             <h2>{editingPlan ? '企画カード編集' : '企画カード作成'}</h2>
-            <p className="muted">ジャンル選択→自由入力質問→タイトル候補の順で作成します。</p>
-          </section>
-
-          <section className="panel">
-            <h3>1. ジャンル選択（必須）</h3>
-            <div className="chip-row" data-tour="plan-template">
-              {genres.map((genre) => (
-                <button
-                  type="button"
-                  key={genre.key}
-                  className={`chip ${genreKey === genre.key ? 'active' : ''}`}
-                  onClick={() => resetGenreFlow(genre.key)}
-                >
-                  {genre.label}
-                </button>
-              ))}
-            </div>
-
-            {activeGenre && (
-              <div className="card">
-                <p className="muted">ジャンル: {activeGenre.label}</p>
-                {!titleFlowStarted && (
-                  <p className="muted">下の「タイトル候補を行う」を押すと質問が始まります。</p>
-                )}
-                {titleFlowStarted && (
-                  <p className="muted">Q {Math.min(questionIndex + 1, questionCount)} / {questionCount}</p>
-                )}
-                {titleFlowStarted && currentQuestion && (
-                  <div className="stack-gap">
-                    <label>{currentQuestion.text}</label>
-                    <p className="muted">{currentQuestion.hint}</p>
-                    <textarea
-                      className="field"
-                      rows={3}
-                      value={draftAnswer}
-                      onChange={(event) => setDraftAnswer(event.target.value)}
-                      placeholder={currentQuestion.placeholder}
-                    />
-                    <div className="inline-row">
-                      <button type="button" className="chip" onClick={onBackQuestion} disabled={questionIndex === 0}>
-                        戻る
-                      </button>
-                      <button type="button" className="chip active" onClick={onNextQuestion}>
-                        次へ
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {titleFlowStarted && questionComplete && (
-                  <div className="stack-gap">
-                    <p className="muted">質問完了。タイトル候補を行うボタンで3案を生成します。</p>
-                    <div className="inline-row">
-                      <button type="button" className="chip" onClick={onBackQuestion}>
-                        戻る
-                      </button>
-                      <button type="button" className="chip active" onClick={runTitleCandidates}>
-                        タイトル候補を行う
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
-          <section className="panel">
-            <h3>2. 基本設定</h3>
+            <p className="muted">基本情報を入力して企画を作成します。</p>
             <label>ゲーム</label>
             <input
               className="field"
@@ -431,6 +277,23 @@ export const PlanCreatePage = () => {
               onChange={(event) => setGameTitle(event.target.value)}
               placeholder="例: Minecraft / VALORANT / APEX"
             />
+
+            <label>テンプレート</label>
+            <div className="chip-row" data-tour="plan-template">
+              {planTemplates.map((template) => (
+                <button
+                  type="button"
+                  key={template}
+                  className={`chip ${templateType === template ? 'active' : ''}`}
+                  onClick={() => setTemplateType(template)}
+                >
+                  {template}
+                </button>
+              ))}
+            </div>
+
+            <label>タイトル</label>
+            <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="任意" />
 
             <label>尺（時間）</label>
             <p className="duration-text">{formatDuration(durationSec)}</p>
@@ -467,7 +330,7 @@ export const PlanCreatePage = () => {
             <label>企画メンバー</label>
             <p className="muted">最低1人は選択してください</p>
             <div className="chip-row" data-tour="plan-members">
-              {data.members.map((member) => (
+              {visibleMembers.map((member) => (
                 <button
                   type="button"
                   key={member.id}
@@ -517,7 +380,7 @@ export const PlanCreatePage = () => {
                         <span className="muted">{role.selection === 'single' ? '1人' : '複数'}</span>
                       </div>
                       <div className="chip-row">
-                        {data.members.map((member) => (
+                        {selectedPlanMembers.map((member) => (
                           <button
                             type="button"
                             key={`${role.id}-${member.id}`}
@@ -531,7 +394,10 @@ export const PlanCreatePage = () => {
                           </button>
                         ))}
                       </div>
-                      <p className="muted">現在: {resolveRoleNames(roleAssignments[role.id] ?? [], data.members)}</p>
+                      {selectedPlanMembers.length === 0 && (
+                        <p className="muted">先に企画メンバーを選ぶと、ここにその人だけ表示されます。</p>
+                      )}
+                      <p className="muted">現在: {resolveRoleNames(roleAssignments[role.id] ?? [], visibleMembers)}</p>
                     </div>
                   )
                 })}
@@ -540,9 +406,7 @@ export const PlanCreatePage = () => {
           </section>
 
           <section className="panel">
-            <h3>4. タイトル候補</h3>
-
-            <label>編集</label>
+            <h3>4. 補足</h3>
             <div className="chip-row">
               {subtitleStyles.map((item) => (
                 <button
@@ -555,44 +419,6 @@ export const PlanCreatePage = () => {
                 </button>
               ))}
             </div>
-
-            <label>タイトル候補（3案）</label>
-            <div className="inline-row">
-              <button type="button" className="chip" onClick={runTitleCandidates}>
-                {titleFlowStarted ? 'タイトル候補を行う' : 'タイトル候補を行う（質問開始）'}
-              </button>
-            </div>
-            <div className="stack-gap">
-              {titleCandidates.length === 0 && <p className="muted">質問に回答してからボタンで候補を生成してください。</p>}
-              {titleCandidates.map((candidate) => (
-                <div key={candidate} className="card">
-                  <p>{candidate}</p>
-                  <div className="inline-row">
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={() => {
-                        setTitle(candidate)
-                        setOverview(candidate)
-                      }}
-                    >
-                      この案を使う
-                    </button>
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(candidate)
-                      }}
-                    >
-                      コピー
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {keywordPreview.length > 0 && <p className="muted">抽出キーワード: {keywordPreview.join(' / ')}</p>}
-            </div>
-
             <label>カード概要（一覧に表示）</label>
             <div className="overview-input-head">
               <span className="muted">本格的な概要を書けます。音声入力も可能。</span>
@@ -613,8 +439,6 @@ export const PlanCreatePage = () => {
               onChange={(event) => setOverview(event.target.value)}
               placeholder="企画の狙い、流れ、注意点、勝敗条件などを詳しく記入"
             />
-            <label>タイトル（任意で修正）</label>
-            <input className="field" value={title} onChange={(event) => setTitle(event.target.value)} />
           </section>
 
           <button data-tour="plan-submit" className="btn full" type="submit">

@@ -9,6 +9,18 @@ const legacyDurationMap: Record<string, number> = {
 
 export const clampDuration = (seconds: number) => Math.min(1800, Math.max(0, Math.round(seconds / 10) * 10))
 
+const normalizeDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ')
+
+export const dedupeMembersByDisplayName = (members: Member[]) => {
+  const merged = new Map<string, Member>()
+  members.forEach((member) => {
+    const key = normalizeDisplayName(member.displayName).toLowerCase()
+    if (!key) return
+    merged.set(key, member)
+  })
+  return Array.from(merged.values())
+}
+
 export const formatDuration = (seconds: number) => {
   const sec = clampDuration(seconds)
   const mm = String(Math.floor(sec / 60)).padStart(2, '0')
@@ -68,8 +80,9 @@ export const resolveRoleNames = (memberIds: string[], members: Member[]) => {
   const names = memberIds
     .map((id) => members.find((member) => member.id === id)?.displayName)
     .filter((name): name is string => !!name)
+  const uniqueNames = names.filter((name, index) => names.findIndex((item) => normalizeDisplayName(item).toLowerCase() === normalizeDisplayName(name).toLowerCase()) === index)
 
-  return names.length > 0 ? names.join('・') : '未割当'
+  return uniqueNames.length > 0 ? uniqueNames.join('・') : '未割当'
 }
 
 export const roleSummaryText = (plan: Plan, members: Member[], maxItems = 4) => {
@@ -93,8 +106,9 @@ export const participantSummaryText = (plan: Plan, members: Member[], maxNames =
   const names = plan.participantIds
     .map((id) => members.find((member) => member.id === id)?.displayName)
     .filter((name): name is string => !!name)
+  const uniqueNames = names.filter((name, index) => names.findIndex((item) => normalizeDisplayName(item).toLowerCase() === normalizeDisplayName(name).toLowerCase()) === index)
 
-  if (names.length === 0) return '未選択'
-  if (names.length <= maxNames) return names.join('・')
-  return `${names.slice(0, maxNames).join('・')} 他${names.length - maxNames}名`
+  if (uniqueNames.length === 0) return '未選択'
+  if (uniqueNames.length <= maxNames) return uniqueNames.join('・')
+  return `${uniqueNames.slice(0, maxNames).join('・')} 他${uniqueNames.length - maxNames}名`
 }

@@ -13,7 +13,7 @@ import panelTr from '../../assets/panel_tr.png'
 import { firebaseAuth, firebaseProjectId } from '../lib/firebase'
 import { getMemberIcon } from '../lib/memberIcon'
 import { dailyQuestProgress, dailyQuestTemplates, dailyQuestText, isDailyQuestDone } from '../lib/dailyQuest'
-import { formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
+import { dedupeMembersByDisplayName, formatDuration, participantSummaryText, roleSummaryText } from '../lib/plan'
 import { useApp } from '../store/AppContext'
 import { formatDateTime, nextEvent, responseCount, statusLabel } from '../lib/utils'
 import type { DailyQuestTemplate } from '../types'
@@ -29,6 +29,7 @@ export const HomePage = () => {
     updatePlanStatus,
     forceRenameMember,
   } = useApp()
+  const visibleMembers = useMemo(() => dedupeMembersByDisplayName(data.members), [data.members])
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [questTemplate, setQuestTemplate] = useState<DailyQuestTemplate>('plan_create')
   const [questAmount, setQuestAmount] = useState(1)
@@ -433,7 +434,7 @@ export const HomePage = () => {
           )}
           <label>対象メンバー（複数可）</label>
           <div className="chip-row">
-            {data.members.map((member) => (
+            {visibleMembers.map((member) => (
               <button
                 type="button"
                 key={member.id}

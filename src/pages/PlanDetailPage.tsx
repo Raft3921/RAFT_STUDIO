@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
+import { dedupeMembersByDisplayName, formatDuration, participantSummaryText, resolveRoleNames } from '../lib/plan'
 import { roleDefinitions } from '../data/templates'
 import { StatusBadge } from '../components/StatusBadge'
 import { getMemberIcon } from '../lib/memberIcon'
@@ -13,6 +13,7 @@ export const PlanDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data, updatePlanStatus, deletePlan, reassignPlanCreator, workspaceId, currentUserId } = useApp()
+  const visibleMembers = dedupeMembersByDisplayName(data.members)
 
   const plan = data.plans.find((item) => item.id === id)
   const relatedEvents = data.events.filter((event) => event.planId === id)
@@ -39,11 +40,11 @@ export const PlanDetailPage = () => {
   const creator = data.members.find((member) => member.id === plan.createdBy)
   const editor = plan.updatedBy ? data.members.find((member) => member.id === plan.updatedBy) : null
   const changeCreator = async () => {
-    const options = data.members.map((member, index) => `${index + 1}: ${member.displayName}`).join('\n')
+    const options = visibleMembers.map((member, index) => `${index + 1}: ${member.displayName}`).join('\n')
     const selected = window.prompt(`作成者を選んでください:\n${options}`)
     if (!selected) return
     const pickedIndex = Number(selected) - 1
-    const picked = data.members[pickedIndex]
+    const picked = visibleMembers[pickedIndex]
     if (!picked) {
       window.alert('番号が正しくありません。')
       return
