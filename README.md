@@ -33,15 +33,17 @@ npm run deploy
 1. Firebaseプロジェクトを作成
 2. Authenticationで匿名認証を有効化
 3. Firestore Databaseを作成
-4. `.env.example` を `.env` にコピーして値を設定
+4. Firebase Storageも有効化する
+5. `.env.example` を `.env` にコピーして値を設定
 
 ```bash
 cp .env.example .env
 ```
 
-5. 開発サーバー再起動
+6. 開発サーバー再起動
 
 Firebase値が未設定のときは自動でローカル保存モードになります。
+RAFINEの画像/動画は Firebase Storage に保存するので、初回同期の負荷がかなり軽くなります。
 
 ## Firestoreルール例（最小）
 

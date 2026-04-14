@@ -8,11 +8,12 @@ import {
   onSnapshot,
   orderBy,
   query,
-  setDoc,
+  where,
 } from 'firebase/firestore'
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 import { useSearchParams } from 'react-router-dom'
 import { getMemberIcon } from '../lib/memberIcon'
-import { firestoreDb } from '../lib/firebase'
+import { firebaseStorage, firestoreDb } from '../lib/firebase'
 import { isNewerThanSeen, loadSeenState, markSeenNow } from '../lib/notice'
 import { useApp } from '../store/AppContext'
 
@@ -27,6 +28,7 @@ interface RafineMessage {
   mediaType?: string
   mediaName?: string
   attachmentId?: string
+  attachmentPath?: string
 }
 
 const localKey = (workspaceId: string) => `rafine-messages-${workspaceId}`
@@ -63,17 +65,6 @@ const stripUndefinedFields = <T extends Record<string, unknown>>(value: T) => {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined),
   ) as T
-}
-
-const ATTACHMENT_CHUNK_BYTES = 192 * 1024
-
-const bufferToBase64 = (buffer: ArrayBuffer) => {
-  let binary = ''
-  const bytes = new Uint8Array(buffer)
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index])
-  }
-  return window.btoa(binary)
 }
 
 const base64ToBlob = (base64: string, mediaType: string) => {
@@ -136,8 +127,9 @@ export const RafinePage = () => {
     if (storageMode !== 'firebase') return []
     const ids = new Set<string>()
     displayedMessages.forEach((message) => {
-      if (message.attachmentId && !message.mediaUrl && !attachmentUrls[message.attachmentId]) {
-        ids.add(message.attachmentId)
+      const key = message.attachmentPath ?? message.attachmentId
+      if (key && !message.mediaUrl && !attachmentUrls[key]) {
+        ids.add(key)
       }
     })
     return [...ids]
@@ -214,17 +206,34 @@ export const RafinePage = () => {
 
     const loadAttachments = async () => {
       const nextUrls: Record<string, string> = {}
-      const attachmentsSnap = await getDocs(collection(db, 'workspaces', workspaceId, 'rafine_attachments'))
-      const allAttachments = attachmentsSnap.docs.map((item) => item.data() as { attachmentId: string; index: number; data: string })
 
-      for (const attachmentId of attachmentIdsToLoad) {
-        const chunks = allAttachments
-          .filter((item) => item.attachmentId === attachmentId)
-          .sort((left, right) => left.index - right.index)
-        const mediaType = displayedMessages.find((message) => message.attachmentId === attachmentId)?.mediaType ?? 'application/octet-stream'
-        const blob = base64ToBlob(chunks.map((chunk) => chunk.data).join(''), mediaType)
-        nextUrls[attachmentId] = URL.createObjectURL(blob)
-      }
+      await Promise.all(
+        attachmentIdsToLoad.map(async (attachmentKey) => {
+          const message = displayedMessages.find(
+            (entry) => entry.attachmentPath === attachmentKey || entry.attachmentId === attachmentKey,
+          )
+          if (!message) return
+
+          if (message.attachmentPath) {
+            if (!firebaseStorage) return
+            nextUrls[attachmentKey] = await getDownloadURL(storageRef(firebaseStorage, message.attachmentPath))
+            return
+          }
+
+          const chunksSnap = await getDocs(
+            query(
+              collection(db, 'workspaces', workspaceId, 'rafine_attachments'),
+              where('attachmentId', '==', attachmentKey),
+            ),
+          )
+          const chunks = chunksSnap.docs
+            .map((item) => item.data() as { attachmentId: string; index: number; data: string })
+            .sort((left, right) => left.index - right.index)
+          const mediaType = message.mediaType ?? 'application/octet-stream'
+          const blob = base64ToBlob(chunks.map((chunk) => chunk.data).join(''), mediaType)
+          nextUrls[attachmentKey] = URL.createObjectURL(blob)
+        }),
+      )
 
       if (cancelled) {
         Object.values(nextUrls).forEach((url) => URL.revokeObjectURL(url))
@@ -290,27 +299,13 @@ export const RafinePage = () => {
     try {
       if (attachedFile) {
         if (storageMode === 'firebase' && firestoreDb) {
+          if (!firebaseStorage) throw new Error('firebase-storage-unavailable')
           const attachmentId = crypto.randomUUID()
-          const raw = await attachedFile.arrayBuffer()
-          const base64 = bufferToBase64(raw)
-          const chunkCount = Math.max(1, Math.ceil(base64.length / ATTACHMENT_CHUNK_BYTES))
-          const chunkCollection = collection(
-            firestoreDb,
-            'workspaces',
-            workspaceId,
-            'rafine_attachments',
-          )
-
-          for (let index = 0; index < chunkCount; index += 1) {
-            const start = index * ATTACHMENT_CHUNK_BYTES
-            const end = start + ATTACHMENT_CHUNK_BYTES
-            await setDoc(doc(chunkCollection, `${attachmentId}-${index}`), {
-              attachmentId,
-              index,
-              data: base64.slice(start, end),
-            })
-          }
-
+          const attachmentPath = `workspaces/${workspaceId}/rafine/${attachmentId}-${attachedFile.name}`
+          await uploadBytes(storageRef(firebaseStorage, attachmentPath), attachedFile, {
+            contentType: attachedFile.type,
+          })
+          payload.attachmentPath = attachmentPath
           payload.attachmentId = attachmentId
           payload.mediaName = attachedFile.name
           payload.mediaType = attachedFile.type
@@ -347,19 +342,28 @@ export const RafinePage = () => {
     if (storageMode === 'firebase' && firestoreDb) {
       const db = firestoreDb
       const target = messages.find((message) => message.id === messageId)
-      const attachmentId = target?.attachmentId
-      if (attachmentId) {
-        const attachmentsSnap = await getDocs(collection(db, 'workspaces', workspaceId, 'rafine_attachments'))
-        await Promise.all(
-          attachmentsSnap.docs
-            .filter((item) => (item.data() as { attachmentId?: string }).attachmentId === attachmentId)
-            .map((item) => deleteDoc(doc(db, 'workspaces', workspaceId, 'rafine_attachments', item.id))),
-        )
+      const attachmentKey = target?.attachmentPath ?? target?.attachmentId
+      if (attachmentKey) {
+        if (target?.attachmentPath && firebaseStorage) {
+          await deleteObject(storageRef(firebaseStorage, target.attachmentPath))
+        } else if (target?.attachmentId) {
+          const attachmentsSnap = await getDocs(
+            query(
+              collection(db, 'workspaces', workspaceId, 'rafine_attachments'),
+              where('attachmentId', '==', target.attachmentId),
+            ),
+          )
+          await Promise.all(
+            attachmentsSnap.docs.map((item) =>
+              deleteDoc(doc(db, 'workspaces', workspaceId, 'rafine_attachments', item.id)),
+            ),
+          )
+        }
         setAttachmentUrls((prev) => {
           const next = { ...prev }
-          if (next[attachmentId]) {
-            URL.revokeObjectURL(next[attachmentId])
-            delete next[attachmentId]
+          if (next[attachmentKey]) {
+            URL.revokeObjectURL(next[attachmentKey])
+            delete next[attachmentKey]
           }
           return next
         })
