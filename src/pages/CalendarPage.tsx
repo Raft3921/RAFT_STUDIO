@@ -126,7 +126,7 @@ export const CalendarPage = () => {
           {channelName && <span className="muted">投稿元: {channelName}</span>}
           {loadingPosts && <span className="muted">投稿データ取得中...</span>}
         </div>
-        {postError && <p className="rafine-inline-notice">{postError}</p>}
+        {postError && <p className="muted">{postError}</p>}
 
         <div className="calendar-grid calendar-week">
           {weekLabels.map((label) => (

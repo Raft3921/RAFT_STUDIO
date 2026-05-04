@@ -43,7 +43,6 @@ cp .env.example .env
 6. 開発サーバー再起動
 
 Firebase値が未設定のときは自動でローカル保存モードになります。
-RAFINEの画像/動画は Firebase Storage に保存するので、初回同期の負荷がかなり軽くなります。
 
 ## Firestoreルール例（最小）
 

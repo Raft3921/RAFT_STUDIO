@@ -147,7 +147,7 @@ export const ChannelPage = () => {
         {!isConfigured && (
           <p className="muted">`.env` に `VITE_YT_API_KEY` を設定後に再ビルドしてください。</p>
         )}
-        {error && <p className="rafine-inline-notice">{error}</p>}
+        {error && <p className="muted">{error}</p>}
       </section>
 
       <section className="panel">

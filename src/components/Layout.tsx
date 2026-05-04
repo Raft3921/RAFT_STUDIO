@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { firestoreDb } from '../lib/firebase'
 import { isNewerThanSeen, loadSeenState } from '../lib/notice'
 import { useApp } from '../store/AppContext'
 import { RaftGuide } from './RaftGuide'
@@ -12,32 +10,20 @@ const tabs = [
   { to: '/events', label: '撮影日', tour: 'tab-events' },
   { to: '/calendar', label: 'カレンダー', tour: 'tab-calendar' },
   { to: '/channel', label: 'チャンネル', tour: 'tab-channel' },
-  { to: '/rafine', label: 'RAFINE', tour: 'tab-rafine' },
   { to: '/me', label: '自分', tour: 'tab-me' },
 ]
 
 const onboardingStorageKey = 'onboarding-v2-done'
-const toNoticeText = (text?: string, mediaType?: string) => {
-  const body = text?.trim()
-  if (body) return body
-  if (mediaType?.startsWith('image/')) return '[画像]'
-  if (mediaType?.startsWith('video/')) return '[動画]'
-  return '[添付ファイル]'
-}
 
 export const Layout = () => {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { ready, workspaceId, storageMode, currentUserId, data } = useApp()
+  const { ready, workspaceId, currentUserId, data } = useApp()
   const defaultChannelTitle = '無念のラフト'
   const [channelTitle, setChannelTitle] = useState(defaultChannelTitle)
   const [displayLoading, setDisplayLoading] = useState(!ready)
   const [progress, setProgress] = useState(12)
-  const [homeMessageNotice, setHomeMessageNotice] = useState('')
   const [seenState, setSeenState] = useState(() => loadSeenState(workspaceId, currentUserId))
-  const [rafineUnreadCount, setRafineUnreadCount] = useState(0)
-  const seenMessageIdRef = useRef<string | null>(null)
-  const noticeTimerRef = useRef<number | null>(null)
   const runFrames = useMemo(
     () =>
       [1, 2, 3, 4, 5, 6].map(
@@ -276,111 +262,6 @@ export const Layout = () => {
     [currentUserId, data.events, seenState.events],
   )
 
-  useEffect(() => {
-    const countUnread = (items: Array<{ createdAt: string; userId?: string; recipientId?: string }>) => {
-      const count = items.filter((item) => {
-        if (item.userId === currentUserId) return false
-        if (item.recipientId && item.recipientId !== currentUserId) return false
-        return isNewerThanSeen(item.createdAt, seenState.rafine)
-      }).length
-      setRafineUnreadCount(count)
-    }
-
-    if (storageMode === 'firebase' && firestoreDb) {
-      const ref = collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages')
-      const unsub = onSnapshot(query(ref, orderBy('createdAt', 'desc'), limit(100)), (snap) => {
-        countUnread(
-          snap.docs.map((item) => {
-            const msg = item.data() as { createdAt: string; userId?: string; recipientId?: string }
-            return msg
-          }),
-        )
-      })
-      return () => unsub()
-    }
-
-    try {
-      const raw = localStorage.getItem(`rafine-messages-${workspaceId}`)
-      if (!raw) {
-        setRafineUnreadCount(0)
-        return
-      }
-      countUnread(JSON.parse(raw) as Array<{ createdAt: string; userId?: string; recipientId?: string }>)
-    } catch {
-      setRafineUnreadCount(0)
-    }
-  }, [currentUserId, seenState.rafine, storageMode, workspaceId])
-
-  useEffect(() => {
-    const showNotice = (text: string) => {
-      if (noticeTimerRef.current) {
-        window.clearTimeout(noticeTimerRef.current)
-      }
-      setHomeMessageNotice(text)
-      noticeTimerRef.current = window.setTimeout(() => setHomeMessageNotice(''), 4000)
-    }
-
-    const isHome = pathname.startsWith('/home')
-    if (!isHome) return
-
-    if (storageMode === 'firebase' && firestoreDb) {
-      const ref = collection(firestoreDb, 'workspaces', workspaceId, 'rafine_messages')
-      const unsub = onSnapshot(query(ref, orderBy('createdAt', 'desc'), limit(1)), (snap) => {
-        const latest = snap.docs[0]
-        if (!latest) return
-        const data = latest.data() as {
-          id?: string
-          text?: string
-          userId?: string
-          recipientId?: string
-          displayName?: string
-          mediaType?: string
-        }
-        const messageId = latest.id
-        if (!seenMessageIdRef.current) {
-          seenMessageIdRef.current = messageId
-          return
-        }
-        if (seenMessageIdRef.current === messageId) return
-        seenMessageIdRef.current = messageId
-        if (data.userId === currentUserId) return
-        if (data.recipientId && data.recipientId !== currentUserId) return
-        showNotice(`${data.displayName ?? 'メンバー'}: ${toNoticeText(data.text, data.mediaType)}`)
-      })
-      return () => unsub()
-    }
-
-    const localKey = `rafine-messages-${workspaceId}`
-    const timer = window.setInterval(() => {
-      try {
-        const raw = localStorage.getItem(localKey)
-        if (!raw) return
-        const messages = JSON.parse(raw) as Array<{
-          id: string
-          text: string
-          userId: string
-          recipientId?: string
-          displayName: string
-          mediaType?: string
-        }>
-        const latest = messages[messages.length - 1]
-        if (!latest) return
-        if (!seenMessageIdRef.current) {
-          seenMessageIdRef.current = latest.id
-          return
-        }
-        if (seenMessageIdRef.current === latest.id) return
-        seenMessageIdRef.current = latest.id
-        if (latest.userId === currentUserId) return
-        if (latest.recipientId && latest.recipientId !== currentUserId) return
-        showNotice(`${latest.displayName}: ${toNoticeText(latest.text, latest.mediaType)}`)
-      } catch {
-        // ignore malformed local data
-      }
-    }, 2000)
-    return () => window.clearInterval(timer)
-  }, [currentUserId, pathname, storageMode, workspaceId])
-
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -388,11 +269,6 @@ export const Layout = () => {
           {channelTitle}撮影プランナー
         </Link>
       </header>
-      {homeMessageNotice && pathname.startsWith('/home') && (
-        <div className="home-message-notice" role="status" aria-live="polite">
-          {homeMessageNotice}
-        </div>
-      )}
       <main className="app-main">
         <Outlet />
       </main>
@@ -409,7 +285,6 @@ export const Layout = () => {
               {tab.label}
               {tab.to === '/plans' && planUnreadCount > 0 && <span className="tab-dot" aria-label="新着あり" />}
               {tab.to === '/events' && eventUnreadCount > 0 && <span className="tab-dot" aria-label="新着あり" />}
-              {tab.to === '/rafine' && rafineUnreadCount > 0 && <span className="tab-dot" aria-label="新着あり" />}
             </span>
           </NavLink>
         ))}

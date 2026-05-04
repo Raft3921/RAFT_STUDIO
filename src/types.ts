@@ -8,7 +8,6 @@ export type DailyQuestTemplate =
   | 'event_create'
   | 'attendance_reply'
   | 'checklist_done'
-  | 'rafine_message'
   | 'channel_check'
   | 'share_link'
   | 'bring_item'

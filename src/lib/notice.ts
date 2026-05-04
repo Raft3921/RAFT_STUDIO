@@ -1,9 +1,8 @@
-type NoticeSection = 'plans' | 'events' | 'rafine'
+type NoticeSection = 'plans' | 'events'
 
 interface SeenState {
   plans?: string
   events?: string
-  rafine?: string
 }
 
 const seenKey = (workspaceId: string, userId: string) => `seen-v1:${workspaceId}:${userId}`
@@ -33,4 +32,3 @@ export const isNewerThanSeen = (createdAt: string | undefined, seenAt: string | 
   if (Number.isNaN(createdMs) || Number.isNaN(seenMs)) return false
   return createdMs > seenMs
 }
-

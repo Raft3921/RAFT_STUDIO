@@ -6,7 +6,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -115,8 +114,6 @@ const AppContext = createContext<AppContextValue | null>(null)
 
 const createId = () => crypto.randomUUID()
 const normalizeDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ')
-const isLegacyMemberName = (name: string) =>
-  ['自分', 'メンバー', 'メンバーA', 'メンバーB', 'unknown', '名無し'].includes(normalizeDisplayName(name))
 const fallbackDisplayName = 'ラフト'
 const memberIdFromName = (displayName: string) =>
   `name-${encodeURIComponent(normalizeDisplayName(displayName).toLowerCase())}`
@@ -174,36 +171,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const workspaceRef = doc(db, 'workspaces', workspaceId)
       await setDoc(workspaceRef, { updatedAt: serverTimestamp() }, { merge: true })
 
-      const membersSnapshot = await getDocs(collection(workspaceRef, 'members'))
-      const legacyMemberDocs = membersSnapshot.docs.filter((item) =>
-        isLegacyMemberName(String(item.data().displayName ?? '')),
-      )
-      await Promise.all(legacyMemberDocs.map((item) => deleteDoc(doc(workspaceRef, 'members', item.id))))
-      const existingNames = new Set(
-        membersSnapshot.docs
-          .map((item) => normalizeDisplayName(String(item.data().displayName ?? '')).toLowerCase())
-          .filter((name) => !!name && !isLegacyMemberName(name)),
-      )
-      await Promise.all(
-        defaultMembers
-          .filter((member) => !existingNames.has(normalizeDisplayName(member.displayName).toLowerCase()))
-          .map((member) =>
-            setDoc(doc(workspaceRef, 'members', member.id), member, { merge: true }),
-          ),
-      )
-
       const savedMemberId = localStorage.getItem(MEMBER_ID_KEY)
-      const existingBySavedId = savedMemberId
-        ? membersSnapshot.docs.find((item) => item.id === savedMemberId)
-        : null
-      const existingByName = membersSnapshot.docs.find(
-        (item) =>
-          !isLegacyMemberName(String(item.data().displayName ?? '')) &&
-          normalizeDisplayName(String(item.data().displayName ?? '')) ===
-          normalizeDisplayName(preferredDisplayName),
-      )
-      const userId = existingBySavedId?.id ?? existingByName?.id ?? savedMemberId ?? memberIdFromName(preferredDisplayName)
+      const userId = savedMemberId ?? memberIdFromName(preferredDisplayName)
       setCurrentUserId(userId)
+
+      await Promise.all(
+        defaultMembers.map((member) => setDoc(doc(workspaceRef, 'members', member.id), member, { merge: true })),
+      )
 
       const memberRef = doc(workspaceRef, 'members', userId)
       await setDoc(
@@ -244,7 +218,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         onSnapshot(collection(workspaceRef, 'members'), (snapshot) => {
           const members = snapshot.docs
             .map((item) => ({ id: item.id, ...(item.data() as Omit<Member, 'id'>) }))
-            .filter((member) => !isLegacyMemberName(member.displayName))
           const mergedById = new Map<string, Member>()
           defaultMembers.forEach((member) => mergedById.set(member.id, member))
           members.forEach((member) => mergedById.set(member.id, member))
